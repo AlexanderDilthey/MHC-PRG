@@ -990,7 +990,7 @@ sub read_haplotypes
 sub get_chr6_genes
 {
 	my %genes;
-	my $input = '/Net/birch/data/dilthey/PnPHaploGraph2/src/temp/UCSC_chr6_RefSeq_genes.txt';
+	my $input = '/Net/birch/data/dilthey/MHC-PRG/src/temp/UCSC_chr6_RefSeq_genes.txt';
 	open(F, '<', $input) or die "Cannot open $input";
 	while(<F>)
 	{

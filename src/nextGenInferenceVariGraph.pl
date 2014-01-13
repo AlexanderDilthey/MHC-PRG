@@ -115,7 +115,7 @@ my $expected_required_kMers_file = $expected_kmer_graph_file.".requiredKMers";
 unless((-e $expected_required_kMers_file) and (!$redo) and ((stat ($expected_kmer_graph_file))[9] < (stat ($expected_required_kMers_file))[9]))
 {
 	print "Determining required kMers\n";
-	my $cmd = qq(../bin/PnPHaploGraph2 domode determineRequiredKMers $expected_kmer_graph_file $expected_required_kMers_file);
+	my $cmd = qq(../bin/MHC-PRG domode determineRequiredKMers $expected_kmer_graph_file $expected_required_kMers_file);
 	my $output = `$cmd`;    
 	unless(-e $expected_required_kMers_file)
 	{
@@ -311,7 +311,7 @@ if((not -e $output_corrected_kMers_reference) or ($redo))
 }
 
 my $label_part = ($labelOnly) ? ('--labelonly') : '';
-my $final_command = qq(../bin/PnPHaploGraph2 domode nextGenInference $expected_kmer_graph_file $output_corrected_kMers_reference $kMer_count_sample $label_part --genotypingMode 8);
+my $final_command = qq(../bin/MHC-PRG domode nextGenInference $expected_kmer_graph_file $output_corrected_kMers_reference $kMer_count_sample $label_part --genotypingMode 8);
 print "Execute:\n", $final_command, "\n\n";
 
 if($collect eq '3')

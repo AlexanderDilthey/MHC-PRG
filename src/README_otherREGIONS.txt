@@ -4,7 +4,7 @@ Some parts of the pipeline can currently not be expected to work for regions out
 
 Note that it is a good idea to increase stack size before working with our system. 81920 works well for all xMHC-related applications, but as you increase the size of the region you are working on, you might want to experiment with higher values. The Linux command to set stack size to 81920 is 'ulimit -s 81920'.
 
-All relative paths are relative to the src directory of PnPHaplograph2.
+All relative paths are relative to the src directory of MHC-PRG.
 
 1. Overview of the pipeline
 
@@ -12,11 +12,11 @@ All relative paths are relative to the src directory of PnPHaplograph2.
 
 - Build a nucleotide graph for GRAPH_NAME:
   
-  ../bin/PnPHaploGraph2 domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/GRAPH_NAME
+  ../bin/MHC-PRG domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/GRAPH_NAME
   
 - "kMerify" the nucleotide graph:
 
-  ../bin/PnPHaploGraph2 domode kMerify ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt --kmer 31
+  ../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt --kmer 31
   
   "kMerification" means that we transform the nucleotide graph, an object in which each edge is labeled with a single nucleotide, into an equivalent object in which each edge is labeled with a kMer. This is more or less a large forward search from each node in the nucleotide graph.
   
@@ -24,7 +24,7 @@ All relative paths are relative to the src directory of PnPHaplograph2.
   
 - Carry out some simulations:
 
-  ../bin/PnPHaploGraph2 domode simulationSuite ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31 ../tmp/ SIMU_GRAPH --genotypingMode 8 > simulation_results.txt
+  ../bin/MHC-PRG domode simulationSuite ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31 ../tmp/ SIMU_GRAPH --genotypingMode 8 > simulation_results.txt
   
   The number of simulation iterations is currently determined in code (NextGen/simulationSuite.cpp - sorry!). The output will contain some summary statistics as well as detailed results broken down by, for example, variant length. We do currently not have a detailed documentation of the output format.
   
@@ -109,7 +109,7 @@ The model operates on genome-wide kMer counts. Therefore, we need to find out
 
 Find out which kMers appear in the haplotype graph:
 
-   ../bin/PnPHaploGraph2 domode determineRequiredKMers ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31  ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31.requiredKMers
+   ../bin/MHC-PRG domode determineRequiredKMers ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31  ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31.requiredKMers
 
 Find out which of these appear in the reference genome:
    
@@ -136,7 +136,7 @@ Find out how many of the reference kMers come from the region we are modelling:
 
 Apply the model:
 
-   ../bin/PnPHaploGraph2 domode nextGenInference ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31 ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31.requiredKMers.binaryCount.corrected ../tmp2/GS_nextGen/GRAPH_NAME/SAMPLENAME_graph.txt.kmers_31.requiredKMers.binaryCount  --labelonly --genotypingMode 8
+   ../bin/MHC-PRG domode nextGenInference ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31 ../tmp2/GS_nextGen/GRAPH_NAME/graph.txt.kmers_31.requiredKMers.binaryCount.corrected ../tmp2/GS_nextGen/GRAPH_NAME/SAMPLENAME_graph.txt.kmers_31.requiredKMers.binaryCount  --labelonly --genotypingMode 8
 	
    This will produce, for example, a file ../tmp2/GS_nextGen/GRAPH_NAME/SAMPLENAME_graph.txt.kmers_31.requiredKMers.binaryCount.haplotypes, which you can analyze.
 	

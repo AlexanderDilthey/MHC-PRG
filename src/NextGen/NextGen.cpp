@@ -74,16 +74,23 @@ Graph* variationGraph(string input_panel, string positions_file)
 			cout << "PGF haplotype index: " << pgf_haplotype_id << "\n";
 		}
 	}
+
 	if(pgf_haplotype_id == -1)
 	{
-		cout << "Haplotype IDs:\n";
-		for(unsigned int haplotypeI = 0; haplotypeI < hp.HaplotypeIDs.size(); haplotypeI++)
-		{
-			string haplotypeID = hp.HaplotypeIDs.at(haplotypeI);
-			cout << haplotypeID << "\n";
-		}
+		cout << "WARNING -- can't determine PGF haplotype ID\n";
 	}
-	assert(pgf_haplotype_id != -1);
+
+
+//	if(pgf_haplotype_id == -1)
+//	{
+//		cout << "Haplotype IDs:\n";
+//		for(unsigned int haplotypeI = 0; haplotypeI < hp.HaplotypeIDs.size(); haplotypeI++)
+//		{
+//			string haplotypeID = hp.HaplotypeIDs.at(haplotypeI);
+//			cout << haplotypeID << "\n";
+//		}
+//	}
+//	assert(pgf_haplotype_id != -1);
 
 	vector<string> loci = hp.getLoci();
 	positionsSorter sortClass;
@@ -201,7 +208,7 @@ Graph* variationGraph(string input_panel, string positions_file)
 
 				newE->pgf_protect = false;
 			
-				if(charIt->second.count(pgf_haplotype_id) > 0)
+				if((pgf_haplotype_id != -1) && (charIt->second.count(pgf_haplotype_id) > 0))
 				{
 					newE->pgf_protect = true;
 					level_protected_PGF = true;

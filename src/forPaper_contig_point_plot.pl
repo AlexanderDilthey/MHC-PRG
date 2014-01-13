@@ -279,7 +279,7 @@ sub findAlignmentFiles
 {
 	my $method = shift;
 	
-	my $directory = '/Net/birch/data/dilthey/PnPHaploGraph2/tmp/alignedContigs/_GS_nextGen_varigraph3_AA02O9Q_Z2_31/contigs_xMHC_fasta/'.$method;
+	my $directory = '/Net/birch/data/dilthey/MHC-PRG/tmp/alignedContigs/_GS_nextGen_varigraph3_AA02O9Q_Z2_31/contigs_xMHC_fasta/'.$method;
 	my @files = glob($directory.'/*.alignment');
 	@files = grep {$_ !~ /\.status/} @files;
 
@@ -396,7 +396,7 @@ sub findChromotypeEvaluationFile
 {
 	my $method = shift;
 	
-	return qq(/Net/birch/data/dilthey/PnPHaploGraph2/tmp/alignedContigs/_GS_nextGen_varigraph3_AA02O9Q_Z2_31/contigs_xMHC_fasta/chromotypeSupport_by_${method}.txt);
+	return qq(/Net/birch/data/dilthey/MHC-PRG/tmp/alignedContigs/_GS_nextGen_varigraph3_AA02O9Q_Z2_31/contigs_xMHC_fasta/chromotypeSupport_by_${method}.txt);
 
 	# local testing	
 	return qq(C:\\Users\\AlexanderDilthey\\Documents\\OxfordSVN\\documents\\analysis\\22 Oktober 2013\\contigSupportSpatially\\chromotypeSupport_by_toViterbiChromotypes.txt);

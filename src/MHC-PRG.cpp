@@ -1,5 +1,5 @@
 //============================================================================
-// Name        : PnPHaploGraph2.cpp
+// Name        : MHC-PRG.cpp
 // Author      : 
 // Version     :
 // Copyright   : Your copyright notice

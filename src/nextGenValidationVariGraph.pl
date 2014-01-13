@@ -258,10 +258,10 @@ if($cluster3)
 	# copy over essential files - graph etc
 	
 	my $cluster3_expected_kMer_graph_file = $expected_kMer_graph_file;
-	$cluster3_expected_kMer_graph_file =~ s/^\.\./\/gpfs1\/well\/gsk_hla\/PnPHaplograph2/;
+	$cluster3_expected_kMer_graph_file =~ s/^\.\./\/gpfs1\/well\/gsk_hla\/MHC-PRG/;
 	
 	my $cluster3_kMer_count_sample = $kMer_count_sample;
-	$cluster3_kMer_count_sample =~ s/^\.\./\/gpfs1\/well\/gsk_hla\/PnPHaplograph2/;
+	$cluster3_kMer_count_sample =~ s/^\.\./\/gpfs1\/well\/gsk_hla\/MHC-PRG/;
 	
 	my $copyOver = sub {
 		my $source = shift;
@@ -282,7 +282,7 @@ if($cluster3)
 	foreach my $f (glob($kMer_count_sample.'*'))
 	{
 		my $f_cluster3 = $f;
-		$f_cluster3 =~ s/^\.\./\/gpfs1\/well\/gsk_hla\/PnPHaplograph2/;
+		$f_cluster3 =~ s/^\.\./\/gpfs1\/well\/gsk_hla\/MHC-PRG/;
 		# print $f, " => ", $f_cluster3, "\n";
 		$copyOver->($f, $f_cluster3);		
 	}
@@ -291,7 +291,7 @@ if($cluster3)
 	die unless($referenceGenome =~ /^\/gpfs1/);
 	die unless($sample_deBruijn_graph_file =~ /^\/gpfs1/);
 		
-	my $cluster3_contig_general_dir = qq(/gpfs1/well/gsk_hla/PnPHaplograph2/tmp/alignedContigs/);
+	my $cluster3_contig_general_dir = qq(/gpfs1/well/gsk_hla/MHC-PRG/tmp/alignedContigs/);
 	unless(-e $cluster3_contig_general_dir)
 	{
 		mkdir($cluster3_contig_general_dir) or die "Cannot mkdir $cluster3_contig_general_dir";
@@ -346,7 +346,7 @@ if($cluster3)
 			my $contigs_for_job_fN = $cluster3_contig_specific_dir . '/' . 'contigs.txt';
 			open($current_fh_contig_printing, '>', $contigs_for_job_fN) or die "Cannot open $contigs_for_job_fN";		
 		
-			my $command_align_chromotypes = qq(/gpfs1/well/gsk_hla/PnPHaplograph2/bin/PnPHaploGraph2 domode nextGenContigValidation $cluster3_expected_kMer_graph_file $cluster3_kMer_count_sample $consensus_min_inChromotypes $consensus_max_inChromotypes $classical_VCF_restricted $consensus_min_genomic $consensus_max_genomic $referenceGenome $sample_deBruijn_graph_file $cluster3_contig_specific_dir $contigs_for_job_fN);
+			my $command_align_chromotypes = qq(/gpfs1/well/gsk_hla/MHC-PRG/bin/MHC-PRG domode nextGenContigValidation $cluster3_expected_kMer_graph_file $cluster3_kMer_count_sample $consensus_min_inChromotypes $consensus_max_inChromotypes $classical_VCF_restricted $consensus_min_genomic $consensus_max_genomic $referenceGenome $sample_deBruijn_graph_file $cluster3_contig_specific_dir $contigs_for_job_fN);
 	
 			my $filename_for_qsub = $cluster3_contig_specific_dir . '/qsub.txt';
 			open(QSUB, '>', $filename_for_qsub) or die "Cannot open $filename_for_qsub";
@@ -523,11 +523,11 @@ $command_align_chromotypes
 }
 else
 {
-	my $command = qq(../bin/PnPHaploGraph2 domode nextGenValidation $expected_kMer_graph_file $kMer_count_sample $consensus_min_inChromotypes $consensus_max_inChromotypes $classical_VCF_restricted $consensus_min_genomic $consensus_max_genomic $referenceGenome $sample_deBruijn_graph_file $kMer_validation_output_dir $contigs_file $graph_dir);
+	my $command = qq(../bin/MHC-PRG domode nextGenValidation $expected_kMer_graph_file $kMer_count_sample $consensus_min_inChromotypes $consensus_max_inChromotypes $classical_VCF_restricted $consensus_min_genomic $consensus_max_genomic $referenceGenome $sample_deBruijn_graph_file $kMer_validation_output_dir $contigs_file $graph_dir);
 
 	print "Execute:\n\n$command\n\n";
 
-	my $command_align_chromotypes = qq(../bin/PnPHaploGraph2 domode nextGenContigValidation $expected_kMer_graph_file $kMer_count_sample $consensus_min_inChromotypes $consensus_max_inChromotypes $classical_VCF_restricted $consensus_min_genomic $consensus_max_genomic $referenceGenome $sample_deBruijn_graph_file $contig_specific_dir $contigs_file $graph_dir);
+	my $command_align_chromotypes = qq(../bin/MHC-PRG domode nextGenContigValidation $expected_kMer_graph_file $kMer_count_sample $consensus_min_inChromotypes $consensus_max_inChromotypes $classical_VCF_restricted $consensus_min_genomic $consensus_max_genomic $referenceGenome $sample_deBruijn_graph_file $contig_specific_dir $contigs_file $graph_dir);
 
 	print "And execute this for contig validation:\n\n";
 

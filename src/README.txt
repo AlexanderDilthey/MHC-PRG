@@ -1,4 +1,4 @@
-This directory contains source files for PnPHaplograph2 and HLA*IMP:02 (the two systems share certain program structures). This readme describes how to set up PnPHaplograph2, using an exisitng graph for the xMHC.
+This directory contains source files for MHC-PRG. This readme describes how to set up MHC-PRG, using an exisitng graph for the xMHC.
 
 We are currently testing the system on individuals with relatively high coverage (~ 30x). It may or may not work well on sample data with less coverage (we would certainly appreciate any feedback).
 
