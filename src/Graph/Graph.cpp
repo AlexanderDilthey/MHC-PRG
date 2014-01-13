@@ -42,7 +42,7 @@ void Graph::graphViz(int level_start, int level_stop, std::string output_filenam
 		assert(level <= level_stop);
 		if(_node_2_int.at(level-level_start).count(n) == 0)
 		{
-			int existingNodes = _node_2_int.at(level).size();
+			int existingNodes = _node_2_int.at(level-level_start).size();
 			int thisNode = existingNodes + 1;
 			std::string nodeID = "L" + Utilities::ItoStr(level) + "N" + Utilities::ItoStr(thisNode);
 			_node_2_int.at(level-level_start)[n] = nodeID;

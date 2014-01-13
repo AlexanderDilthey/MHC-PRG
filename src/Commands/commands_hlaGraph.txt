@@ -1,2 +1,3 @@
 ../bin/MHC-PRG domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/hla
-../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 31
+
+../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 31 --noPGFprotection

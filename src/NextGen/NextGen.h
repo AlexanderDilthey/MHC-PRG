@@ -12,12 +12,12 @@
 
 using namespace std;
 
-Graph* variationGraph(string input_panel, string positions_file);
+Graph* variationGraph(string input_panel, string positions_file, bool wantPGFprotection = true);
 
 Graph* augmentGraph(Graph* g, string input_panel, string positions_file, string locus, string HLAAlleleAlignmentDir);
 void loadAndAugmentGraph(string graph_file, string input_panel, string positions_file, string locus, string HLAAlleleAlignmentDir);
 
-LargeGraph* kMerify(Graph* g, bool quiet = false, int kMerSize = 5);
+LargeGraph* kMerify(Graph* g, bool quiet = false, int kMerSize = 5, bool wantPGFprotection = true);
 MultiGraph* multiBeautify(LargeGraph* g, string kMerCountsGenomePath, bool quiet = false);
 MultiGraph* multiBeautifyForAlpha(LargeGraph* g, string kMerCountsGenomePath, bool quiet = false);
 MultiGraph* multiBeautifyForAlpha2(LargeGraph* g, string kMerCountsGenomePath, bool quiet = false);

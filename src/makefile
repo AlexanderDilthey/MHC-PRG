@@ -1,6 +1,6 @@
 # LIBRARY SETTINGS - SET AS NECESSARY
 
-LIB_BOOST = /Net/fs1/home/dilthey/PnP/libs/boost_1_41_0/
+LIB_BOOST = /home/dilthey/PnP/libs/boost_1_41_0/
 INCS = -I$(LIB_BOOST) -IGraph 
 
 # END LIBRARY SETTINGS
