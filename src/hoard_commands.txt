@@ -1,0 +1,2 @@
+LD_PRELOAD="/home/dilthey/PnP/PnPHaploGraph2/src/hoard/Hoard/src/libhoard.so"
+export LD_PRELOAD="/home/dilthey/PnP/PnPHaploGraph2/src/hoard/Hoard/src/libhoard.so"

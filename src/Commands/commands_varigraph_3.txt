@@ -1,0 +1,61 @@
+
+../bin/PnPHaploGraph2 domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/varigraph3;\
+../bin/PnPHaploGraph2 domode kMerify ../tmp2/GS_nextGen/varigraph3/graph.txt --kmer 31
+
+../bin/PnPHaploGraph2 domode simulationSuite ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/ SIMU_MHC --genotypingMode 8 > varigraph3_31_compare.txt
+
+./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31
+
+./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31 --collect 2viterbi --vcfPos ../data/VCFsnpRefData.txt
+./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31 --collect 3 --vcfPos ../data/VCFsnpRefData.txt
+
+
+../bin/PnPHaploGraph2 domode describeGraph ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/ VARIGRAPH3
+#? ../bin/PnPHaploGraph2 domode describeNucleotideGraph ../tmp2/GS_nextGen/varigraph_new/graph.txt
+
+
+in /gpfs1/well/gsk_hla/Platypus: chmod u+x xMHC_agreement_with_arrayGenotypes.pl; ./xMHC_agreement_with_arrayGenotypes.pl --kmer 31 --evaluateOnlyVCF 1 
+
+../bin/PnPHaploGraph2 domode simulationSuite ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31 ../tmp/ SIMU_MHC --genotypingMode 8 > temp_gt8_31_compare.txt
+
+Validation:
+
+	Very short test contigs:
+	
+	./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_Z2 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf --contigs_file embarrasinglyShort_pgfContigs_for_testing.txt --cluster3 prepare
+	
+	Test contigs:
+			
+	./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_Z2 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf --contigs_file veryShort_pgfContigs_for_testing.txt
+	
+	Real contigs for NA12878:
+	
+	
+	./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_Z2 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/moleculo/contigs_xMHC.fasta --cluster3 prepare
+
+	./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_Z2 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/moleculo/contigs_xMHC.fasta --cluster3 collect
+	
+	./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_Z2 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/moleculo/contigs_xMHC.fasta
+	
+	./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_A1 --kmer 31;./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_B1 --kmer 31;./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_C1 --kmer 31;./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_D1 --kmer 31;./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_E1 --kmer 31
+	
+	
+./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_A1 --kmer 31 --collect 3 --vcfPos ../data/VCFsnpRefData.txt;\
+./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_B1 --kmer 31 --collect 3 --vcfPos ../data/VCFsnpRefData.txt;\
+./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_C1 --kmer 31 --collect 3 --vcfPos ../data/VCFsnpRefData.txt;\
+./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_D1 --kmer 31 --collect 3 --vcfPos ../data/VCFsnpRefData.txt;\
+./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_E1 --kmer 31 --collect 3 --vcfPos ../data/VCFsnpRefData.txt
+
+
+./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_A1 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_A1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_A1.fasta;\
+./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_B1 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_B1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_B1.fasta;\
+./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_C1 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_C1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_C1.fasta;\
+./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_D1 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_D1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_D1.fasta;\
+./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_E1 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_E1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_E1.fasta
+
+
+../bin/PnPHaploGraph2 domode nextGenValidation ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph3_AA02O9Q_A1_31_required.binaryCount 0 4998474 /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_A1_onlyMHC.vcf.validationRestricted 28703185 33450430 /gpfs1/well/gsk_hla/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /gpfs1/well/gsk_hla/CortexGraphs//AA02O9Q_A1_31.ctx ../tmp/alignedContigs/_GS_nextGen_varigraph3_AA02O9Q_A1_31/kMerValidation /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_A1.fasta ../tmp2/GS_nextGen/varigraph3;\
+../bin/PnPHaploGraph2 domode nextGenValidation ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph3_AA02O9Q_B1_31_required.binaryCount 0 4998474 /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_B1_onlyMHC.vcf.validationRestricted 28703185 33450430 /gpfs1/well/gsk_hla/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /gpfs1/well/gsk_hla/CortexGraphs//AA02O9Q_B1_31.ctx ../tmp/alignedContigs/_GS_nextGen_varigraph3_AA02O9Q_B1_31/kMerValidation /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_B1.fasta ../tmp2/GS_nextGen/varigraph3;\
+../bin/PnPHaploGraph2 domode nextGenValidation ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph3_AA02O9Q_C1_31_required.binaryCount 0 4998474 /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_C1_onlyMHC.vcf.validationRestricted 28703185 33450430 /gpfs1/well/gsk_hla/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /gpfs1/well/gsk_hla/CortexGraphs//AA02O9Q_C1_31.ctx ../tmp/alignedContigs/_GS_nextGen_varigraph3_AA02O9Q_C1_31/kMerValidation /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_C1.fasta ../tmp2/GS_nextGen/varigraph3;\
+../bin/PnPHaploGraph2 domode nextGenValidation ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph3_AA02O9Q_D1_31_required.binaryCount 0 4998474 /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_D1_onlyMHC.vcf.validationRestricted 28703185 33450430 /gpfs1/well/gsk_hla/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /gpfs1/well/gsk_hla/CortexGraphs//AA02O9Q_D1_31.ctx ../tmp/alignedContigs/_GS_nextGen_varigraph3_AA02O9Q_D1_31/kMerValidation /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_D1.fasta ../tmp2/GS_nextGen/varigraph3;\
+../bin/PnPHaploGraph2 domode nextGenValidation ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph3_AA02O9Q_E1_31_required.binaryCount 0 4998474 /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_E1_onlyMHC.vcf.validationRestricted 28703185 33450430 /gpfs1/well/gsk_hla/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /gpfs1/well/gsk_hla/CortexGraphs//AA02O9Q_E1_31.ctx ../tmp/alignedContigs/_GS_nextGen_varigraph3_AA02O9Q_E1_31/kMerValidation /Net/banyan/data1/projects/gsk/GSKcontigs/AA02O9Q_E1.fasta ../tmp2/GS_nextGen/varigraph3

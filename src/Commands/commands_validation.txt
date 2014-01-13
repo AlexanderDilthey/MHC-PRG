@@ -1,0 +1,41 @@
+THIS IS ALL NOT FOR VARIGRAPH3!
+
+
+		../bin/PnPHaploGraph2 domode nextGenContigValidation ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph_new_AA02O9Q_Z1_31_required.binaryCount 0 5243650 /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_onlyMHC.vcf.validationRestricted 28703185 33450430 /Net/birch/data/dilthey/forDownload/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_31.ctx alignerTest_pgf.txt
+/home/dilthey/PnP/CurrentDevelopmentCortex/bin/cortex_var_31_c1 --mem_height 7 --mem_width 95 --se_list Test/test_refgenome.txt --dump_binary Test/test_refgenome_31.ctx --kmer_size 31
+
+../bin/PnPHaploGraph2 domode nextGenValidation ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31 ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31.kMersReferenceCorrected ../tmp/kMerCount__GS_nextGen_varigraph_new_AA02O9Q_Z1_31_required.binaryCount Test/test_refgenome_31.ctx 
+
+
+../bin/PnPHaploGraph2 domode nextGenValidationTest
+
+./nextGenValidationVariGraph.pl --graph varigraph_new --sample AA02O9Q_Z1 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf
+	this will suggest as command:
+	../bin/PnPHaploGraph2 domode nextGenValidation ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph_new_AA02O9Q_Z1_31_required.binaryCount 0 5243650 /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf.validationRestricted 28703185 33450430 /Net/birch/data/dilthey/forDownload/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /gpfs1/well/gsk_hla/CortexGraphs//AA02O9Q_Z1_31.ctx
+	
+	manual modification for SSD on banyan:
+	
+	../bin/PnPHaploGraph2 domode nextGenValidation ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph_new_AA02O9Q_Z1_31_required.binaryCount 0 5243650 /ssd/AA02O9Q_Z1_onlyMHC.vcf.validationRestricted 28703185 33450430 /Net/birch/data/dilthey/forDownload/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /ssd/AA02O9Q_Z1_31.ctx
+		
+	... or from sequoia, accessing the banyan storage:
+
+	../bin/PnPHaploGraph2 domode nextGenValidation ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph_new_AA02O9Q_Z1_31_required.binaryCount 0 5243650 /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_onlyMHC.vcf.validationRestricted 28703185 33450430 /Net/birch/data/dilthey/forDownload/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_31.ctx
+		
+
+Align the PGF contig to a sample graph:
+
+		../bin/PnPHaploGraph2 domode nextGenContigValidation ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph_new_AA02O9Q_Z1_31_required.binaryCount 0 5243650 /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_onlyMHC.vcf.validationRestricted 28703185 33450430 /Net/birch/data/dilthey/forDownload/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_31.ctx alignerTest_pgf.txt
+		
+		Short contig: 
+		
+		../bin/PnPHaploGraph2 domode nextGenContigValidation ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph_new_AA02O9Q_Z1_31_required.binaryCount 0 5243650 /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_onlyMHC.vcf.validationRestricted 28703185 33450430 /Net/birch/data/dilthey/forDownload/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_31.ctx alignerTest_pgf_short.txt
+		
+		More contigs:
+		
+		../bin/PnPHaploGraph2 domode nextGenContigValidation ../tmp2/GS_nextGen/varigraph_new/graph.txt.kmers_31 ../tmp/kMerCount__GS_nextGen_varigraph_new_AA02O9Q_Z1_31_required.binaryCount 0 5243650 /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_onlyMHC.vcf.validationRestricted 28703185 33450430 /Net/birch/data/dilthey/forDownload/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa /Net/banyan/data1/projects/gsk/ssd_mirror/AA02O9Q_Z1_31.ctx pgfContigs_for_testing.txt	
+
+	
+	
+	
+	
+	
