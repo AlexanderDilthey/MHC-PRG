@@ -115,6 +115,21 @@ int main(int argc, char *argv[])
 
 		describeGraph(graph_file, temp_dir, temp_label);
 	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "plotGraph"))
+	{
+		string graph_file = arguments.at(2);
+		string start_level_str = arguments.at(3);
+		string stop_level_str = arguments.at(4);
+		string graphviz_output_file = arguments.at(5);
+
+		int start_level = Utilities::StrtoI(start_level_str);
+		int stop_level = Utilities::StrtoI(stop_level_str);
+		assert(stop_level > start_level);
+
+		Graph* g = new Graph();
+		g->readFromFile(graph_file);
+		g->graphViz(start_level, stop_level, graphviz_output_file);
+	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "describeNucleotideGraph"))
 	{
 		string graph_file = arguments.at(2);

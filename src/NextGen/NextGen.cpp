@@ -274,7 +274,7 @@ Graph* variationGraph(string input_panel, string positions_file)
 			
 		}
 
-		assert(level_protected_PGF);
+		// assert(level_protected_PGF);
 
 		vector< set<int> > groupingHaplotypes;
 		vector< set<Edge*> > groupingEdges;

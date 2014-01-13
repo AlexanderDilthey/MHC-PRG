@@ -56,6 +56,8 @@ public:
 
 	void removeStarPaths();
 
+
+	void graphViz(int level_start, int level_stop, std::string output_filename);
 };
 
 #endif /* GRAPH_H_ */
