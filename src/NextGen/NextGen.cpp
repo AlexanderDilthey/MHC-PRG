@@ -29,7 +29,7 @@ map<string, string> readHLAalleleAlignments(string file, vector<int>& fourNumber
 string alleleAndLocusIdentifier(string locus, string allele);
 int pointerStrintLength = -1;
 
-Graph* variationGraph(string input_panel, string positions_file)
+Graph* variationGraph(string input_panel, string positions_file, bool wantPGFprotection)
 {
 	cout << "Read haplotypes panel...\n" << flush;
 
@@ -75,22 +75,19 @@ Graph* variationGraph(string input_panel, string positions_file)
 		}
 	}
 
-	if(pgf_haplotype_id == -1)
+	if(wantPGFprotection)
 	{
-		cout << "WARNING -- can't determine PGF haplotype ID\n";
+		if(pgf_haplotype_id == -1)
+		{
+			cout << "Haplotype IDs:\n";
+			for(unsigned int haplotypeI = 0; haplotypeI < hp.HaplotypeIDs.size(); haplotypeI++)
+			{
+				string haplotypeID = hp.HaplotypeIDs.at(haplotypeI);
+				cout << haplotypeID << "\n";
+			}
+		}
+		assert(pgf_haplotype_id != -1);
 	}
-
-
-//	if(pgf_haplotype_id == -1)
-//	{
-//		cout << "Haplotype IDs:\n";
-//		for(unsigned int haplotypeI = 0; haplotypeI < hp.HaplotypeIDs.size(); haplotypeI++)
-//		{
-//			string haplotypeID = hp.HaplotypeIDs.at(haplotypeI);
-//			cout << haplotypeID << "\n";
-//		}
-//	}
-//	assert(pgf_haplotype_id != -1);
 
 	vector<string> loci = hp.getLoci();
 	positionsSorter sortClass;
@@ -274,7 +271,8 @@ Graph* variationGraph(string input_panel, string positions_file)
 			
 		}
 
-		// assert(level_protected_PGF);
+		// PGF protection
+		assert((! wantPGFprotection) || level_protected_PGF);
 
 		vector< set<int> > groupingHaplotypes;
 		vector< set<Edge*> > groupingEdges;
@@ -617,83 +615,86 @@ Graph* variationGraph(string input_panel, string positions_file)
 
 	g->removeStarPaths();
 	
-	for(unsigned int level = 0; level < (g->NodesPerLevel.size()-1); level++)
+	if(wantPGFprotection)
 	{
-		bool foundPGF = false;
-		for(set<Node*>::iterator nodeIt = g->NodesPerLevel.at(level).begin(); nodeIt != g->NodesPerLevel.at(level).end(); nodeIt++)
+		for(unsigned int level = 0; level < (g->NodesPerLevel.size()-1); level++)
 		{
-			Node* node = *nodeIt;
-
-			for(set<Edge*>::iterator eIt = node->Outgoing_Edges.begin(); eIt != node->Outgoing_Edges.end(); eIt++)
+			bool foundPGF = false;
+			for(set<Node*>::iterator nodeIt = g->NodesPerLevel.at(level).begin(); nodeIt != g->NodesPerLevel.at(level).end(); nodeIt++)
 			{
-				Edge* e = *eIt;
-				foundPGF = (foundPGF || (bool)e->pgf_protect);
-				if((level > 0) && (level < (g->NodesPerLevel.size()-2)))
+				Node* node = *nodeIt;
+
+				for(set<Edge*>::iterator eIt = node->Outgoing_Edges.begin(); eIt != node->Outgoing_Edges.end(); eIt++)
 				{
-					if((bool)e->pgf_protect)
+					Edge* e = *eIt;
+					foundPGF = (foundPGF || (bool)e->pgf_protect);
+					if((level > 0) && (level < (g->NodesPerLevel.size()-2)))
 					{
-						bool found_preceding_PGF = false;
-
-						for(set<Edge*>::iterator beforeIt = e->From->Incoming_Edges.begin(); beforeIt != e->From->Incoming_Edges.end(); beforeIt++)
+						if((bool)e->pgf_protect)
 						{
-							if((bool)(*beforeIt)->pgf_protect)
+							bool found_preceding_PGF = false;
+
+							for(set<Edge*>::iterator beforeIt = e->From->Incoming_Edges.begin(); beforeIt != e->From->Incoming_Edges.end(); beforeIt++)
 							{
-								found_preceding_PGF = true;
-								break;
+								if((bool)(*beforeIt)->pgf_protect)
+								{
+									found_preceding_PGF = true;
+									break;
+								}
 							}
-						}
-						assert(found_preceding_PGF);
+							assert(found_preceding_PGF);
 
-						bool found_following_PGF = false;						
-						for(set<Edge*>::iterator afterIt = e->To->Outgoing_Edges.begin(); afterIt != e->To->Outgoing_Edges.end(); afterIt++)
-						{
-							if((bool)(*afterIt)->pgf_protect)
-							{
-								found_following_PGF = true;
-								break;
-							}
-						}
-
-						if(! found_following_PGF)
-						{
-							cout << "Level " << level << " of " << (g->NodesPerLevel.size()-2) << ", edge " << e << " pgf protect: " << (bool)e->pgf_protect << " starting at level " << e->From->level << "\n";
+							bool found_following_PGF = false;						
 							for(set<Edge*>::iterator afterIt = e->To->Outgoing_Edges.begin(); afterIt != e->To->Outgoing_Edges.end(); afterIt++)
 							{
-								cout << "\t following " << (*afterIt) << ": " << (bool)(*afterIt)->pgf_protect << "\n" << flush;
-								assert( e->To->level == (level + 1));
-							}
-							
-							cout << "We now look at all edges from the this level " << (level) << ":\n";
-							for(set<Node*>::iterator nodeIt2 = g->NodesPerLevel.at(level).begin(); nodeIt2 != g->NodesPerLevel.at(level).end(); nodeIt2++)
-							{
-								Node* node2 = *nodeIt2;
-
-								for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
+								if((bool)(*afterIt)->pgf_protect)
 								{
-									Edge* e2 = *eIt2;
-									cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
+									found_following_PGF = true;
+									break;
+								}
+							}
+
+							if(! found_following_PGF)
+							{
+								cout << "Level " << level << " of " << (g->NodesPerLevel.size()-2) << ", edge " << e << " pgf protect: " << (bool)e->pgf_protect << " starting at level " << e->From->level << "\n";
+								for(set<Edge*>::iterator afterIt = e->To->Outgoing_Edges.begin(); afterIt != e->To->Outgoing_Edges.end(); afterIt++)
+								{
+									cout << "\t following " << (*afterIt) << ": " << (bool)(*afterIt)->pgf_protect << "\n" << flush;
+									assert( e->To->level == (level + 1));
+								}
+								
+								cout << "We now look at all edges from the this level " << (level) << ":\n";
+								for(set<Node*>::iterator nodeIt2 = g->NodesPerLevel.at(level).begin(); nodeIt2 != g->NodesPerLevel.at(level).end(); nodeIt2++)
+								{
+									Node* node2 = *nodeIt2;
+
+									for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
+									{
+										Edge* e2 = *eIt2;
+										cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
+									}
+								}
+								
+								cout << "We now look at all edges from the next level " << (level+1) << ":\n";
+								for(set<Node*>::iterator nodeIt2 = g->NodesPerLevel.at(level+1).begin(); nodeIt2 != g->NodesPerLevel.at(level+1).end(); nodeIt2++)
+								{
+									Node* node2 = *nodeIt2;
+
+									for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
+									{
+										Edge* e2 = *eIt2;
+										cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
+									}
 								}
 							}
 							
-							cout << "We now look at all edges from the next level " << (level+1) << ":\n";
-							for(set<Node*>::iterator nodeIt2 = g->NodesPerLevel.at(level+1).begin(); nodeIt2 != g->NodesPerLevel.at(level+1).end(); nodeIt2++)
-							{
-								Node* node2 = *nodeIt2;
-
-								for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
-								{
-									Edge* e2 = *eIt2;
-									cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
-								}
-							}
+							assert(found_following_PGF);
 						}
-						
-						assert(found_following_PGF);
 					}
 				}
 			}
+			assert(foundPGF);
 		}
-		assert(foundPGF);
 	}
 
 	for(set<Node*>::iterator nodeIt = g->NodesPerLevel.at(g->NodesPerLevel.size()-1).begin(); nodeIt != g->NodesPerLevel.at(g->NodesPerLevel.size()-1).end(); nodeIt++)
@@ -2095,7 +2096,7 @@ MultiGraph* multiBeautify(LargeGraph* g, string kMerCountsGenomePath, bool quiet
 	return mG;
 }
 
-LargeGraph* kMerify(Graph* g, bool quiet, int kMerSize)
+LargeGraph* kMerify(Graph* g, bool quiet, int kMerSize, bool wantPGFprotection)
 {
 	LargeGraph* kMerGraph = new LargeGraph();
 
@@ -2733,93 +2734,96 @@ LargeGraph* kMerify(Graph* g, bool quiet, int kMerSize)
 
 	kMerGraph->removeStarPaths();
 
-	for(unsigned int level = 0; level < (kMerGraph->NodesPerLevel.size()-1); level++)
+	if(wantPGFprotection)
 	{
-		bool foundPGF = false;
-		for(set<Node*>::iterator nodeIt = kMerGraph->NodesPerLevel.at(level).begin(); nodeIt != kMerGraph->NodesPerLevel.at(level).end(); nodeIt++)
+		for(unsigned int level = 0; level < (kMerGraph->NodesPerLevel.size()-1); level++)
 		{
-			Node* node = *nodeIt;
-
-			for(set<Edge*>::iterator eIt = node->Outgoing_Edges.begin(); eIt != node->Outgoing_Edges.end(); eIt++)
+			bool foundPGF = false;
+			for(set<Node*>::iterator nodeIt = kMerGraph->NodesPerLevel.at(level).begin(); nodeIt != kMerGraph->NodesPerLevel.at(level).end(); nodeIt++)
 			{
-				Edge* e = *eIt;
-				foundPGF = (foundPGF || (bool)e->pgf_protect);
-				if((level > 0) && (level < (kMerGraph->NodesPerLevel.size()-2)))
+				Node* node = *nodeIt;
+
+				for(set<Edge*>::iterator eIt = node->Outgoing_Edges.begin(); eIt != node->Outgoing_Edges.end(); eIt++)
 				{
-					if((bool)e->pgf_protect)
+					Edge* e = *eIt;
+					foundPGF = (foundPGF || (bool)e->pgf_protect);
+					if((level > 0) && (level < (kMerGraph->NodesPerLevel.size()-2)))
 					{
-						bool found_preceding_PGF = false;
-						bool found_following_PGF = false;
-						for(set<Edge*>::iterator beforeIt = e->From->Incoming_Edges.begin(); beforeIt != e->From->Incoming_Edges.end(); beforeIt++)
+						if((bool)e->pgf_protect)
 						{
-							if((bool)(*beforeIt)->pgf_protect)
+							bool found_preceding_PGF = false;
+							bool found_following_PGF = false;
+							for(set<Edge*>::iterator beforeIt = e->From->Incoming_Edges.begin(); beforeIt != e->From->Incoming_Edges.end(); beforeIt++)
 							{
-								found_preceding_PGF = true;
-								break;
+								if((bool)(*beforeIt)->pgf_protect)
+								{
+									found_preceding_PGF = true;
+									break;
+								}
 							}
-						}
-						if(! found_preceding_PGF)
-						{
-							cout << "Level " << level << " of " << (kMerGraph->NodesPerLevel.size()-2) << ", edge " << e << " pgf protect: " << (bool)e->pgf_protect << " starting at level " << e->From->level << "\n";
+							if(! found_preceding_PGF)
+							{
+								cout << "Level " << level << " of " << (kMerGraph->NodesPerLevel.size()-2) << ", edge " << e << " pgf protect: " << (bool)e->pgf_protect << " starting at level " << e->From->level << "\n";
+								for(set<Edge*>::iterator afterIt = e->To->Outgoing_Edges.begin(); afterIt != e->To->Outgoing_Edges.end(); afterIt++)
+								{
+									cout << "\t following " << (*afterIt) << ": " << (bool)(*afterIt)->pgf_protect << "\n" << flush;
+									assert( e->To->level == (level + 1));
+								}
+								
+								cout << "We now look at all edges from the last level " << (level-1) << ":\n";
+								for(set<Node*>::iterator nodeIt2 = kMerGraph->NodesPerLevel.at(level-1).begin(); nodeIt2 != kMerGraph->NodesPerLevel.at(level-1).end(); nodeIt2++)
+								{
+									Node* node2 = *nodeIt2;
+
+									for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
+									{
+										Edge* e2 = *eIt2;
+										cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
+									}
+								}		
+								
+								cout << "We now look at all edges from the this level " << (level) << ":\n";
+								for(set<Node*>::iterator nodeIt2 = kMerGraph->NodesPerLevel.at(level).begin(); nodeIt2 != kMerGraph->NodesPerLevel.at(level).end(); nodeIt2++)
+								{
+									Node* node2 = *nodeIt2;
+
+									for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
+									{
+										Edge* e2 = *eIt2;
+										cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
+									}
+								}
+								
+								cout << "We now look at all edges from the next level " << (level+1) << ":\n";
+								for(set<Node*>::iterator nodeIt2 = kMerGraph->NodesPerLevel.at(level+1).begin(); nodeIt2 != kMerGraph->NodesPerLevel.at(level+1).end(); nodeIt2++)
+								{
+									Node* node2 = *nodeIt2;
+
+									for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
+									{
+										Edge* e2 = *eIt2;
+										cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
+									}
+								}						
+							}
+							
+							assert(found_preceding_PGF);
+
 							for(set<Edge*>::iterator afterIt = e->To->Outgoing_Edges.begin(); afterIt != e->To->Outgoing_Edges.end(); afterIt++)
 							{
-								cout << "\t following " << (*afterIt) << ": " << (bool)(*afterIt)->pgf_protect << "\n" << flush;
-								assert( e->To->level == (level + 1));
-							}
-							
-							cout << "We now look at all edges from the last level " << (level-1) << ":\n";
-							for(set<Node*>::iterator nodeIt2 = kMerGraph->NodesPerLevel.at(level-1).begin(); nodeIt2 != kMerGraph->NodesPerLevel.at(level-1).end(); nodeIt2++)
-							{
-								Node* node2 = *nodeIt2;
-
-								for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
+								if((bool)(*afterIt)->pgf_protect)
 								{
-									Edge* e2 = *eIt2;
-									cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
-								}
-							}		
-							
-							cout << "We now look at all edges from the this level " << (level) << ":\n";
-							for(set<Node*>::iterator nodeIt2 = kMerGraph->NodesPerLevel.at(level).begin(); nodeIt2 != kMerGraph->NodesPerLevel.at(level).end(); nodeIt2++)
-							{
-								Node* node2 = *nodeIt2;
-
-								for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
-								{
-									Edge* e2 = *eIt2;
-									cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
+									found_following_PGF = true;
+									break;
 								}
 							}
-							
-							cout << "We now look at all edges from the next level " << (level+1) << ":\n";
-							for(set<Node*>::iterator nodeIt2 = kMerGraph->NodesPerLevel.at(level+1).begin(); nodeIt2 != kMerGraph->NodesPerLevel.at(level+1).end(); nodeIt2++)
-							{
-								Node* node2 = *nodeIt2;
-
-								for(set<Edge*>::iterator eIt2 = node2->Outgoing_Edges.begin(); eIt2 != node2->Outgoing_Edges.end(); eIt2++)
-								{
-									Edge* e2 = *eIt2;
-									cout << "\t general " << e2 << ": " << (bool)e2->pgf_protect << "\n" << flush;
-								}
-							}						
+							assert(found_following_PGF);
 						}
-						
-						assert(found_preceding_PGF);
-
-						for(set<Edge*>::iterator afterIt = e->To->Outgoing_Edges.begin(); afterIt != e->To->Outgoing_Edges.end(); afterIt++)
-						{
-							if((bool)(*afterIt)->pgf_protect)
-							{
-								found_following_PGF = true;
-								break;
-							}
-						}
-						assert(found_following_PGF);
 					}
 				}
 			}
+			assert(foundPGF);
 		}
-		assert(foundPGF);
 	}
 
 	kMerGraph->checkConsistency(false);

@@ -655,11 +655,17 @@ int main(int argc, char *argv[])
 		string graph_file = arguments.at(2);
 
 		int kMer_size = 55;
+		bool protectPGF = true;
 		for(unsigned int i = 2; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--kmer")
 			{
 				kMer_size = Utilities::StrtoI(arguments.at(i+1));
+			}
+			
+			if(arguments.at(i) == "--noPGFprotection")
+			{
+				protectPGF = false;
 			}
 		}
 
@@ -670,7 +676,7 @@ int main(int argc, char *argv[])
 
 		string kMerified_graph_file = graph_file+".kmers";
 		kMerified_graph_file += ("_" + Utilities::ItoStr(kMer_size));
-		LargeGraph* kMerG = kMerify(g, false, kMer_size);
+		LargeGraph* kMerG = kMerify(g, false, kMer_size, protectPGF);
 		kMerG->writeToFile(kMerified_graph_file);
 
 		kMerG->stats();
@@ -685,12 +691,17 @@ int main(int argc, char *argv[])
 		string graph_output_file = haplotypes_files_dir+"/graph.txt";
 
 		int kMer_size = 55;
+		bool protectPGF = true;
 		for(unsigned int i = 2; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--kmer")
 			{
 				kMer_size = Utilities::StrtoI(arguments.at(i+1));
 			}
+			if(arguments.at(i) == "--noPGFprotection")
+			{
+				protectPGF = false;
+			}			
 		}
 
 		string haplotypes_files_list = haplotypes_files_dir+"/segments.txt";
@@ -728,7 +739,7 @@ int main(int argc, char *argv[])
 
 				std::cout << "Reading " << haplotypes_file << "\n" << std::flush;
 
-				Graph* g = variationGraph(haplotypes_file, positions_file);
+				Graph* g = variationGraph(haplotypes_file, positions_file, protectPGF);
 				string output_file = haplotypes_file+".graph";
 				g->writeToFile(output_file);
 
