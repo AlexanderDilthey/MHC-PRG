@@ -22,7 +22,7 @@ COPTS  = -ggdb -O2 -fopenmp -std=gnu++0x -fstack-protector-all
 CFLAGS = 
 COMPILE = $(CXX) $(INCS) $(CFLAGS) $(COPTS)
 
-VPATH = Data:Graph:NextGen:hash:hash/deBruijn:hash/sequence:GraphAligner:GraphAlignerUnique
+VPATH = Data:Graph:NextGen:hash:hash/deBruijn:hash/sequence:GraphAligner:GraphAlignerUnique:readFilter
         
 OBJS = \
         $(DIR_OBJ)/GenotypePanel.o \
@@ -54,6 +54,7 @@ OBJS = \
         $(DIR_OBJ)/GraphAlignerUnique.o \
         $(DIR_OBJ)/GraphAndEdgeIndex.o \
         $(DIR_OBJ)/UniqueAlignerTests.o \
+        $(DIR_OBJ)/readFilter.o \
         $(DIR_OBJ)/GraphAndIndex.o \
         $(DIR_OBJ)/AlignerTests.o \
         $(DIR_OBJ)/VirtualNW.o \
