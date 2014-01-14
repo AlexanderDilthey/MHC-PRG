@@ -27,6 +27,7 @@ struct levelInfo
 	int nodes;
 	int edges;
 	int symbols;
+	int symbols_CODE;
 };
 
 

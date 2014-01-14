@@ -994,7 +994,9 @@ vector<levelInfo> LargeGraph::getLevelInfo()
 	{
 		int nodes = NodesPerLevel.at(l).size();
 		int edges = 0;
-		int symbols = 0;
+		int symbols_CODE = 0;
+
+		std::set<std::string> symbols_set;
 
 		for(set<Node*>::iterator nodeIt = NodesPerLevel.at(l).begin(); nodeIt !=  NodesPerLevel.at(l).end(); nodeIt++)
 		{
@@ -1009,18 +1011,23 @@ vector<levelInfo> LargeGraph::getLevelInfo()
 				for(set<Edge*>::iterator outgoingIt = n->Outgoing_Edges.begin(); outgoingIt != n->Outgoing_Edges.end(); outgoingIt++)
 				{
 					assert((*outgoingIt)->locus_id == locus);
+					std::string emission = CODE.deCode((*outgoingIt)->locus_id, (*outgoingIt)->emission);
+					symbols_set.insert(emission);
 				}
 
 				if(nodeIt == NodesPerLevel.at(l).begin())
 				{
-					symbols = CODE.getAlleles(locus).size();
+					symbols_CODE = CODE.getAlleles(locus).size();
 				}
 			}
 		}
 
+		int symbols = symbols_set.size();
+
 		levelInfo lI;
 		lI.nodes = nodes;
 		lI.edges = edges;
+		lI.symbols_CODE = symbols_CODE;
 		lI.symbols = symbols;
 
 		forReturn.push_back(lI);
