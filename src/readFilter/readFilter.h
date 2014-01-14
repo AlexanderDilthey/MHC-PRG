@@ -74,6 +74,7 @@ public:
 			{
 				success = true;
 				a1 = a;
+				have1 = true;
 			}
 		}
 		else if(which == 2)
@@ -82,6 +83,7 @@ public:
 			{
 				success = true;
 				a2 = a;
+				have2 = true;
 			}
 		}
 		return success;

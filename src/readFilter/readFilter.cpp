@@ -200,6 +200,9 @@ void readFilter::doFilter()
 //			double reverse_2_optim = (kMers_2_reverse_TOTAL == 0) ? 0 : (kMers_2_reverse_OK / kMers_2_reverse_TOTAL);
 			double reverse_combined_optim = ((kMers_1_reverse_TOTAL + kMers_2_reverse_TOTAL) == 0) ? 0 : ((kMers_1_reverse_OK + kMers_2_reverse_OK) / (kMers_1_reverse_TOTAL + kMers_2_reverse_TOTAL));
 
+			// std::cout << read.a1.sequence << " " << read.a2.sequence << "\n";
+			// std::cout << forward_combined_optim << " " << reverse_combined_optim << "\n\n"; 
+			
 			pass_positive = ((forward_combined_optim >= positiveThreshold) || (reverse_combined_optim >= positiveThreshold));
 		}
 
@@ -312,7 +315,7 @@ void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(c
 		{
 			while(reader.GetNextAlignment(al))
 			{
-			   std::string name = al.Name;
+				std::string name = al.Name;
 			   std::string nameWithPairID = name;
 
 			   int whichMate = 0;
@@ -336,6 +339,9 @@ void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(c
 				simpleAlignment.qualities = qualities;
 				simpleAlignment.sequence = sequence;
 
+				// std::cout << name << " " << sequence << "\n";
+				
+				// std::cout << name << " " << reads.count(name) << "\n";
 				if(reads.count(name) == 0)
 				{
 					fastq_readPair p;
@@ -347,6 +353,14 @@ void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(c
 				{
 					fastq_readPair& thisPair = reads.at(name);
 					bool success = thisPair.takeAlignment(simpleAlignment, whichMate);
+					if(! success)
+					{					
+						std::cerr << "There is a problem with the read IDs in this BAM.\n";
+						std::cerr << "Read ID: " << name << " / " << nameWithPairID << "\n";
+						std::cerr << "whichMate: " << whichMate << "\n";
+						std::cerr << "thisPair.have1: " << thisPair.have1 << " with ID " << thisPair.a1.readID << "\n";
+						std::cerr << "thisPair.have2: " << thisPair.have2 << " with ID " << thisPair.a2.readID << "\n" << std::flush;
+					}
 					assert(success);
 					if(thisPair.isComplete())
 					{
