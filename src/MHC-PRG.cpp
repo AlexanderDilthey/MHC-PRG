@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 			errEx("Cannot open for writing: "+output_file);
 		}
 	}
-	else if((arguments.size() > 0) && (arguments.at(1) == "describeGraph"))
+	else if((arguments.size() > 0) && (arguments.at(1) == "describekMerGraph"))
 	{
 		string graph_file = arguments.at(2);
 		string temp_dir = arguments.at(3);
@@ -133,7 +133,10 @@ int main(int argc, char *argv[])
 	else if((arguments.size() > 0) && (arguments.at(1) == "describeNucleotideGraph"))
 	{
 		string graph_file = arguments.at(2);
-		describeNucleotideGraph(graph_file);
+		string temp_dir = arguments.at(3);
+		string temp_label = arguments.at(4);
+
+		describeNucleotideGraph(graph_file, temp_dir, temp_label);
 	}	
 	else if((arguments.size() > 0) && (arguments.at(1) == "simulationSuite"))
 	{

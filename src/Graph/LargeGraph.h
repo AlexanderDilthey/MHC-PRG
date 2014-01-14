@@ -15,6 +15,7 @@ class Edge;
 struct diploidEdgePath;
 struct diploidEdgePointerPath;
 struct diploidNucleotidePath;
+struct levelInfo;
 
 #include "../NextGen/Validation.h"
 
@@ -59,13 +60,6 @@ struct readSimulationResults
 	map<string, long long> simulatedReads;
 	map<string, long long> kMerOccurence;
 	map<string, set<int> > kMerOccurenceLocalization;
-};
-
-struct levelInfo
-{
-	int nodes;
-	int edges;
-	int symbols;
 };
 
 class LargeGraph {
