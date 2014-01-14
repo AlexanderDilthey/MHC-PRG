@@ -1011,7 +1011,7 @@ vector<levelInfo> LargeGraph::getLevelInfo()
 				for(set<Edge*>::iterator outgoingIt = n->Outgoing_Edges.begin(); outgoingIt != n->Outgoing_Edges.end(); outgoingIt++)
 				{
 					assert((*outgoingIt)->locus_id == locus);
-					std::string emission = CODE.deCode((*outgoingIt)->locus_id, (*outgoingIt)->emission);
+					std::string emission = CODE.deCode((*outgoingIt)->locus_id, (*outgoingIt)->largeEmission);
 					symbols_set.insert(emission);
 				}
 
