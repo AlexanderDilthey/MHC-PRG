@@ -1,3 +1,6 @@
 ../bin/MHC-PRG domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/hla
 
 ../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 31 --noPGFprotection
+
+
+../bin/MHC-PRG domode filterReads --input_BAM --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 --output_FASTQ test.fastQ
