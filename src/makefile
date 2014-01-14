@@ -2,7 +2,7 @@
 
 LIB_BOOST = /home/dilthey/PnP/libs/boost_1_41_0/
 INCS = -I$(LIB_BOOST) -IGraph -I/home/dilthey/bamtools/bamtools/include -I/home/dilthey/bamtools/bamtools/src
-LIBS = /home/dilthey/bamtools/bamtools/lib/libbamtools.a /home/dilthey/bamtools/zlib-1.2.7/libz.a
+LIBS = /home/dilthey/bamtools/bamtools/lib/libbamtools.a /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.so  /home/dilthey/bamtools/zlib-1.2.7/libz.a
 
 MKDIR_P = mkdir -p
 
