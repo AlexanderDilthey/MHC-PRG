@@ -1,8 +1,13 @@
 # LIBRARY SETTINGS - SET AS NECESSARY
 
 LIB_BOOST = /home/dilthey/PnP/libs/boost_1_41_0/
-INCS = -I$(LIB_BOOST) -IGraph 
+INCS = -I$(LIB_BOOST) -IGraph -I/home/dilthey/bamtools/bamtools/include -I/home/dilthey/bamtools/bamtools/src
+LIBS = /home/dilthey/bamtools/bamtools/lib/libbamtools.a /home/dilthey/bamtools/zlib-1.2.7/libz.a
 
+MKDIR_P = mkdir -p
+
+.PHONY: directories
+	
 # END LIBRARY SETTINGS
 
 #
@@ -60,6 +65,11 @@ OBJS = \
 #
 EXECS = MHC-PRG
 
+OUT_DIR = ../obj ../bin
+
+directories: ${OUT_DIR}
+
+
 #
 # compile and link
 #
@@ -73,7 +83,7 @@ default:
 	@echo "    make realclean"
 	@echo
 
-all: $(EXECS)
+all: directories $(EXECS)
 
 $(EXECS): $(OBJS)
 	$(foreach EX, $(EXECS), $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
@@ -91,3 +101,7 @@ clean:
 
 realclean: clean
 	/bin/rm $(DIR_BIN)/*
+
+${OUT_DIR}:
+	${MKDIR_P} ${OUT_DIR}
+
