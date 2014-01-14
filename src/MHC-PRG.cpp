@@ -35,6 +35,8 @@
 #include "GraphAligner/AlignerTests.h"
 #include "GraphAlignerUnique/UniqueAlignerTests.h"
 
+#include "readFilter/readFilter.h"
+
 #include "Utilities.h"
 
 using namespace std;
@@ -888,6 +890,70 @@ int main(int argc, char *argv[])
 		kMerG->stats();
 
 		//LargeHMM* HMM = new LargeHMM(kMerG, true);
+	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "filterReads"))
+	{
+		std::string positiveFilter;
+		std::string negativeFilter;
+
+		double positiveThreshold = 0.5;
+		double negativeThreshold = 0.3;
+
+		vector<string> arguments (argv + 1, argv + argc + !argc);
+
+		std::string input_BAM;
+		std::string input_FASTQ;
+
+		std::string output_FASTQ;
+
+		int k = 31;
+
+		for(unsigned int i = 2; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--positiveFilter")
+			{
+				positiveFilter = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--negativeFilter")
+			{
+				negativeFilter = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--input_BAM")
+			{
+				input_BAM = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--input_FASTQ")
+			{
+				input_FASTQ = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--output_FASTQ")
+			{
+				output_FASTQ = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--positiveThreshold")
+			{
+				positiveThreshold = Utilities::StrtoD(arguments.at(i+1));
+			}
+			if(arguments.at(i) == "--negativeThreshold")
+			{
+				negativeThreshold = Utilities::StrtoD(arguments.at(i+1));
+			}
+			if(arguments.at(i) == "--k")
+			{
+				k = Utilities::StrtoI(arguments.at(i+1));
+			}
+		}
+
+		readFilter F;
+		F.input_BAM = input_BAM;
+		F.input_FASTQ = input_FASTQ;
+		F.output_FASTQ = output_FASTQ;
+		F.positiveThreshold = positiveThreshold;
+		F.negativeThreshold = negativeThreshold;
+		F.k = k;
+
+		F.doFilter();
+
 	}
 	else
 	{

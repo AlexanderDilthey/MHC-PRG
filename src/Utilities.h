@@ -30,6 +30,7 @@ public:
 	static string PtoStr(void* p);
 
 	static int StrtoI(string s);
+
 	static vector<string> ItoStr(vector<int> i);
 	static double StrtoD(string s);
 	static bool StrtoB(string s);
