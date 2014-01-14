@@ -297,7 +297,7 @@ void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(c
 		const BamTools::RefData& stretchSpec_BAMTools = reader.GetReferenceData().at(refIDidx);
 		assert(thisStretch.lastPos < stretchSpec_BAMTools.RefLength);
 
-		std::cout << "\tread " << thisStretch.ID << " from " << thisStretch.firstPos << " to " << thisStretch.lastPos + 1 << "\n" << std::flush;
+		std::cout << "\t" << Utilities::timestamp() << " read " << thisStretch.ID << " from " << thisStretch.firstPos << " to " << thisStretch.lastPos + 1 << "\n" << std::flush;
 
 		BamTools::BamRegion stretch_region_BAMTools;
 		stretch_region_BAMTools.LeftRefID = refIDidx;
