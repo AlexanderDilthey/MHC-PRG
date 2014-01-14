@@ -553,6 +553,51 @@ void Graph::freeMemory()
 	}
 }
 
+
+vector<levelInfo> Graph::getLevelInfo()
+{
+	vector<levelInfo> forReturn;
+
+	for(int l = 0; l < (int)NodesPerLevel.size(); l++)
+	{
+		int nodes = NodesPerLevel.at(l).size();
+		int edges = 0;
+		int symbols = 0;
+
+		for(set<Node*>::iterator nodeIt = NodesPerLevel.at(l).begin(); nodeIt !=  NodesPerLevel.at(l).end(); nodeIt++)
+		{
+			Node* n = *nodeIt;
+			edges = edges + n->Outgoing_Edges.size();
+
+			if(l != (NodesPerLevel.size()-1))
+			{
+				string locus = (*(n->Outgoing_Edges.begin()))->locus_id;
+
+
+				for(set<Edge*>::iterator outgoingIt = n->Outgoing_Edges.begin(); outgoingIt != n->Outgoing_Edges.end(); outgoingIt++)
+				{
+					assert((*outgoingIt)->locus_id == locus);
+				}
+
+				if(nodeIt == NodesPerLevel.at(l).begin())
+				{
+					symbols = CODE.getAlleles(locus).size();
+				}
+			}
+		}
+
+		levelInfo lI;
+		lI.nodes = nodes;
+		lI.edges = edges;
+		lI.symbols = symbols;
+
+		forReturn.push_back(lI);
+	}
+
+	return forReturn;
+}
+
+
 void Graph::registerEdge(Edge* e)
 {
 	assert(Edges.count(e) == 0);

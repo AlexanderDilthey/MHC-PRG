@@ -10,8 +10,8 @@
 ./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31 --collect 3 --vcfPos ../data/VCFsnpRefData.txt
 
 
-../bin/MHC-PRG domode describeGraph ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/ VARIGRAPH3
-#? ../bin/MHC-PRG domode describeNucleotideGraph ../tmp2/GS_nextGen/varigraph_new/graph.txt
+../bin/MHC-PRG domode describekMerGraph ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/ VARIGRAPH3_kMers
+../bin/MHC-PRG domode describeNucleotideGraph ../tmp2/GS_nextGen/varigraph3/graph.txt ../tmp/ VARIGRAPH3_nucleotides
 
 
 in /gpfs1/well/gsk_hla/Platypus: chmod u+x xMHC_agreement_with_arrayGenotypes.pl; ./xMHC_agreement_with_arrayGenotypes.pl --kmer 31 --evaluateOnlyVCF 1 

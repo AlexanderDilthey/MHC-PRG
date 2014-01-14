@@ -22,6 +22,12 @@ class Edge;
 
 using namespace std;
 
+struct levelInfo
+{
+	int nodes;
+	int edges;
+	int symbols;
+};
 
 
 class Graph {
@@ -58,6 +64,9 @@ public:
 
 
 	void graphViz(int level_start, int level_stop, std::string output_filename);
+
+	vector<levelInfo> getLevelInfo();
+
 };
 
 #endif /* GRAPH_H_ */

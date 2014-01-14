@@ -25,10 +25,11 @@
 #include "../Graph/MultiGraph.h"
 #include <iomanip>
 
-void describeNucleotideGraph(string graph_file)
+void describeNucleotideGraph(string graph_file, string temp_dir, string temp_label)
 {
 	Graph* g = new Graph();
 	g->readFromFile(graph_file);
+
 	int levels = g->NodesPerLevel.size();
 	std::cout << "Graph " << graph_file << "\n";
 	std::cout << "Levels: " << levels << "\n";
@@ -47,6 +48,29 @@ void describeNucleotideGraph(string graph_file)
 	
 	std::cout << "Average number nodes / level: " << avg_nodes << "\n";
 	std::cout << "Max number of nodes / level: " << nodes_max << "\n";
+
+	vector<levelInfo> levelInformation = g->getLevelInfo();
+
+	string fn_globalstats = temp_dir + "/graph_globalstats_" + temp_label + ".txt";
+	ofstream output_stats;
+	output_stats.open (fn_globalstats.c_str(), ios::out | ios::trunc);
+
+	assert(output_stats.is_open());
+
+
+	output_stats << "Level\tNodes\tEdges\tSymbols"<< "\n";
+	for(int i = 0; i < (int)levelInformation.size(); i++)
+	{
+		vector<string> fields;
+		fields.push_back(Utilities::ItoStr(i));
+		fields.push_back(Utilities::ItoStr(levelInformation.at(i).nodes));
+		fields.push_back(Utilities::ItoStr(levelInformation.at(i).edges));
+		fields.push_back(Utilities::ItoStr(levelInformation.at(i).symbols));
+		output_stats << Utilities::join(fields, "\t") << "\n";
+	}
+
+
+	output_stats.close();
 }
    
 void describeGraph(string graph_file, string temp_dir, string temp_label)
