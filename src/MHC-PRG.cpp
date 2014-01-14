@@ -945,6 +945,8 @@ int main(int argc, char *argv[])
 		}
 
 		readFilter F;
+		F.positiveFilter = positiveFilter;
+		F.negativeFilter = negativeFilter;
 		F.input_BAM = input_BAM;
 		F.input_FASTQ = input_FASTQ;
 		F.output_FASTQ = output_FASTQ;
