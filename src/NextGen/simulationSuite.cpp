@@ -105,7 +105,7 @@ void describeGraph(string graph_file, string temp_dir, string temp_label, bool o
 
 	LargeGraph kMerG;
 	kMerG.readFromFile(graph_file);
-	MultiGraph* multiG = multiBeautifyForAlpha2(&kMerG, "");
+	MultiGraph* multiG = multiBeautifyForAlpha2(&kMerG, "", false, true);
 
 	vector< vector<string> > level_categories = kMerG.categorizeEdgeLevels();
 	set<string> possible_categories;
