@@ -79,6 +79,24 @@ std::map<std::string, unsigned int> LargeGraph::getkMersFromLevel(unsigned int l
 
 }
 
+
+std::string LargeGraph::getOneLocusIDforLevel(unsigned int level)
+{
+	std::string locus;
+	
+	if(level != (NodesPerLevel.size()-1))
+	{	
+		assert(NodesPerLevel.at(level).size() > 0);
+		Node* n = *(NodesPerLevel.at(level).begin());
+
+		assert(n->Outgoing_Edges.size() > 0);
+		locus = (*(n->Outgoing_Edges.begin()))->locus_id;
+	}
+
+	return locus;
+}
+
+
 void LargeGraph::reverseGraph()
 {
 	for(set<Edge*>::iterator edgeIt = Edges.begin(); edgeIt != Edges.end(); edgeIt++)
