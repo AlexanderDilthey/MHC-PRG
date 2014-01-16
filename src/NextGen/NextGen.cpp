@@ -1222,7 +1222,7 @@ MultiGraph* simplifyAccordingToCoverage(MultiGraph* mG, map<string, long long> e
 }
 
 
-MultiGraph* multiBeautifyForAlpha2(LargeGraph* g, string kMerCountsGenomePath, bool quiet)
+MultiGraph* multiBeautifyForAlpha2(LargeGraph* g, string kMerCountsGenomePath, bool quiet, bool pgf_protect)
 {
 	MultiGraph* mG = new MultiGraph();
 	Node* multiN0 = new Node();
@@ -1454,49 +1454,51 @@ MultiGraph* multiBeautifyForAlpha2(LargeGraph* g, string kMerCountsGenomePath, b
 
 	mG->checkConsistency(false);
 
-
-	for(unsigned int level = 0; level < (mG->NodesPerLevel.size()-1); level++)
+	if(pgf_protect)
 	{
-		bool foundPGF = false;
-		for(set<Node*>::iterator nodeIt = mG->NodesPerLevel.at(level).begin(); nodeIt != mG->NodesPerLevel.at(level).end(); nodeIt++)
+		for(unsigned int level = 0; level < (mG->NodesPerLevel.size()-1); level++)
 		{
-			Node* node = *nodeIt;
-
-			for(set<Edge*>::iterator eIt = node->Outgoing_Edges.begin(); eIt != node->Outgoing_Edges.end(); eIt++)
+			bool foundPGF = false;
+			for(set<Node*>::iterator nodeIt = mG->NodesPerLevel.at(level).begin(); nodeIt != mG->NodesPerLevel.at(level).end(); nodeIt++)
 			{
-				Edge* e = *eIt;
-				foundPGF = (foundPGF || (bool)e->pgf_protect);
-				if((level > 0) && (level < (mG->NodesPerLevel.size()-2)))
+				Node* node = *nodeIt;
+
+				for(set<Edge*>::iterator eIt = node->Outgoing_Edges.begin(); eIt != node->Outgoing_Edges.end(); eIt++)
 				{
-					if((bool)e->pgf_protect)
+					Edge* e = *eIt;
+					foundPGF = (foundPGF || (bool)e->pgf_protect);
+					if((level > 0) && (level < (mG->NodesPerLevel.size()-2)))
 					{
-						bool found_preceding_PGF = false;
-						bool found_following_PGF = false;
-
-						for(set<Edge*>::iterator beforeIt = e->From->Incoming_Edges.begin(); beforeIt != e->From->Incoming_Edges.end(); beforeIt++)
+						if((bool)e->pgf_protect)
 						{
-							if((bool)(*beforeIt)->pgf_protect)
-							{
-								found_preceding_PGF = true;
-								break;
-							}
-						}
-						assert(found_preceding_PGF);
+							bool found_preceding_PGF = false;
+							bool found_following_PGF = false;
 
-						for(set<Edge*>::iterator afterIt = e->To->Outgoing_Edges.begin(); afterIt != e->To->Outgoing_Edges.end(); afterIt++)
-						{
-							if((bool)(*afterIt)->pgf_protect)
+							for(set<Edge*>::iterator beforeIt = e->From->Incoming_Edges.begin(); beforeIt != e->From->Incoming_Edges.end(); beforeIt++)
 							{
-								found_following_PGF = true;
-								break;
+								if((bool)(*beforeIt)->pgf_protect)
+								{
+									found_preceding_PGF = true;
+									break;
+								}
 							}
+							assert(found_preceding_PGF);
+
+							for(set<Edge*>::iterator afterIt = e->To->Outgoing_Edges.begin(); afterIt != e->To->Outgoing_Edges.end(); afterIt++)
+							{
+								if((bool)(*afterIt)->pgf_protect)
+								{
+									found_following_PGF = true;
+									break;
+								}
+							}
+							assert(found_following_PGF);
 						}
-						assert(found_following_PGF);
 					}
 				}
 			}
+			assert(foundPGF);
 		}
-		assert(foundPGF);
 	}
 
 

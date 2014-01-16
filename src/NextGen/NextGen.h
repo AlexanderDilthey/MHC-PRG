@@ -20,7 +20,7 @@ void loadAndAugmentGraph(string graph_file, string input_panel, string positions
 LargeGraph* kMerify(Graph* g, bool quiet = false, int kMerSize = 5, bool wantPGFprotection = true);
 MultiGraph* multiBeautify(LargeGraph* g, string kMerCountsGenomePath, bool quiet = false);
 MultiGraph* multiBeautifyForAlpha(LargeGraph* g, string kMerCountsGenomePath, bool quiet = false);
-MultiGraph* multiBeautifyForAlpha2(LargeGraph* g, string kMerCountsGenomePath, bool quiet = false);
+MultiGraph* multiBeautifyForAlpha2(LargeGraph* g, string kMerCountsGenomePath, bool quiet = false, bool pgf_protect = true);
 
 MultiGraph* simplifyAccordingToCoverage(MultiGraph* mG, map<string, long long> estimatedEmissions, set<int> protectLevels);
 
