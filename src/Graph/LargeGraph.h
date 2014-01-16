@@ -126,8 +126,6 @@ public:
 	vector<Edge*> edgeIndexPathToEdgePointerPath(vector<int>& edgeIndexPath);
 	diploidEdgePointerPath edgeIndexPathToEdgePointerPath(diploidEdgePath& edgeIndexPath);
 
-
-
 	vector<levelInfo> getLevelInfo();
 
 	void removeStarPaths();
@@ -135,6 +133,8 @@ public:
 	void reverseGraph();
 
 	std::map<std::string, unsigned int> getkMersFromLevel(unsigned int level);
+	
+	std::string getOneLocusIDforLevel(unsigned int level);
 
 };
 

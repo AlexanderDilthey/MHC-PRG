@@ -67,7 +67,8 @@ public:
 	void graphViz(int level_start, int level_stop, std::string output_filename);
 
 	vector<levelInfo> getLevelInfo();
-
+	
+	std::string getOneLocusIDforLevel(unsigned int level);
 };
 
 #endif /* GRAPH_H_ */

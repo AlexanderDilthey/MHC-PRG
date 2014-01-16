@@ -24,6 +24,23 @@ Graph::Graph() {
 
 }
 
+std::string Graph::getOneLocusIDforLevel(unsigned int level)
+{
+	std::string locus;
+	
+	if(level != (NodesPerLevel.size()-1))
+	{	
+		assert(NodesPerLevel.at(level).size() > 0);
+		Node* n = *(NodesPerLevel.at(level).begin());
+
+		assert(n->Outgoing_Edges.size() > 0);
+		locus = (*(n->Outgoing_Edges.begin()))->locus_id;
+	}
+
+	return locus;
+}
+
+
 void Graph::graphViz(int level_start, int level_stop, std::string output_filename)
 {
 	std::ofstream output;

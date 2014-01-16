@@ -6,7 +6,7 @@ my %block_positions_chr6;
 
 my $genomicMapping = qq(/Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/genomicMapping.txt);
 my $inputGenome = qq(/gpfs1/well/gsk_hla/GRCh37.60/fasta/combined/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.fa);
-my $outputGenome = qq(Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph);
+my $outputGenome = qq(/Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph);
 
 # $inputGenome = qq(/gpfs1/well/gsk_hla/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.20.fa);
 # printFASTA('temp.txt', $reference_href);
