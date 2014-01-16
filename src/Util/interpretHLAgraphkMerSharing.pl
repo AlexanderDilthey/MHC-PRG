@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use Modern::Perl;
 use List::MoreUtils qw/mesh all/;
+use Data::Dumper;
 
 my $kMer_sharing_file = qq(/Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived/graph_kMersPerLevel_HLAGRAPH_31.txt);
 my $output_dir = qq(/Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived/kMerSharing);
@@ -15,14 +16,14 @@ my %kMers_in_reference;
 print "Reading $kMer_sharing_file .. \n";
 open(F, '<', $kMer_sharing_file) or die "Cannot open $kMer_sharing_file";
 
-my $header_line = <F>;
+my $header_line = <F>;  
 chomp($header_line);
 my @header_fields = split(/\t/, $header_line);
 
-next unless('Level' ~~ \@header_fields);
-next unless('NucleotideGraph_Locus' ~~ \@header_fields);
-next unless('kMerMultiplicityAtLevel' ~~ \@header_fields);
-next unless('abc' ~~ \@header_fields);
+die unless('Level' ~~ \@header_fields);
+die unless('NucleotideGraph_Locus' ~~ \@header_fields);
+die unless('kMerMultiplicityAtLevel' ~~ \@header_fields);
+die unless('kMerMultiplicityInReferenceGenome' ~~ \@header_fields);
 
 while(<F>)
 {
@@ -69,16 +70,21 @@ while(<F>)
 	# reference genome
 	
 	my $ref_kMers_str = $line_hash{'kMerMultiplicityInReferenceGenome'};
-	my @ref_kMers_str = split(/,/, $ref_kMers_str);
-	foreach my $ref_kMer_str (@ref_kMers_str)
+	if(defined $ref_kMers_str)
 	{
-		my @parts = split(/\:/, $ref_kMer_str);
-		die unless($#parts == 1);
-		my $ref_kMer = $parts[0];
-		my $ref_count = $parts[1];
-		
-		$kMers_in_reference{$ref_kMer} = 1;
-		$kMers_in_reference{reverseComplement($ref_kMer)} = 1;
+		my @ref_kMers_str = split(/,/, $ref_kMers_str);
+		foreach my $ref_kMer_str (@ref_kMers_str)
+		{
+			my @parts = split(/\:/, $ref_kMer_str);
+			die unless($#parts == 1);
+			my $ref_kMer = $parts[0];
+			my $ref_count = $parts[1];
+			if($ref_count > 0)
+			{
+				$kMers_in_reference{$ref_kMer} = 1;
+				$kMers_in_reference{reverseComplement($ref_kMer)} = 1;
+			}
+		}
 	}
 }
 close(F);
@@ -109,6 +115,11 @@ foreach my $locus (keys %data_per_locus)
 		
 		foreach my $kMer (keys %{$data_per_locus{$locus}[$locusLevelI][2]})
 		{
+			if(($kMer eq '_') or ($kMer eq '*'))
+			{
+				next;
+			}
+			
 			my $count = $data_per_locus{$locus}[$locusLevelI][2]{$kMer};
 			
 			$kMers_unique++;			
@@ -128,20 +139,19 @@ foreach my $locus (keys %data_per_locus)
 			{
 				$kMers_unique_inOtherLevels++;
 				$kMers_weighted_inOtherLevels += $count			
-			}
-			
-			print OUTPUT join("\t",
-				$graphLevel,
-				$part,
-				$kMers_unique,
-				$kMers_unique_inOtherLevels,
-				$kMers_unique_inReference,
-				$kMers_weighted,
-				$kMers_weighted_inOtherLevels,
-				$kMers_weighted_inReference
-			), "\n";
-			
+			}	
 		}
+				
+		print OUTPUT join("\t",
+			$graphLevel,
+			$part,
+			$kMers_unique,
+			$kMers_unique_inOtherLevels,
+			$kMers_unique_inReference,
+			$kMers_weighted,
+			$kMers_weighted_inOtherLevels,
+			$kMers_weighted_inReference
+		), "\n";		
 	}
 	
 	close(OUTPUT);
