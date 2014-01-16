@@ -102,10 +102,25 @@ void describeGraph(string graph_file, string temp_dir, string temp_label, bool o
 		std::cout << "\tTotal coverage: " << reference_kMers->totalCoverage() << "\n";
 
 	}
+	
 
+	std::size_t graphFileNamePosition = graph_file.find("graph.txt.kmers_");
+	assert(graphFileNamePosition != std::string::npos);
+	std::string graph_file_nucleotides = graph_file.substr(0, graphFileNamePosition) + "graph.txt";
+	
+	std::cout << "Loading nucleotide graph " << graph_file_nucleotides << "\n" << std::flush;
+	
+	Graph nucleotideGraph;
+	nucleotideGraph.readFromFile(graph_file_nucleotides);
+
+	std::cout << "Loading kMer graph " << graph_file << "\n" << std::flush;	
+	
 	LargeGraph kMerG;
 	kMerG.readFromFile(graph_file);
-	MultiGraph* multiG = multiBeautifyForAlpha2(&kMerG, "", false, true);
+	
+	std::cout << "Compute multi-PRG from kMer-PRG...\n" << std::flush;
+	
+	MultiGraph* multiG = multiBeautifyForAlpha2(&kMerG, "", false, false);
 
 	vector< vector<string> > level_categories = kMerG.categorizeEdgeLevels();
 	set<string> possible_categories;
@@ -135,7 +150,7 @@ void describeGraph(string graph_file, string temp_dir, string temp_label, bool o
 		kMersPerLevelStream.open(fn_kMers_perLevel.c_str());
 		assert(kMersPerLevelStream.is_open());
 
-		kMersPerLevelStream << "Level" << "\t" << "kMerMultiplicityAtLevel";
+		kMersPerLevelStream << "Level" << "\t" << "NucleotideGraph_Locus" << "\t" << "kMerMultiplicityAtLevel";
 		if(referenceGenomeCortexGraph.length())
 		{
 			kMersPerLevelStream << "\t" << "kMerMultiplicityInReferenceGenome";
@@ -175,15 +190,26 @@ void describeGraph(string graph_file, string temp_dir, string temp_label, bool o
 			{
 				std::map<std::string, unsigned int> kMers_thisLevel = kMerG.getkMersFromLevel(i);
 
-				kMersPerLevelStream << i << "\t" << Utilities::JoinMapUInt2Str(kMers_thisLevel);
+				std::string locusID;
+				
+				
+				
+				kMersPerLevelStream << i << "\t" << nucleotideGraph.getOneLocusIDforLevel(i) << "\t" << Utilities::JoinMapUInt2Str(kMers_thisLevel);
 				if(referenceGenomeCortexGraph.length())
 				{
 					std::map<std::string, unsigned int> kMers_referenceCount;
 					for(std::map<std::string, unsigned int>::iterator mIt = kMers_thisLevel.begin(); mIt != kMers_thisLevel.end(); mIt++)
 					{
 						std::string kMer = mIt->first;
-
-						kMers_referenceCount[kMer] = reference_kMers->kMer_getCoverage(kMer);
+						if((kMer != "_") && (kMer != "*"))
+						{	
+							if(!(kMer.length() == 31))
+							{
+								std::cerr << "Wrong kMer length: " << kMer.length() << " kMer: " << kMer << "\n" << std::flush;
+							}	
+							assert(kMer.length() == 31);
+							kMers_referenceCount[kMer] = reference_kMers->kMer_getCoverage(kMer);
+						}
 					}
 
 					kMersPerLevelStream << "\t" << Utilities::JoinMapUInt2Str(kMers_referenceCount);
