@@ -115,7 +115,30 @@ int main(int argc, char *argv[])
 		string temp_dir = arguments.at(3);
 		string temp_label = arguments.at(4);
 
-		describeGraph(graph_file, temp_dir, temp_label);
+		bool output_kMer_levels = false;
+		std::string referenceGenomeCortexGraph;
+
+		for(unsigned int i = 5; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--output_kMer_levels")
+			{
+				output_kMer_levels = true;
+			}
+			if(arguments.at(i) == "--referenceGenomeCortexGraph")
+			{
+				referenceGenomeCortexGraph = arguments.at(i+1);
+			}
+		}
+
+		if(referenceGenomeCortexGraph.length())
+		{
+			if(! output_kMer_levels)
+			{
+				throw std::runtime_error("If you specify --referenceGenomeCortexGraph, please activate also --output_kMer_levels");
+			}
+		}
+
+		describeGraph(graph_file, temp_dir, temp_label, output_kMer_levels, referenceGenomeCortexGraph);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "plotGraph"))
 	{

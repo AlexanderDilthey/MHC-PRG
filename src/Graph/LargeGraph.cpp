@@ -47,6 +47,38 @@ void LargeGraph::unRegisterNode(Node* n)
 	delete(n);
 }
 
+std::map<std::string, unsigned int> LargeGraph::getkMersFromLevel(unsigned int level)
+{
+	std::map<std::string, unsigned int> forReturn;
+
+	for(set<Node*>::iterator nodeIt = NodesPerLevel.at(level).begin(); nodeIt !=  NodesPerLevel.at(level).end(); nodeIt++)
+	{
+		Node* n = *nodeIt;
+
+		if(level != (NodesPerLevel.size()-1))
+		{
+			string locus = (*(n->Outgoing_Edges.begin()))->locus_id;
+
+
+			for(set<Edge*>::iterator outgoingIt = n->Outgoing_Edges.begin(); outgoingIt != n->Outgoing_Edges.end(); outgoingIt++)
+			{
+				assert((*outgoingIt)->locus_id == locus);
+				std::string emission = CODE.deCode((*outgoingIt)->locus_id, (*outgoingIt)->largeEmission);
+
+				if(forReturn.count(emission) == 0)
+				{
+					forReturn[emission] = 0;
+				}
+
+				forReturn[emission]++;
+			}
+		}
+	}
+
+	return forReturn;
+
+}
+
 void LargeGraph::reverseGraph()
 {
 	for(set<Edge*>::iterator edgeIt = Edges.begin(); edgeIt != Edges.end(); edgeIt++)

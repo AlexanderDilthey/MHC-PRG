@@ -68,6 +68,8 @@ public:
 	static int readStatus(std::string statusFile);
 	static void writeStatus(std::string statusFile, int status);
 
+	static std::string JoinMapUInt2Str(std::map<std::string, unsigned int> M);
+
 
 };
 

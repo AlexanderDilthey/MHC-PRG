@@ -29,6 +29,19 @@ Utilities::Utilities() {
 Utilities::~Utilities() {
 }
 
+std::string Utilities::JoinMapUInt2Str(std::map<std::string, unsigned int> M)
+{
+	std::vector<std::string> forReturn_parts;
+
+	for(std::map<std::string, unsigned int>::iterator mIt = M.begin(); mIt != M.end(); mIt++)
+	{
+		std::string thisE = mIt->first + ":" + ItoStr(mIt->second);
+		forReturn_parts.push_back(thisE);
+	}
+
+	return join(forReturn_parts, ",");
+}
+
 std::pair<double, int> Utilities::findIntMapMax(std::map<int, double>& m)
 {
 	assert(m.size() > 0);

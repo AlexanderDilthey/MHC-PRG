@@ -8,6 +8,7 @@
 #include "simulationSuite.h"
 #include <iostream>
 #include <fstream>
+#include <map>
 #include <algorithm>
 #include <iomanip>
 #include <omp.h>
@@ -24,6 +25,10 @@
 #include "../Graph/LargeGraph.h"
 #include "../Graph/MultiGraph.h"
 #include <iomanip>
+
+
+#include "../hash/deBruijn/DeBruijnGraph.h"
+#include "../hash/sequence/basic.h"
 
 void describeNucleotideGraph(string graph_file, string temp_dir, string temp_label)
 {
@@ -73,8 +78,31 @@ void describeNucleotideGraph(string graph_file, string temp_dir, string temp_lab
 	output_stats.close();
 }
    
-void describeGraph(string graph_file, string temp_dir, string temp_label)
+void describeGraph(string graph_file, string temp_dir, string temp_label, bool output_kMer_levels, std::string referenceGenomeCortexGraph)
 {
+	DeBruijnGraph<1, 31, 1>* reference_kMers;
+
+	if(referenceGenomeCortexGraph.length())
+	{
+		assert(output_kMer_levels);
+
+		int cortex_height = 26;
+		int cortex_width = 50;
+
+		std::cout << Utilities::timestamp() << "Allocate Cortex graph object for reference genoem; height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
+
+		reference_kMers = new DeBruijnGraph<1, 31, 1>(cortex_height, cortex_width);
+
+		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary...\n" << std::flush;
+
+		reference_kMers->loadMultiColourBinary(referenceGenomeCortexGraph);
+
+		std::cout << Utilities::timestamp() << "\tdone\n" << std::flush;
+
+		std::cout << "\tTotal coverage: " << reference_kMers->totalCoverage() << "\n";
+
+	}
+
 	LargeGraph kMerG;
 	kMerG.readFromFile(graph_file);
 	MultiGraph* multiG = multiBeautifyForAlpha2(&kMerG, "");
@@ -98,6 +126,23 @@ void describeGraph(string graph_file, string temp_dir, string temp_label)
 	string fn_globalstats = temp_dir + "/graph_globalstats_" + temp_label + ".txt";
 	ofstream output_stats;
 	output_stats.open (fn_globalstats.c_str(), ios::out | ios::trunc);
+
+	std::string fn_kMers_perLevel = temp_dir + "/graph_kMersPerLevel_" + temp_label + ".txt";
+	ofstream kMersPerLevelStream;
+
+	if(output_kMer_levels)
+	{
+		kMersPerLevelStream.open(fn_kMers_perLevel.c_str());
+		assert(kMersPerLevelStream.is_open());
+
+		kMersPerLevelStream << "Level" << "\t" << "kMerMultiplicityAtLevel";
+		if(referenceGenomeCortexGraph.length())
+		{
+			kMersPerLevelStream << "\t" << "kMerMultiplicityInReferenceGenome";
+		}
+		kMersPerLevelStream << "\n";
+	}
+
 	if (output_stats.is_open())
 	{
 		output_stats << "Level\tNodes\tEdges\tSymbols\tSymbols_CODE\t" << Utilities::join(ordered_categories, "\t") << "\n";
@@ -110,6 +155,7 @@ void describeGraph(string graph_file, string temp_dir, string temp_label)
 			fields.push_back(Utilities::ItoStr(levelInformation.at(i).edges));
 			fields.push_back(Utilities::ItoStr(levelInformation.at(i).symbols));
 			fields.push_back(Utilities::ItoStr(levelInformation.at(i).symbols_CODE));
+
 			for(int k = 0; k < (int)ordered_categories.size(); k++)
 			{
 				string cat = ordered_categories.at(k);
@@ -123,7 +169,33 @@ void describeGraph(string graph_file, string temp_dir, string temp_label)
 				}
 			}
 			output_stats << Utilities::join(fields, "\t") << "\n";
+
+
+			if(output_kMer_levels)
+			{
+				std::map<std::string, unsigned int> kMers_thisLevel = kMerG.getkMersFromLevel(i);
+
+				kMersPerLevelStream << i << "\t" << Utilities::JoinMapUInt2Str(kMers_thisLevel);
+				if(referenceGenomeCortexGraph.length())
+				{
+					std::map<std::string, unsigned int> kMers_referenceCount;
+					for(std::map<std::string, unsigned int>::iterator mIt = kMers_thisLevel.begin(); mIt != kMers_thisLevel.end(); mIt++)
+					{
+						std::string kMer = mIt->first;
+
+						kMers_referenceCount[kMer] = reference_kMers->kMer_getCoverage(kMer);
+					}
+
+					kMersPerLevelStream << "\t" << Utilities::JoinMapUInt2Str(kMers_referenceCount);
+				}
+				kMersPerLevelStream << "\n";
+			}
 		}
+	}
+
+	if(output_kMer_levels)
+	{
+		kMersPerLevelStream.close();
 	}
 	output_stats.close();
 }

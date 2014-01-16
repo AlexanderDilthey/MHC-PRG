@@ -23,6 +23,7 @@ struct levelInfo;
 #include <vector>
 #include <string>
 #include <set>
+#include <map>
 #include "Node.h"
 #include "Edge.h"
 #include "Graph.h"
@@ -132,6 +133,8 @@ public:
 	void removeStarPaths();
 
 	void reverseGraph();
+
+	std::map<std::string, unsigned int> getkMersFromLevel(unsigned int level);
 
 };
 
