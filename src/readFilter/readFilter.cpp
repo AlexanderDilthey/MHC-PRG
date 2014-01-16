@@ -113,7 +113,7 @@ void readFilter::doFilter()
 	if(apply_filter_negative)
 	{
 		int cortex_height = 26;
-		int cortex_width = 10;
+		int cortex_width = 50;
 
 		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
 
