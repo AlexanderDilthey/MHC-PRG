@@ -154,6 +154,53 @@ void Graph::simulateHaplotypes(int number)
 	}
 }
 
+
+diploidEdgePointerPath Graph::simulateRandomDiploidPath()
+{
+	vector< vector<Edge*> > edgePaths;
+	for(int pI = 0; pI < 2; pI++)
+	{
+		vector<Edge*> currentEdgePath;
+
+		Node* currentNode;
+		Node* n0 = *(NodesPerLevel.at(0).begin());
+
+		currentNode = n0;
+		while(currentNode->Outgoing_Edges.size() != 0)
+		{
+			int n_edges = currentNode->Outgoing_Edges.size();
+			vector<Edge*> currentEdges (currentNode->Outgoing_Edges.begin(), currentNode->Outgoing_Edges.end());
+
+			double f = (double)rand() / RAND_MAX;
+
+			f = f * n_edges;
+			int selected_edge = (int) f;
+			if(selected_edge == n_edges)
+			{
+				selected_edge = n_edges - 1;
+			}
+
+			assert(selected_edge >= 0);
+			assert(selected_edge < n_edges);
+
+			Edge* selectedEdge = currentEdges.at(selected_edge);
+
+			currentEdgePath.push_back(selectedEdge);
+			currentNode = selectedEdge->To;
+		}
+
+		assert(currentEdgePath.size() == (NodesPerLevel.size() - 1));
+
+		edgePaths.push_back(currentEdgePath);
+	}
+
+	diploidEdgePointerPath forReturn;
+	forReturn.h1 = edgePaths.at(0);
+	forReturn.h2 = edgePaths.at(1);
+
+	return forReturn;
+}
+
 int Graph::trimGraph(bool remove2DHLA)
 {
 	int removeNodes = 0;

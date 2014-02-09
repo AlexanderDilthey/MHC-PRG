@@ -19,6 +19,9 @@
 #include <exception>
 #include <stdexcept>
 
+#include <boost/filesystem.hpp>
+#include <boost/random/uniform_01.hpp>
+
 // todo at some point activate...
 // unsigned int globalRandRSeed = time(NULL);
 unsigned int globalRandRSeed = 0;
@@ -614,6 +617,175 @@ int Utilities::readStatus(std::string statusFile)
 	assert(status >= 0);
 
 	return status;
+}
+
+
+
+
+std::map<char, double> Utilities::normalize_map(std::map<char, double> m)
+{
+	std::map<char, double> forReturn;
+	double sum = 0;
+	for(std::map<char, double>::iterator cIt = m.begin(); cIt != m.end(); cIt++)
+	{
+		assert(cIt->second >= 0);
+		sum += cIt->second;
+	}
+	assert(sum > 0);
+	for(std::map<char, double>::iterator cIt = m.begin(); cIt != m.end(); cIt++)
+	{
+		forReturn[cIt->first] = cIt->second/sum;
+	}
+	return forReturn;
+}
+
+
+char Utilities::choose_from_normalized_map(std::map<char, double> m)
+{
+	//TODO activate at later point
+	// srand ( time(NULL) );
+
+	assert(RAND_MAX != 0);
+	double f = (double)rand() / RAND_MAX;
+	double resolution = 1 / RAND_MAX;
+	assert(f >= 0);
+	assert(f <= 1);
+
+	char forReturn;
+
+	double current_sum = 0;
+	for(std::map<char, double>::iterator mIt = m.begin(); mIt != m.end(); mIt++)
+	{
+		current_sum += mIt->second;
+		if(f <= current_sum)
+		{
+			forReturn = mIt->first;
+			current_sum = -1;
+			break;
+		}
+	}
+	assert(current_sum = -1);
+
+	return forReturn;
+}
+
+
+char Utilities::choose_from_normalized_map(std::map<char, double> m, boost::mt19937& rng)
+{
+	boost::random::uniform_01<boost::mt19937> f_gen(rng);
+	double f = f_gen();
+	assert(f >= 0);
+	assert(f <= 1);
+
+	char forReturn;
+
+	double current_sum = 0;
+	for(std::map<char, double>::iterator mIt = m.begin(); mIt != m.end(); mIt++)
+	{
+		current_sum += mIt->second;
+		if(f <= current_sum)
+		{
+			forReturn = mIt->first;
+			current_sum = -1;
+			break;
+		}
+	}
+	assert(current_sum = -1);
+
+	return forReturn;
+}
+
+std::string Utilities::seq_reverse_complement(std::string sequence)
+{
+	int length = sequence.size();
+	std::string forReturn;
+	forReturn.resize(length);
+    for(int k=0; k < length; k++)
+    {
+        forReturn[k] = reverse_char_nucleotide(sequence.at(length-k-1));
+    }
+    return forReturn;
+}
+
+
+char Utilities::reverse_char_nucleotide(char c)
+{
+    switch (c)
+    {
+		case 'A':
+			return 'T';
+		case 'C':
+			return 'G';
+		case 'G':
+			return 'C';
+		case 'T':
+			return 'A';
+		case 'N':
+			return 'N';
+		case 'a':
+			return 't';
+		case 'c':
+			return 'g';
+		case 'g':
+			return 'c';
+		case 't':
+			return 'a';
+		case 'n':
+			return 'n';
+		default:
+			throw std::runtime_error("Nucleotide not existing!");
+    }
+}
+
+
+
+bool Utilities::oneBernoulliTrial(double p)
+{
+	//TODO activate at later point
+	// srand ( time(NULL) );
+
+	assert(RAND_MAX != 0);
+	double f = (double)rand() / RAND_MAX;
+	double resolution = 1 / RAND_MAX;
+	assert(f >= 0);
+	assert(f <= 1);
+
+	if(f <= p)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+
+bool Utilities::oneBernoulliTrial(double p, boost::mt19937& rng)
+{
+	boost::random::uniform_01<boost::mt19937> f_gen(rng);
+	double f = f_gen();
+	assert(f >= 0);
+	assert(f <= 1);
+
+	if(f <= p)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+
+char Utilities::randomNucleotide(boost::mt19937& rng)
+{
+	boost::random::uniform_int_distribution<> nucleotide_gen (0,3);
+	char nucleotides[4] = {'A', 'C', 'G', 'T'};
+	int n = nucleotide_gen(rng);
+	assert((n >= 0) && (n <= 3));
+	return nucleotides[n];
 }
 
 

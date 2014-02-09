@@ -207,6 +207,46 @@ int main(int argc, char *argv[])
 		//GraphAlignerUnique::tests::testSeedAndExtend();
 		GraphAlignerUnique::tests::testSeedAndExtend_local();
 	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "testGraphAligner_realGraph"))
+	{
+		string graph_file = arguments.at(2);
+
+		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I100.txt";
+
+		double insertSize_mean = 200;
+		double insertSize_sd = 15;
+		int read_length = 100;
+
+		for(unsigned int i = 5; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--filename_qualityMatrix")
+			{
+				filename_qualityMatrix = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--insertSize_mean")
+			{
+				insertSize_mean = Utilities::StrtoD(arguments.at(i+1));
+			}
+			if(arguments.at(i) == "--insertSize_sd")
+			{
+				insertSize_sd = Utilities::StrtoD(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--readLength")
+			{
+				read_length = Utilities::StrtoI(arguments.at(i+1));
+			}
+		}
+
+		assert(insertSize_mean > 0);
+		assert(insertSize_mean < 1000);
+		assert(insertSize_sd >= 0);
+		assert(insertSize_sd <= 20);
+
+		GraphAlignerUnique::tests::testSeedAndExtend_local_realGraph(graph_file, read_length, insertSize_mean, insertSize_sd, filename_qualityMatrix);
+	}
+
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenValidationTest"))
 	{
 		string viterbi_diploid_gS = "../tmp/kMerCount__GS_nextGen_varigraph_new_AA02O9Q_Z1_31_required.binaryCount.viterbiGenomeString";

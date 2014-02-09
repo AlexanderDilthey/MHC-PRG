@@ -20,6 +20,8 @@ namespace tests {
 	void sampleExactStringFromGraph(Graph* g, int minLength_string, int maxLength_string, std::string& string_ret, std::vector<Edge*>& traversedEdges_ret);
 	void testSeedAndExtend();
 	void testSeedAndExtend_local();
+	void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_length, double insertSize_mean, double insertSize_sd, std::string qualityMatrixFile);
+
 }
 };
 
