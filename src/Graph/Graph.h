@@ -19,6 +19,7 @@ class Edge;
 #include "Edge.h"
 #include "../MHC-PRG.h"
 #include "../LocusCodeAllocation.h"
+#include "LargeGraph.h"
 
 using namespace std;
 
@@ -69,6 +70,10 @@ public:
 	vector<levelInfo> getLevelInfo();
 	
 	std::string getOneLocusIDforLevel(unsigned int level);
+
+	diploidEdgePointerPath simulateRandomDiploidPath();
+
+
 };
 
 #endif /* GRAPH_H_ */

@@ -1145,6 +1145,24 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 }
 
 
+std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired(oneReadPair readPair, bool usePairing)
+{
+	std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
+	assert(! usePairing);
+
+	assert(readPair.reads.first.sequence.find("_") == std::string::npos);
+	assert(readPair.reads.first.sequence.find("*") == std::string::npos);
+	assert(readPair.reads.first.sequence.find("N") == std::string::npos);
+	assert(readPair.reads.second.sequence.find("_") == std::string::npos);
+	assert(readPair.reads.second.sequence.find("*") == std::string::npos);
+	assert(readPair.reads.second.sequence.find("N") == std::string::npos);
+
+	forReturn.first = seedAndExtend_local(readPair.reads.first.sequence);
+	forReturn.second = seedAndExtend_local(readPair.reads.second.sequence);
+
+	return forReturn;
+}
+
 seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string sequence_nonReverse)
 {
 	seedAndExtend_return_local forReturn;

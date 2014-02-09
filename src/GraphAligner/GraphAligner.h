@@ -45,7 +45,7 @@ public:
 					Edge* e = usedEdges.at(cI);
 					Graph* g = usedEdges.at(cI)->From->g;
 					assert(g != 0);
-					std:cout << g->CODE.deCode(e->locus_id, e->emission) << " " << std::flush;
+					std::cout << g->CODE.deCode(e->locus_id, e->emission) << " " << std::flush;
 				}
 				std::cout << "\n" << std::flush;
 			}

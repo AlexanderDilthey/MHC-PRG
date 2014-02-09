@@ -22,6 +22,7 @@
 #include "../GraphAligner/GraphAlignerAffine.h"
 #include "../GraphAligner/AlignerTests.h"
 #include "GraphAlignerUnique.h"
+#include "../NextGen/readSimulator.h"
 
 namespace GraphAlignerUnique  {
 namespace tests {
@@ -600,6 +601,109 @@ void testChains()
 }
 
 
+void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_length, double insertSize_mean, double insertSize_sd, std::string qualityMatrixFile)
+{
+	readSimulator rS(qualityMatrixFile);
+
+	double haploidCoverage = 30;
+	int aligner_kMerSize = 25;
+
+	Graph* g = new Graph();
+	g->readFromFile(graph_filename);
+	GraphAlignerUnique gA(g, aligner_kMerSize);
+
+
+	int simulateGenomePairs = 1;
+	for(int genomePair = 1; genomePair <= simulateGenomePairs; genomePair++)
+	{
+		std::cout << "testSeedAndExtend_local_realGraph(..): Iteration " << genomePair << " / " << simulateGenomePairs << "\n" << std::flush;
+
+		diploidEdgePointerPath diploidPath = g->simulateRandomDiploidPath();
+
+		std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_edgePath(diploidPath.h1, haploidCoverage, insertSize_mean, insertSize_sd);
+		std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_edgePath(diploidPath.h2, haploidCoverage, insertSize_mean, insertSize_sd);
+
+		std::vector<oneReadPair> combinedPairs_for_alignment;
+		combinedPairs_for_alignment.insert(combinedPairs_for_alignment.end(), simulatedReadPairs_h1.begin(), simulatedReadPairs_h1.end());
+		combinedPairs_for_alignment.insert(combinedPairs_for_alignment.end(), simulatedReadPairs_h2.begin(), simulatedReadPairs_h2.end());
+
+		std::cout << "\t" << "Simulated " << combinedPairs_for_alignment.size() << " read pairs." << "\n" << std::flush;
+
+		std::vector<oneReadPair> combinedPairs_for_alignment_filtered;
+		for(unsigned int pI = 0; pI < combinedPairs_for_alignment.size(); pI++)
+		{
+			oneReadPair p = combinedPairs_for_alignment.at(pI);
+			if(	(p.reads.first.sequence.find("*") == std::string::npos) || (p.reads.first.sequence.find("N") == std::string::npos) ||
+				(p.reads.second.sequence.find("*") == std::string::npos) || (p.reads.second.sequence.find("N") == std::string::npos))
+			{
+				combinedPairs_for_alignment_filtered.push_back(p);
+			}
+		}
+
+		std::cout << "\t" << "After filtering out N / *, have " << combinedPairs_for_alignment_filtered.size() << " read pairs." << "\n" << std::flush;
+
+		auto checkOneReadLevelCorrectness = [](oneRead& r, seedAndExtend_return_local& r_aligned, int& levels_total, int& levels_OK) -> void {
+			levels_total = 0;
+			levels_OK = 0;
+
+			assert(r.coordinates_edgePath.size() == r.sequence.length());
+			int cI_in_unaligned_sequence = -1;
+			for(unsigned int cI = 0; cI < r_aligned.sequence_aligned.size(); cI++)
+			{
+				char c = r_aligned.sequence_aligned.at(cI);
+				if(c == '_')
+				{
+					// ignore
+				}
+				else
+				{
+					cI_in_unaligned_sequence++;
+					int specifiedEdgeLevel = r_aligned.graph_aligned_levels.at(cI);
+					int correctEdgeLevel = r.coordinates_edgePath.at(cI_in_unaligned_sequence);
+
+					levels_total++;
+					if(specifiedEdgeLevel == correctEdgeLevel)
+					{
+						levels_OK++;
+					}
+				}
+			}
+		};
+
+		auto alignAndEvaluateReadPairAlignment = [&](std::vector<oneReadPair> readPairs, bool usePairing) -> void {
+
+			std::cout << "\t" << "alignAndEvaluateReadPairAlignment for usePairing = " << usePairing << "\n" << std::flush;
+
+			int summary_levels_evaluated = 0;
+			int summary_levels_OK = 0;
+			for(unsigned int pairI = 0; pairI < readPairs.size(); pairI++)
+			{
+				oneReadPair& rP = readPairs.at(pairI);
+				oneRead& r1 = rP.reads.first;
+				oneRead& r2 = rP.reads.second;
+
+				std::cout << "\t\t" << "Align pair " << pairI << "\n" << std::flush;
+				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignments_readPair = gA.seedAndExtend_local_paired(rP, usePairing);
+
+				int r1_levels; int r1_levels_OK;
+				int r2_levels; int r2_levels_OK;
+
+				checkOneReadLevelCorrectness(r1, alignments_readPair.first, r1_levels, r1_levels_OK);
+				checkOneReadLevelCorrectness(r2, alignments_readPair.second, r2_levels, r2_levels_OK);
+
+				summary_levels_evaluated += (r1_levels + r2_levels);
+				summary_levels_OK += (r1_levels_OK + r2_levels_OK);
+			}
+
+			std::cout << "\t\t" << "Summary for usePairing = " << usePairing << ": " << summary_levels_evaluated << " evaluated, of which " << summary_levels_OK << " were OK. ";
+				std::cout << "(" << summary_levels_OK/summary_levels_evaluated << ")" << "\n\n" << std::flush;
+		};
+
+		alignAndEvaluateReadPairAlignment(combinedPairs_for_alignment_filtered, false);
+
+	}
+
+}
 
 void sampleExactStringFromGraph(Graph* g, int minLength_string, int maxLength_string, std::string& string_ret, std::vector<Edge*>& traversedEdges_ret)
 {

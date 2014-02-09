@@ -11,11 +11,13 @@
 #include "GraphAndEdgeIndex.h"
 #include "../GraphAligner/GraphAligner.h"
 #include "VirtualNWUnique.h"
+#include "../NextGen/readSimulator.h"
 
 #include <map>
 #include <vector>
 #include <string>
 #include <functional>
+#include <utility>
 
 namespace GraphAlignerUnique {
 
@@ -125,6 +127,7 @@ public:
 	seedAndExtend_return seedAndExtend(std::string sequence);
 	seedAndExtend_return_local seedAndExtend_local(std::string sequence);
 
+	std::pair<seedAndExtend_return_local, seedAndExtend_return_local> seedAndExtend_local_paired(oneReadPair readPair, bool usePairing);
 
 	GraphAndEdgeIndex& getGI()
 	{

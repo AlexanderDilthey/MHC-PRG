@@ -13,6 +13,7 @@
 #include <sstream>
 #include <map>
 #include <utility>
+#include <boost/random.hpp>
 
 using namespace std;
 
@@ -56,6 +57,9 @@ public:
 	static std::pair<std::string,std::vector<int>> modifySequence(std::string sequence, std::vector<int> positionOrigin, double mutationFrequence = 0.1, double insertionFrequence = 0.05, int insertionMaxLength = 4, double deletionFrequence = 0.1, int deletionMaxLength = 5);
 
 	static char randomNucleotide();
+	static char randomNucleotide(boost::mt19937& rng);
+
+
 	static int randomNumber(int max);
 	static int randomNumber_nonCritical(int max, unsigned int* thisSeed);
 
@@ -69,6 +73,17 @@ public:
 	static void writeStatus(std::string statusFile, int status);
 
 	static std::string JoinMapUInt2Str(std::map<std::string, unsigned int> M);
+
+	static std::map<char, double> normalize_map(std::map<char, double> m);
+	static char choose_from_normalized_map(std::map<char, double> m);
+	static char choose_from_normalized_map(std::map<char, double> m, boost::mt19937& rng);
+
+	static std::string seq_reverse_complement(std::string sequence);
+	static char reverse_char_nucleotide(char c);
+
+	static bool oneBernoulliTrial(double p);
+	static bool oneBernoulliTrial(double p, boost::mt19937& rng);
+
 
 
 };
