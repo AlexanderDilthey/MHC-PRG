@@ -144,6 +144,28 @@ std::pair<double, unsigned int> Utilities::findVectorMaxP(std::vector<double>& v
 	return std::pair<double, unsigned int>(max, selectedI);
 }
 
+// Converts char to probability of correct genotype, according to Illumina scheme
+double Utilities::PhredToPCorrect(char nucleotideQuality)
+{
+	if(nucleotideQuality == 0)
+	{
+		return -1;
+	}
+	char illuminaPhred = nucleotideQuality - 33;
+	assert(illuminaPhred >= 0);
+
+	//char illuminaPhred = nucleotideQuality;
+	double log10_pWrong = (double)illuminaPhred / (double)-10;
+	double pWrong = exp(log(10) * log10_pWrong);
+	assert(pWrong >= 0);
+	assert(pWrong <= 1);
+
+	double pRight = 1 - pWrong;
+	assert(pRight >= 0);
+	assert(pRight <= 1);
+	return pRight;
+}
+
 std::pair<double, unsigned int> Utilities::findVectorMaxP_nonCritical(std::vector<double>& v, unsigned int* thisSeed)
 {
 	assert(v.size() > 0);

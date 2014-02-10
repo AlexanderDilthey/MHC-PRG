@@ -71,6 +71,7 @@ public:
 	size_t kMers_total;
 	size_t kMers_unique_total;
 	size_t kMers_unique_utilized;
+	bool reverse;
 };
 
 
