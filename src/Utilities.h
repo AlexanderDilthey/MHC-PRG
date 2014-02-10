@@ -84,6 +84,9 @@ public:
 	static bool oneBernoulliTrial(double p);
 	static bool oneBernoulliTrial(double p, boost::mt19937& rng);
 
+	static double PhredToPCorrect(char nucleotideQuality);
+
+
 
 
 };

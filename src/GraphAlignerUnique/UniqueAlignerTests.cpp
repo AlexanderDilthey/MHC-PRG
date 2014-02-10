@@ -391,7 +391,8 @@ void testSeedAndExtend_local()
 //				std::cout << "Start full-string alignment...\n" << std::flush;
 //
 
-			seedAndExtend_return_local wholeString_alignments_local = gA.seedAndExtend_local(randomString_noGaps);
+			std::vector<seedAndExtend_return_local> allBacktraces;
+			seedAndExtend_return_local wholeString_alignments_local = gA.seedAndExtend_local(randomString_noGaps, allBacktraces);
 //
 //			seedAndExtend_return wholeString_alignments = gA.seedAndExtend(randomString_noGaps);
 			seedAndExtend_return wholeString_alignments_2 = gA2.seedAndExtend(randomString_noGaps);
@@ -675,6 +676,10 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		std::cout << "\t" << "After filtering out N / *, have " << combinedPairs_for_alignment_filtered.size() << " read pairs." << "\n" << std::flush;
 
 		auto checkOneReadLevelCorrectness = [](oneRead& r, seedAndExtend_return_local& r_aligned, int& levels_total, int& levels_OK) -> void {
+
+			// todo remove later
+			assert(r_aligned.reverse == false);
+
 			levels_total = 0;
 			levels_OK = 0;
 
@@ -691,14 +696,29 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 				{
 					cI_in_unaligned_sequence++;
 					int specifiedEdgeLevel = r_aligned.graph_aligned_levels.at(cI);
-					int correctEdgeLevel = r.coordinates_edgePath.at(cI_in_unaligned_sequence);
+
+
+					int cI_in_unaligned_sequence_correctlyAligned = cI_in_unaligned_sequence;
+					if(r_aligned.reverse)
+					{
+						cI_in_unaligned_sequence_correctlyAligned = (r.sequence.length() - cI_in_unaligned_sequence_correctlyAligned - 1);
+					}
+					assert(cI_in_unaligned_sequence_correctlyAligned >= 0);
+					assert(cI_in_unaligned_sequence_correctlyAligned < r.sequence.length());
+
+					int correctEdgeLevel = r.coordinates_edgePath.at(cI_in_unaligned_sequence_correctlyAligned);
 
 					levels_total++;
 					if(specifiedEdgeLevel == correctEdgeLevel)
 					{
 						levels_OK++;
 					}
+
+					char sequenceCharacter_from_alignment = r_aligned.sequence_aligned.at(cI);
+					char sequenceCharacter_from_originalRead = r.sequence.at(cI_in_unaligned_sequence_correctlyAligned);
+					assert(sequenceCharacter_from_alignment == sequenceCharacter_from_originalRead);
 				}
+
 			}
 		};
 
@@ -767,7 +787,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 				oneReadPair& rP = readPairs.at(pairI);
 				oneRead& r1 = rP.reads.first;
 				oneRead& r2 = rP.reads.second;
-				
+			
 				std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignments_thisPair = alignments.at(alignmentI);
 
 				int r1_levels; int r1_levels_OK;

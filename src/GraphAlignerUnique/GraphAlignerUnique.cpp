@@ -20,6 +20,8 @@
 #include <omp.h>
 #include <sstream>
 
+#include <boost/math/distributions/normal.hpp>
+
 #include "../Utilities.h"
 #include "../hash/sequence/basic.h"
 #include "VirtualNWUnique.h"
@@ -54,6 +56,80 @@ GraphAlignerUnique::GraphAlignerUnique(Graph* graph, int k) : g(graph), kMerSize
 			nodesPerLevel_ordered_rev.at(levelI)[nodesPerLevel_ordered.at(levelI).at(nodeI)] = nodeI;
 		}
 	}
+}
+
+
+double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExtend_return_local& alignment, int& totalMismatches)
+{
+	int indexIntoOriginalReadData = -1;
+
+	double rate_deletions = log(0.01);
+	double rate_insertions = log(0.01);
+	double combined_log_likelihood = 0;
+
+	totalMismatches = 0;
+
+	for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
+	{
+		std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+		std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
+		int graphLevel = alignment.graph_aligned_levels.at(cI);
+
+		if(sequenceCharacter != "_")
+		{
+			indexIntoOriginalReadData++;
+			int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
+			if(alignment.reverse)
+			{
+				indexIntoOriginalReadData_correctlyAligned = underlyingRead.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
+			}
+			assert(indexIntoOriginalReadData_correctlyAligned >= 0);
+			assert(indexIntoOriginalReadData_correctlyAligned < underlyingRead.sequence.length());;
+
+			assert(underlyingRead.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1) == sequenceCharacter);
+
+			if(graphCharacter == "_")
+			{
+				// sequence non gap, graph gap -- insertion
+				combined_log_likelihood += (rate_insertions + log(1/4));
+				totalMismatches++;
+			}
+			else
+			{
+				// two well-defined characters
+				char qualityCharacter = underlyingRead.quality.at(indexIntoOriginalReadData_correctlyAligned);
+				double pCorrect = Utilities::PhredToPCorrect(qualityCharacter);
+				assert((pCorrect >= 0) && (pCorrect <= 1));
+				if(sequenceCharacter == graphCharacter)
+				{
+					combined_log_likelihood += log(pCorrect);
+				}
+				else
+				{
+					combined_log_likelihood += log(1 - pCorrect);
+					totalMismatches++;
+				}
+			}
+
+		}
+		else
+		{
+			assert(sequenceCharacter == "_");
+			if(graphCharacter == "_")
+			{
+				// sequence gap, graph gap - likelihood 1
+				assert(graphLevel != -1);
+			}
+			else
+			{
+				// sequence gap, graph non gap - deletion in sequence
+				combined_log_likelihood += rate_deletions;
+				totalMismatches++;
+			}
+		}
+	}
+
+	return combined_log_likelihood;
 }
 
 
@@ -1271,9 +1347,8 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 }   
 
 
-std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired(oneReadPair readPair, bool usePairing)
+std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired(oneReadPair readPair, bool usePairing, double insertSize_mean, double insertSize_sd)
 {
-	assert(! usePairing);
 
 	assert(readPair.reads.first.sequence.find("_") == std::string::npos);
 	assert(readPair.reads.first.sequence.find("*") == std::string::npos);
@@ -1281,17 +1356,85 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	assert(readPair.reads.second.sequence.find("_") == std::string::npos);
 	assert(readPair.reads.second.sequence.find("*") == std::string::npos);
 	assert(readPair.reads.second.sequence.find("N") == std::string::npos);
-		
-	std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
-	
-	forReturn.first = seedAndExtend_local(readPair.reads.first.sequence);
-			
-	forReturn.second = seedAndExtend_local(readPair.reads.second.sequence);
-	
-	return forReturn;
+
+	std::vector<seedAndExtend_return_local> read1_backtraces;
+	std::vector<seedAndExtend_return_local> read2_backtraces;
+
+	double minusInfinity = -1 * numeric_limits<double>::max();
+	boost::math::normal rnd_InsertSize(insertSize_mean, insertSize_sd);
+
+	//boost::random::normal_distribution<> rnd_InsertSize (insertSize_mean, insertSize_sd);
+
+	if(usePairing)
+	{
+		seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
+		seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
+
+		std::vector<double> likelihoods_read1_alternatives;
+		for(unsigned int i = 0; i < read1_backtraces.size(); i++)
+		{
+			seedAndExtend_return_local& thisBacktrace = read1_backtraces.at(i);
+			int ignore;
+			double LL = scoreOneAlignment(readPair.reads.first, thisBacktrace, ignore);
+			likelihoods_read1_alternatives.push_back(LL);
+		}
+		assert(likelihoods_read1_alternatives.size() == read1_backtraces.size());
+
+		std::vector<double> likelihoods_read2_alternatives;
+		for(unsigned int i = 0; i < read2_backtraces.size(); i++)
+		{
+			seedAndExtend_return_local& thisBacktrace = read2_backtraces.at(i);
+			int ignore;
+			double LL = scoreOneAlignment(readPair.reads.second, thisBacktrace, ignore);
+			likelihoods_read2_alternatives.push_back(LL);
+		}
+		assert(likelihoods_read2_alternatives.size() == read2_backtraces.size());
+
+
+		std::vector<double> combinedScores;
+		std::vector<std::pair<unsigned int, unsigned int> > combinedScores_indices;
+		for(unsigned int aI1 = 0; aI1 < read1_backtraces.size(); aI1++)
+		{
+			for(unsigned int aI2 = 0; aI2 < read2_backtraces.size(); aI2++)
+			{
+				double combinedScore = likelihoods_read1_alternatives.at(aI1) + likelihoods_read2_alternatives.at(aI2);
+
+				int distance_graph_levels = read2_backtraces.at(aI2).graph_aligned_levels.front() - read1_backtraces.at(aI1).graph_aligned_levels.back();
+				double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
+
+				assert((distance_graph_levels_P >= 0) && (distance_graph_levels_P <= 1));
+
+				combinedScore += log(distance_graph_levels);
+
+				if(read1_backtraces.at(aI1).reverse != read2_backtraces.at(aI2).reverse)
+				{
+					combinedScore = minusInfinity;
+				}
+
+				combinedScores.push_back(combinedScore);
+				combinedScores_indices.push_back(std::make_pair(aI1, aI2));
+			}
+		}
+
+		std::pair<double, unsigned int> bestCombination = Utilities::findVectorMax(combinedScores);
+
+		std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
+		forReturn.first = read1_backtraces.at(combinedScores_indices.at(bestCombination.second).first);
+		forReturn.second = read2_backtraces.at(combinedScores_indices.at(bestCombination.second).second);
+		return forReturn;
+	}
+	else
+	{
+		std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
+		forReturn.first = seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
+		forReturn.second = seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
+		return forReturn;
+	}
+
+>>>>>>> 1c55cc23466a7ad70a129bb091e1b8a579262ef1
 }
 
-seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string sequence_nonReverse)
+seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces)
 {
 	seedAndExtend_return_local forReturn;
 	
@@ -1764,6 +1907,20 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 		}
 	}
 
+	allBacktraces.clear();
+	for(unsigned int bI = 0; bI < possibleBacktraces.size(); bI++)
+	{
+		seedAndExtend_return& possibleBacktrace = possibleBacktraces.at(bI);
+		seedAndExtend_return_local possibleBacktrace_forReturn;
+
+		possibleBacktrace_forReturn.Score = possibleBacktrace.Score;
+		possibleBacktrace_forReturn.graph_aligned = possibleBacktrace.graph_aligned;
+		possibleBacktrace_forReturn.sequence_aligned = possibleBacktrace.sequence_aligned;
+		possibleBacktrace_forReturn.graph_aligned_levels = possibleBacktrace.graph_aligned_levels;
+		possibleBacktrace_forReturn.reverse = useReverse;
+		allBacktraces.push_back(possibleBacktrace_forReturn);
+	}
+
 	seedAndExtend_return_local selectedBacktrace_forReturn;
 	selectedBacktrace_forReturn.Score = selectedBacktrace.Score;
 	selectedBacktrace_forReturn.graph_aligned = selectedBacktrace.graph_aligned;
@@ -1773,6 +1930,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 	selectedBacktrace_forReturn.kMers_total = kMers_impliedSequence.size();
 	selectedBacktrace_forReturn.kMers_unique_total = kMers_unique;
 	selectedBacktrace_forReturn.kMers_unique_utilized = kMers_unique_utilized;
+	selectedBacktrace_forReturn.reverse = useReverse;
 
 	double certainty_average_sequenceCertainty = certainty_sum_sequenceCertainty / (double)sequence.length();
 	double certainty_average_graphCertainty = certainty_sum_graphCertainty / (double)(g->NodesPerLevel.size() - 1);
@@ -1781,13 +1939,13 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 
 	// std::cout << Utilities::timestamp() << " Finished GraphAlignerUnique::seedAndExtend_local(..)! Average certainty " << certainty_average_sequenceCertainty << " (sequence) / " << certainty_average_graphCertainty << " (graph).; matching positions in sequence: " << matches_alignment << " / " << sequence.length() << ".\n" << std::flush;
 
-	for(int i = 0; i < chains_for_sequence.size(); i++)
+	for(unsigned int i = 0; i < chains_for_sequence.size(); i++)
 	{
 		kMerEdgeChain* c = chains_for_sequence.at(i);
 		delete(c);
 	}
 
-	for(int i = 0; i < uniquelyTrimmedChains.size(); i++)
+	for(unsigned int i = 0; i < uniquelyTrimmedChains.size(); i++)
 	{
 		kMerEdgeChain* c = uniquelyTrimmedChains.at(i);
 		delete(c);

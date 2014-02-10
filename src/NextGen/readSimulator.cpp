@@ -363,7 +363,6 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 					oneReadPair rP(r1, r2, jumpSize);
 
 					forReturn.push_back(rP);
-
 				}
 			}
 		}
