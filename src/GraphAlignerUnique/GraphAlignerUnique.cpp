@@ -1430,8 +1430,6 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		forReturn.second = seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
 		return forReturn;
 	}
-
->>>>>>> 1c55cc23466a7ad70a129bb091e1b8a579262ef1
 }
 
 seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces)
