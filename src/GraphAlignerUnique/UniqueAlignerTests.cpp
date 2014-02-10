@@ -615,7 +615,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 	std::cout << Utilities::timestamp() << "testSeedAndExtend_local_realGraph(..): Create GraphAlignerUnique.\n" << std::flush;
 	
-	int outerThreads = 4;
+	int outerThreads = 32;
 	omp_set_num_threads(outerThreads);
 	
 	std::vector<Graph*> graphs;  
@@ -665,7 +665,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		std::vector<oneReadPair> combinedPairs_for_alignment_filtered;
 		for(unsigned int pI = 0; pI < combinedPairs_for_alignment.size(); pI++)
 		{
-			if((pI % 100) != 0)
+			if((pI % 5) != 0)
 			{
 				continue;
 			}
@@ -681,10 +681,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		std::cout << "\t" << "After filtering out N / *, have " << combinedPairs_for_alignment_filtered.size() << " read pairs." << "\n" << std::flush;
 
 		auto checkOneReadLevelCorrectness = [&](oneRead& r, seedAndExtend_return_local& r_aligned, int& levels_total, int& levels_OK) -> void {
-
-			// todo remove later
-			assert(r_aligned.reverse == false);
-
+		
 			levels_total = 0;
 			levels_OK = 0;
 
@@ -737,7 +734,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 				incorrectAlignmentsStream << "\t" << "Al. genome:" << "\t" << r_aligned.graph_aligned << "\n";
 				incorrectAlignmentsStream << "\t" << "  Al. read:" << "\t" << r_aligned.sequence_aligned << "\n\n";
 				incorrectAlignmentsStream << "\t" << "Al. levels:" << "\t" << Utilities::join(Utilities::ItoStr(r_aligned.graph_aligned_levels), " ") << "\n";
-				incorrectAlignmentsStream << "\t" << "  Al. read:" << "\t" << Utilities::join(correctLevelsInAlignmentOrder, " ") << "\n\n";
+				incorrectAlignmentsStream << "\t" << "True levls:" << "\t" << Utilities::join(correctLevelsInAlignmentOrder, " ") << "\n\n";
 				incorrectAlignmentsStream << std::flush;
 			}
 		};
@@ -753,7 +750,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		{
 			unsigned int pairI = 0;
 			unsigned int pairMax = readPairs.size();
-			#pragma omp parallel for
+			#pragma omp parallel for schedule(dynamic)
 			for(pairI = 0; pairI < pairMax; pairI++)
 			{
 				int tI = omp_get_thread_num();

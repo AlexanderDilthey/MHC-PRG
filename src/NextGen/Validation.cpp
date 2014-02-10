@@ -225,7 +225,8 @@ void alignContigsToAllChromotypes(std::string chromotypes_file, std::string amen
 
 			gA.setIterationsMainRandomizationLoop(11);
 			gA.setThreads(6);
-			seedAndExtend_return_local wholeString_alignment = gA.seedAndExtend_local(sequence);
+			std::vector<seedAndExtend_return_local> allBacktraces;
+			seedAndExtend_return_local wholeString_alignment = gA.seedAndExtend_local(sequence, allBacktraces);
 
 			assert(wholeString_alignment.graph_aligned_levels.size() == wholeString_alignment.graph_aligned.length());
 			std::vector<std::string> graph_aligned_levels_Strings;
