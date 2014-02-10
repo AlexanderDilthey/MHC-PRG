@@ -691,8 +691,8 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 			for(unsigned int cI = 0; cI < r_aligned.sequence_aligned.size(); cI++)
 			{
-				char c = r_aligned.sequence_aligned.at(cI);
-				if(c == '_')
+				char sequenceCharacter_from_alignment = r_aligned.sequence_aligned.at(cI);
+				if(sequenceCharacter_from_alignment == '_')
 				{
 					// ignore
 					correctLevelsInAlignmentOrder.push_back("/");
@@ -706,7 +706,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 					int cI_in_unaligned_sequence_correctlyAligned = cI_in_unaligned_sequence;
 					if(r_aligned.reverse)
 					{
-						cI_in_unaligned_sequence_correctlyAligned = (r.sequence.length() - cI_in_unaligned_sequence_correctlyAligned - 1);
+						cI_in_unaligned_sequence_correctlyAligned = (r.sequence.length() - cI_in_unaligned_sequence - 1);
 					}
 					assert(cI_in_unaligned_sequence_correctlyAligned >= 0);
 					assert(cI_in_unaligned_sequence_correctlyAligned < (int)r.sequence.length());
@@ -720,8 +720,51 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 						levels_OK++;
 					}
 
-					char sequenceCharacter_from_alignment = r_aligned.sequence_aligned.at(cI);
 					char sequenceCharacter_from_originalRead = r.sequence.at(cI_in_unaligned_sequence_correctlyAligned);
+					if(r_aligned.reverse)
+					{	
+						sequenceCharacter_from_originalRead = Utilities::reverse_char_nucleotide(sequenceCharacter_from_originalRead);
+					}
+					
+					if(!(sequenceCharacter_from_alignment == sequenceCharacter_from_originalRead))
+					{
+						std::cerr << "! (sequenceCharacter_from_alignment == sequenceCharacter_from_originalRead)" << "\n" << std::flush;
+						std::vector<std::string> sequence_from_alignment;
+						std::vector<std::string> sequence_from_originalRead;
+						for(unsigned int cI2 = 0; cI2 < r_aligned.sequence_aligned.size(); cI2++)
+						{
+							int cI2_in_unaligned_sequence = -1;
+							std::string cStr = r_aligned.sequence_aligned.substr(cI2, 1);
+							if(cStr == "_")
+							{
+							}
+							else
+							{
+								sequence_from_alignment.push_back(cStr);
+								
+								cI2_in_unaligned_sequence++;
+								int cI2_in_unaligned_sequence_correctlyAligned = cI2_in_unaligned_sequence;
+								if(r_aligned.reverse)
+								{
+									cI2_in_unaligned_sequence_correctlyAligned = (r.sequence.length() - cI2_in_unaligned_sequence - 1);									
+								}								
+								std::string cStr_from_originalRead = r.sequence.substr(cI2_in_unaligned_sequence_correctlyAligned, 1);
+								if(r_aligned.reverse)
+								{
+									cStr_from_originalRead = Utilities::seq_reverse_complement(cStr_from_originalRead);
+								}
+								sequence_from_originalRead.push_back(cStr_from_originalRead);
+							}								
+						}
+						
+						std::cerr << "Sequence alignment: " << r_aligned.sequence_aligned << "\n";
+						std::cerr << "Sequence original read: " << r.sequence << "\n";
+						std::cerr << "Alignment reverse: " << r_aligned.reverse << "\n";
+						std::cerr << "Extracted characters from alignment: " << Utilities::join(sequence_from_alignment, " ") << "\n";
+						std::cerr << "Extracted characters from alignment: " << Utilities::join(sequence_from_originalRead, " ") << "\n";
+						std::cerr << "\n\n" << std::flush;
+						
+					}
 					assert(sequenceCharacter_from_alignment == sequenceCharacter_from_originalRead);
 				}
 			}
