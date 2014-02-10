@@ -320,7 +320,8 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 					thread_read_pairs++;
 
 					read2 = Utilities::seq_reverse_complement(read2);
-
+					std::reverse(read2_qualities.begin(), read2_qualities.end());
+					
 					std::string read1_name = "p1" + readName_field_separator + Utilities::ItoStr(i);
 					std::string read2_name = "p2" + readName_field_separator + Utilities::ItoStr(i + jumpSize);
 
@@ -356,10 +357,14 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 
 					r1.coordinates_string = read1_coordinates_string;
 					r1.coordinates_edgePath = read1_coordinates_edgePath;
+					
+					std::reverse(read2_coordinates_string.begin(), read2_coordinates_string.end());
+					std::reverse(read2_coordinates_edgePath.begin(), read2_coordinates_edgePath.end());
 
 					r2.coordinates_string = read2_coordinates_string;
 					r2.coordinates_edgePath = read2_coordinates_edgePath;
 
+					
 					oneReadPair rP(r1, r2, jumpSize);
 
 					forReturn.push_back(rP);
@@ -577,7 +582,8 @@ size_t readSimulator::simulate_paired_reads_from_string(std::string readNamePref
 					thread_read_pairs++;
 
 					read2 = Utilities::seq_reverse_complement(read2);
-
+					
+					
 					std::string read1_name = readNamePrefix + readName_field_separator + "p1" + readName_field_separator + Utilities::ItoStr(i);
 					std::string read2_name = readNamePrefix + readName_field_separator + "p2" + readName_field_separator + Utilities::ItoStr(i + jumpSize);
 

@@ -86,7 +86,12 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 			assert(indexIntoOriginalReadData_correctlyAligned >= 0);
 			assert(indexIntoOriginalReadData_correctlyAligned < underlyingRead.sequence.length());;
 
-			assert(underlyingRead.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1) == sequenceCharacter);
+			std::string underlyingReadCharacter = underlyingRead.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
+			if(alignment.reverse)
+			{
+				underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+			}
+			assert(underlyingReadCharacter == sequenceCharacter);
 
 			if(graphCharacter == "_")
 			{
