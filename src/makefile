@@ -1,8 +1,8 @@
 # LIBRARY SETTINGS - SET AS NECESSARY
 
-LIB_BOOST = /home/dilthey/PnP/libs/boost_1_41_0/
+LIB_BOOST = /home/dilthey/PnP/libs/boost_1_52_0/
 INCS = -I$(LIB_BOOST) -IGraph -I/home/dilthey/bamtools/bamtools/include -I/home/dilthey/bamtools/bamtools/src
-LIBS = /home/dilthey/bamtools/bamtools/lib/libbamtools.a /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.so  /home/dilthey/bamtools/zlib-1.2.7/libz.a
+LIBS = /home/dilthey/PnP/libs/boost_1_52_0/stage/lib/libboost_random.so /home/dilthey/PnP/libs/boost_1_52_0/stage/lib/libboost_system.so  /home/dilthey/bamtools/bamtools/lib/libbamtools.a /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.so  /home/dilthey/bamtools/zlib-1.2.7/libz.a
 
 MKDIR_P = mkdir -p
 
@@ -38,6 +38,7 @@ OBJS = \
         $(DIR_OBJ)/Node.o \
         $(DIR_OBJ)/NextGen.o \
         $(DIR_OBJ)/simulationSuite.o \
+        $(DIR_OBJ)/readSimulator.o \
         $(DIR_OBJ)/Validation.o \
         $(DIR_OBJ)/LocusCodeAllocation.o \
         $(DIR_OBJ)/LargeLocusCodeAllocation.o \

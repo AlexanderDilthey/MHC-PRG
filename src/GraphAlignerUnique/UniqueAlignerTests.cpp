@@ -24,6 +24,8 @@
 #include "GraphAlignerUnique.h"
 #include "../NextGen/readSimulator.h"
 
+#include <omp.h>
+
 namespace GraphAlignerUnique  {
 namespace tests {
 
@@ -608,20 +610,45 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 	double haploidCoverage = 30;
 	int aligner_kMerSize = 25;
 
-	Graph* g = new Graph();
-	g->readFromFile(graph_filename);
-	GraphAlignerUnique gA(g, aligner_kMerSize);
+	std::cout << Utilities::timestamp() << "testSeedAndExtend_local_realGraph(..): Loading graph.\n" << std::flush;
 
+	std::cout << Utilities::timestamp() << "testSeedAndExtend_local_realGraph(..): Create GraphAlignerUnique.\n" << std::flush;
+	
+	int outerThreads = 4;
+	omp_set_num_threads(outerThreads);
+	
+	std::vector<Graph*> graphs;  
+	std::vector<GraphAlignerUnique*> graphAligners;
+	graphs.resize(outerThreads);
+	graphAligners.resize(outerThreads);
+	
+	# pragma omp parallel for
+	for(unsigned int tI = 0; tI < outerThreads; tI++)
+	{
+		// std::cout << "Thread " << tI << "\n" << std::flush;
+		
+		Graph* g = new Graph();
+		g->readFromFile(graph_filename);
+			
+		graphAligners.at(tI) = new GraphAlignerUnique(g, aligner_kMerSize);
+		graphAligners.at(tI)->setIterationsMainRandomizationLoop(1);
+		graphAligners.at(tI)->setThreads(1);	
+		
+		graphs.at(tI) = g;
+	}
+	
+
+	std::cout << Utilities::timestamp() << "\tdone.\n" << std::flush;	
 
 	int simulateGenomePairs = 1;
 	for(int genomePair = 1; genomePair <= simulateGenomePairs; genomePair++)
 	{
-		std::cout << "testSeedAndExtend_local_realGraph(..): Iteration " << genomePair << " / " << simulateGenomePairs << "\n" << std::flush;
+		std::cout << Utilities::timestamp() << "testSeedAndExtend_local_realGraph(..): Iteration " << genomePair << " / " << simulateGenomePairs << "\n" << std::flush;
 
-		diploidEdgePointerPath diploidPath = g->simulateRandomDiploidPath();
+		diploidEdgePointerPath diploidPath = graphs.at(0)->simulateRandomDiploidPath();
 
-		std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_edgePath(diploidPath.h1, haploidCoverage, insertSize_mean, insertSize_sd);
-		std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_edgePath(diploidPath.h2, haploidCoverage, insertSize_mean, insertSize_sd);
+		std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_edgePath(diploidPath.h1, haploidCoverage, insertSize_mean, insertSize_sd, true);
+		std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_edgePath(diploidPath.h2, haploidCoverage, insertSize_mean, insertSize_sd, true);
 
 		std::vector<oneReadPair> combinedPairs_for_alignment;
 		combinedPairs_for_alignment.insert(combinedPairs_for_alignment.end(), simulatedReadPairs_h1.begin(), simulatedReadPairs_h1.end());
@@ -632,9 +659,14 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		std::vector<oneReadPair> combinedPairs_for_alignment_filtered;
 		for(unsigned int pI = 0; pI < combinedPairs_for_alignment.size(); pI++)
 		{
-			oneReadPair p = combinedPairs_for_alignment.at(pI);
-			if(	(p.reads.first.sequence.find("*") == std::string::npos) || (p.reads.first.sequence.find("N") == std::string::npos) ||
-				(p.reads.second.sequence.find("*") == std::string::npos) || (p.reads.second.sequence.find("N") == std::string::npos))
+			if((pI % 100) != 0)
+			{
+				continue;
+			}
+					
+			oneReadPair& p = combinedPairs_for_alignment.at(pI);
+			if(	(p.reads.first.sequence.find("*") == std::string::npos) && (p.reads.first.sequence.find("N") == std::string::npos) &&
+				(p.reads.second.sequence.find("*") == std::string::npos) && (p.reads.second.sequence.find("N") == std::string::npos))
 			{
 				combinedPairs_for_alignment_filtered.push_back(p);
 			}
@@ -670,36 +702,89 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 			}
 		};
 
-		auto alignAndEvaluateReadPairAlignment = [&](std::vector<oneReadPair> readPairs, bool usePairing) -> void {
+		std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> > alignments_perThread;
+		std::vector< std::vector<int> > alignments_readPairI_perThread;
+		
+		alignments_perThread.resize(outerThreads);
+		alignments_readPairI_perThread.resize(outerThreads);
+		
+		
+		auto alignReadPairs = [&](std::vector<oneReadPair>& readPairs, bool usePairing) -> void
+		{
+			unsigned int pairI = 0;
+			unsigned int pairMax = readPairs.size();
+			#pragma omp parallel for
+			for(pairI = 0; pairI < pairMax; pairI++)
+			{
+				int tI = omp_get_thread_num();
+				assert(omp_get_num_threads() == outerThreads);
+				assert((tI >= 0) && (tI < outerThreads));
+				
+				assert((pairI >= 0) && (pairI < readPairs.size()));
+				oneReadPair rP = readPairs.at(pairI);				
+				    
+				assert((tI >= 0) && (tI < graphAligners.size()));
 
-			std::cout << "\t" << "alignAndEvaluateReadPairAlignment for usePairing = " << usePairing << "\n" << std::flush;
+				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = graphAligners.at(tI)->seedAndExtend_local_paired(rP, usePairing);			
 
+				alignments_perThread.at(tI).push_back(alignment_pair);
+				alignments_readPairI_perThread.at(tI).push_back(pairI);
+				
+				if(tI == 2)
+				{
+					std::cout  << Utilities::timestamp() << "\t\t" << "Thread " << tI << ": align pair " << pairI << "\n" << std::flush;
+				}
+			}
+		};
+		
+		
+		std::cout << Utilities::timestamp() << "\t\t" << "Start alignment.\n" << std::flush;
+		
+		alignReadPairs(combinedPairs_for_alignment_filtered, false);		
+		
+		std::cout  << Utilities::timestamp() << "\t\t" << "All pairs aligned - merge.\n" << std::flush;
+		std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > alignments;
+		std::vector< int > alignments_readPairI;
+		for(unsigned int tI = 0; tI < outerThreads; tI++)
+		{
+			alignments.insert(alignments.end(), alignments_perThread.at(tI).begin(), alignments_perThread.at(tI).end());
+			alignments_readPairI.insert(alignments_readPairI.end(), alignments_readPairI_perThread.at(tI).begin(), alignments_readPairI_perThread.at(tI).end());		
+		}	
+		std::cout  << Utilities::timestamp() << "\t\t\t" << "Merging done.\n" << std::flush;
+		
+		auto evaluateAlignments = [&](std::vector<oneReadPair>& readPairs, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector< int >& alignments_readPairI) -> void {
+
+			
+			assert(readPairs.size() == alignments.size());
+			assert(alignments.size() == alignments_readPairI.size());
+			
 			int summary_levels_evaluated = 0;
 			int summary_levels_OK = 0;
-			for(unsigned int pairI = 0; pairI < readPairs.size(); pairI++)
+			
+			for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
 			{
+				int pairI = alignments_readPairI.at(alignmentI);
 				oneReadPair& rP = readPairs.at(pairI);
 				oneRead& r1 = rP.reads.first;
 				oneRead& r2 = rP.reads.second;
-
-				std::cout << "\t\t" << "Align pair " << pairI << "\n" << std::flush;
-				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignments_readPair = gA.seedAndExtend_local_paired(rP, usePairing);
+				
+				std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignments_thisPair = alignments.at(alignmentI);
 
 				int r1_levels; int r1_levels_OK;
 				int r2_levels; int r2_levels_OK;
 
-				checkOneReadLevelCorrectness(r1, alignments_readPair.first, r1_levels, r1_levels_OK);
-				checkOneReadLevelCorrectness(r2, alignments_readPair.second, r2_levels, r2_levels_OK);
+				checkOneReadLevelCorrectness(r1, alignments_thisPair.first, r1_levels, r1_levels_OK);
+				checkOneReadLevelCorrectness(r2, alignments_thisPair.second, r2_levels, r2_levels_OK);
 
 				summary_levels_evaluated += (r1_levels + r2_levels);
 				summary_levels_OK += (r1_levels_OK + r2_levels_OK);
 			}
 
-			std::cout << "\t\t" << "Summary for usePairing = " << usePairing << ": " << summary_levels_evaluated << " evaluated, of which " << summary_levels_OK << " were OK. ";
-				std::cout << "(" << summary_levels_OK/summary_levels_evaluated << ")" << "\n\n" << std::flush;
+			std::cout << "\t\t" << "Summary: " << summary_levels_evaluated << " evaluated, of which " << summary_levels_OK << " were OK. ";
+				std::cout << "(" <<  std::setw(5) << (double)summary_levels_OK/(double)summary_levels_evaluated << ")" << "\n\n" << std::flush;
 		};
 
-		alignAndEvaluateReadPairAlignment(combinedPairs_for_alignment_filtered, false);
+		evaluateAlignments(combinedPairs_for_alignment_filtered, alignments, alignments_readPairI);
 
 	}
 

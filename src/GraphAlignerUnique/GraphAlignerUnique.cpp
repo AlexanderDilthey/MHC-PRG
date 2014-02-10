@@ -192,12 +192,15 @@ void  GraphAlignerUnique::seedAndExtend_init_occurrence_strand_etc(std::string& 
 
 	useReverse = (kMers_sequence_reverse_inGraph > kMers_sequence_inGraph);
 
-	std::cout << Utilities::timestamp() << "Make decision on orientation.\n" << std::flush;
-	std::cout << "\t\t\t" << "Total kMers in sequence: " << kMers_sequence_nonReverse.size() << "\n";
-	std::cout << "\t\t\t" << "kMers_sequence_inGraph: " << kMers_sequence_inGraph << "\n";
-	std::cout << "\t\t\t" << "kMers_sequence_reverse_inGraph: " << kMers_sequence_reverse_inGraph << "\n";
-	std::cout << "\t\t\t" << "useReverse: " << useReverse << "\n" << std::flush;
-
+	if(verbose)
+	{
+		std::cout << Utilities::timestamp() << "Make decision on orientation.\n" << std::flush;
+		std::cout << "\t\t\t" << "Total kMers in sequence: " << kMers_sequence_nonReverse.size() << "\n";
+		std::cout << "\t\t\t" << "kMers_sequence_inGraph: " << kMers_sequence_inGraph << "\n";
+		std::cout << "\t\t\t" << "kMers_sequence_reverse_inGraph: " << kMers_sequence_reverse_inGraph << "\n";
+		std::cout << "\t\t\t" << "useReverse: " << useReverse << "\n" << std::flush;
+	}
+	
 	sequence = (useReverse) ? sequence_reverse : sequence_nonReverse;
 	kMers_sequence = (useReverse) ? kMers_sequence_reverse : kMers_sequence_nonReverse;
 	buildkMerOccurrenceMap(sequence, kMer_sequence_occurrences);
@@ -888,7 +891,6 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 	certainty_alignment_sequence.resize(sequence.length());
 	certainty_alignment_graph.resize(g->NodesPerLevel.size() - 1);
 
-	omp_set_num_threads(threads);
 	rng_seeds.resize(threads);
 	srand(time(NULL));
 	for(unsigned int tI = 0; tI < threads; tI++)
@@ -896,186 +898,310 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 		rng_seeds.at(tI) = rand();
 	}
 
-	#pragma omp parallel for
-	for(int iI = 0; iI <= iterationsMainRandomizationLoop; iI++)
+	// very hacky, code duplication
+	if(threads > 1)
 	{
-		assert(omp_get_num_threads() == threads);
-
-		bool thisIterationRandomization = (iI != 0);
-
-		std::set<kMerEdgeChain*> selectedChains;
-		std::vector<kMerEdgeChain*> sequencePositions_covered;
-		std::vector<kMerEdgeChain*> moreChains;
-
-		if(verbose)
+		omp_set_num_threads(threads);
+	
+		#pragma omp parallel for
+		for(int iI = 0; iI <= iterationsMainRandomizationLoop; iI++)
 		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)			
+			assert(omp_get_num_threads() == threads);
+
+			bool thisIterationRandomization = (iI != 0);
+
+			std::set<kMerEdgeChain*> selectedChains;
+			std::vector<kMerEdgeChain*> sequencePositions_covered;
+			std::vector<kMerEdgeChain*> moreChains;
+
+			if(verbose)
 			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix properly unique chains.\n" << std::flush;
-			}
-		}
-		fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
-		if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)			
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix non-unique chains.\n" << std::flush;
-			}
-		}
-
-		fixNonUniqueChains(sequence, sequencePositions_covered, thisIterationRandomization, chains_for_sequence, moreChains);
-		if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)			
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Add chains to vNW.\n" << std::flush;
-			}
-		}
-
-		VirtualNWTable_Unique vNW(this, &sequence);
-		std::map<kMerEdgeChain*, int> currentChains_start;
-		std::map<kMerEdgeChain*, NWPath*> chains2Paths;
-		kMerEdgeChains2vNW(vNW, sequencePositions_covered, currentChains_start, chains2Paths);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Complete gaps in vNW.\n" << std::flush;
-			}
-		}
-
-		double finalScore;
-		int finalScore_z;
-		NWEdge* finalScore_backtrack;
-		std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startNormal;
-		std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startAffineGap;
-		std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startAffineGap;
-		std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startNormal;
-
-		vNW_completeRemainingGaps_and_score(
-				sequence,
-				vNW,
-				sequencePositions_covered,
-				chains2Paths,
-				currentChains_start,
-				lastPositionDistances_perZ_startNormal,
-				lastPositionDistances_perZ_startAffineGap,
-				NWedges_graphDist_startNormal,
-				NWedges_graphDist_startAffineGap,
-				finalScore,
-				finalScore_z,
-				finalScore_backtrack
-		);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)			
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Backtrack!\n" << std::flush;
-			}
-		}
-
-		std::string reconstructedSequence;
-		std::string reconstructedGraph;
-		std::vector<int> reconstructedGraph_levels;
-
-		seedAndExtend_backtrack(
-				vNW,
-				sequence,
-				finalScore,
-				finalScore_z,
-				finalScore_backtrack,
-				reconstructedSequence,
-				reconstructedGraph,
-				reconstructedGraph_levels,
-				lastPositionDistances_perZ_startNormal,
-				lastPositionDistances_perZ_startAffineGap,
-				NWedges_graphDist_startNormal,
-				NWedges_graphDist_startAffineGap
-		);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Backtracking done.\n" << std::flush;
-			}
-		}
-		
-		seedAndExtend_return thisBacktrace;
-		thisBacktrace.Score = finalScore;
-		thisBacktrace.graph_aligned = reconstructedGraph;
-		thisBacktrace.graph_aligned_levels = reconstructedGraph_levels;
-		thisBacktrace.sequence_aligned = reconstructedSequence;
-
-		if(omp_get_thread_num() == 2)
-		{
-			// std::cout << Utilities::timestamp() << "Free some memory.\n" << std::flush;
-		}
-		
-		vNW.freeMemory();
-		for(unsigned int moreChainI = 0; moreChainI < moreChains.size(); moreChainI++)
-		{
-			delete(moreChains.at(moreChainI));
-		}
-		if(omp_get_thread_num() == 2)
-		{
-			// std::cout << Utilities::timestamp() << "Freeing done.\n" << std::flush;
-		}
-
-		// continue;
-		
-		#pragma omp critical
-		{
-			possibleBacktraces.push_back(thisBacktrace);
-			possibleBacktraces_scores.push_back(finalScore);
-
-			// std::cerr << Utilities::timestamp() << "Thread " <<  omp_get_thread_num()<< ", iteration " << iI << ", score: " << finalScore << "\n" << std::flush;
-
-			unsigned int alignment_seqI = 0;
-			unsigned int alignment_graphI = 0;
-			for(unsigned int alignmentI = 0; alignmentI < reconstructedSequence.size(); alignmentI++)
-			{
-				std::string S = reconstructedSequence.substr(alignmentI, 1);
-				std::string G = reconstructedGraph.substr(alignmentI, 1);
-				int GL = reconstructedGraph_levels.at(alignmentI);
-
-				std::string S_Identifier = Utilities::ItoStr(alignment_seqI)+"-"+S;
-				std::string G_Identifier = Utilities::ItoStr(GL)+"-"+G;
-				if(S != "_")
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)			
 				{
-					if(certainty_alignment_sequence.at(alignment_seqI).count(G_Identifier) == 0)
-					{
-						certainty_alignment_sequence.at(alignment_seqI)[G_Identifier] = 0;
-					}
-					certainty_alignment_sequence.at(alignment_seqI)[G_Identifier]++;
-
-					alignment_seqI++;
-				}
-				if(GL != -1)
-				{
-					if(certainty_alignment_graph.at(alignment_graphI).count(S_Identifier) == 0)
-					{
-						certainty_alignment_graph.at(alignment_graphI)[S_Identifier] = 0;
-					}
-					certainty_alignment_graph.at(alignment_graphI)[S_Identifier]++;
-
-					alignment_graphI++;
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix properly unique chains.\n" << std::flush;
 				}
 			}
-			certainty_totalIterations++;
+			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
+			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)			
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix non-unique chains.\n" << std::flush;
+				}
+			}
+
+			fixNonUniqueChains(sequence, sequencePositions_covered, thisIterationRandomization, chains_for_sequence, moreChains);
+			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)			
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Add chains to vNW.\n" << std::flush;
+				}
+			}
+
+			VirtualNWTable_Unique vNW(this, &sequence);
+			std::map<kMerEdgeChain*, int> currentChains_start;
+			std::map<kMerEdgeChain*, NWPath*> chains2Paths;
+			kMerEdgeChains2vNW(vNW, sequencePositions_covered, currentChains_start, chains2Paths);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Complete gaps in vNW.\n" << std::flush;
+				}
+			}
+
+			double finalScore;
+			int finalScore_z;
+			NWEdge* finalScore_backtrack;
+			std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startNormal;
+			std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startAffineGap;
+			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startAffineGap;
+			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startNormal;
+
+			vNW_completeRemainingGaps_and_score(
+					sequence,
+					vNW,
+					sequencePositions_covered,
+					chains2Paths,
+					currentChains_start,
+					lastPositionDistances_perZ_startNormal,
+					lastPositionDistances_perZ_startAffineGap,
+					NWedges_graphDist_startNormal,
+					NWedges_graphDist_startAffineGap,
+					finalScore,
+					finalScore_z,
+					finalScore_backtrack
+			);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)			
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Backtrack!\n" << std::flush;
+				}
+			}
+
+			std::string reconstructedSequence;
+			std::string reconstructedGraph;
+			std::vector<int> reconstructedGraph_levels;
+
+			seedAndExtend_backtrack(
+					vNW,
+					sequence,
+					finalScore,
+					finalScore_z,
+					finalScore_backtrack,
+					reconstructedSequence,
+					reconstructedGraph,
+					reconstructedGraph_levels,
+					lastPositionDistances_perZ_startNormal,
+					lastPositionDistances_perZ_startAffineGap,
+					NWedges_graphDist_startNormal,
+					NWedges_graphDist_startAffineGap
+			);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Backtracking done.\n" << std::flush;
+				}
+			}
+			
+			seedAndExtend_return thisBacktrace;
+			thisBacktrace.Score = finalScore;
+			thisBacktrace.graph_aligned = reconstructedGraph;
+			thisBacktrace.graph_aligned_levels = reconstructedGraph_levels;
+			thisBacktrace.sequence_aligned = reconstructedSequence;
+
+			if(omp_get_thread_num() == 2)
+			{
+				// std::cout << Utilities::timestamp() << "Free some memory.\n" << std::flush;
+			}
+			
+			vNW.freeMemory();
+			for(unsigned int moreChainI = 0; moreChainI < moreChains.size(); moreChainI++)
+			{
+				delete(moreChains.at(moreChainI));
+			}
+			if(omp_get_thread_num() == 2)
+			{
+				// std::cout << Utilities::timestamp() << "Freeing done.\n" << std::flush;
+			}
+
+			// continue;
+			
+			#pragma omp critical
+			{
+				possibleBacktraces.push_back(thisBacktrace);
+				possibleBacktraces_scores.push_back(finalScore);
+
+				// std::cerr << Utilities::timestamp() << "Thread " <<  omp_get_thread_num()<< ", iteration " << iI << ", score: " << finalScore << "\n" << std::flush;
+
+				unsigned int alignment_seqI = 0;
+				unsigned int alignment_graphI = 0;
+				for(unsigned int alignmentI = 0; alignmentI < reconstructedSequence.size(); alignmentI++)
+				{
+					std::string S = reconstructedSequence.substr(alignmentI, 1);
+					std::string G = reconstructedGraph.substr(alignmentI, 1);
+					int GL = reconstructedGraph_levels.at(alignmentI);
+
+					std::string S_Identifier = Utilities::ItoStr(alignment_seqI)+"-"+S;
+					std::string G_Identifier = Utilities::ItoStr(GL)+"-"+G;
+					if(S != "_")
+					{
+						if(certainty_alignment_sequence.at(alignment_seqI).count(G_Identifier) == 0)
+						{
+							certainty_alignment_sequence.at(alignment_seqI)[G_Identifier] = 0;
+						}
+						certainty_alignment_sequence.at(alignment_seqI)[G_Identifier]++;
+
+						alignment_seqI++;
+					}
+					if(GL != -1)
+					{
+						if(certainty_alignment_graph.at(alignment_graphI).count(S_Identifier) == 0)
+						{
+							certainty_alignment_graph.at(alignment_graphI)[S_Identifier] = 0;
+						}
+						certainty_alignment_graph.at(alignment_graphI)[S_Identifier]++;
+
+						alignment_graphI++;
+					}
+				}
+				certainty_totalIterations++;
+			}
 		}
+	}
+	else
+	{
+		assert(threads == 1);
+		
+		for(int iI = 0; iI <= iterationsMainRandomizationLoop; iI++)
+		{
+			bool thisIterationRandomization = (iI != 0);
+
+			std::set<kMerEdgeChain*> selectedChains;
+			std::vector<kMerEdgeChain*> sequencePositions_covered;
+			std::vector<kMerEdgeChain*> moreChains;
+
+			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
+			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
+
+			fixNonUniqueChains(sequence, sequencePositions_covered, thisIterationRandomization, chains_for_sequence, moreChains);
+			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
+
+			VirtualNWTable_Unique vNW(this, &sequence);
+			std::map<kMerEdgeChain*, int> currentChains_start;
+			std::map<kMerEdgeChain*, NWPath*> chains2Paths;
+			kMerEdgeChains2vNW(vNW, sequencePositions_covered, currentChains_start, chains2Paths);
+
+			double finalScore;
+			int finalScore_z;
+			NWEdge* finalScore_backtrack;
+			std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startNormal;
+			std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startAffineGap;
+			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startAffineGap;
+			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startNormal;
+
+			vNW_completeRemainingGaps_and_score(
+					sequence,
+					vNW,
+					sequencePositions_covered,
+					chains2Paths,
+					currentChains_start,
+					lastPositionDistances_perZ_startNormal,
+					lastPositionDistances_perZ_startAffineGap,
+					NWedges_graphDist_startNormal,
+					NWedges_graphDist_startAffineGap,
+					finalScore,
+					finalScore_z,
+					finalScore_backtrack
+			);
+
+			std::string reconstructedSequence;
+			std::string reconstructedGraph;
+			std::vector<int> reconstructedGraph_levels;
+
+			seedAndExtend_backtrack(
+					vNW,
+					sequence,
+					finalScore,
+					finalScore_z,
+					finalScore_backtrack,
+					reconstructedSequence,
+					reconstructedGraph,
+					reconstructedGraph_levels,
+					lastPositionDistances_perZ_startNormal,
+					lastPositionDistances_perZ_startAffineGap,
+					NWedges_graphDist_startNormal,
+					NWedges_graphDist_startAffineGap
+			);
+
+			seedAndExtend_return thisBacktrace;
+			thisBacktrace.Score = finalScore;
+			thisBacktrace.graph_aligned = reconstructedGraph;
+			thisBacktrace.graph_aligned_levels = reconstructedGraph_levels;
+			thisBacktrace.sequence_aligned = reconstructedSequence;
+
+			vNW.freeMemory();
+			for(unsigned int moreChainI = 0; moreChainI < moreChains.size(); moreChainI++)
+			{
+				delete(moreChains.at(moreChainI));
+			}
+			
+			{
+				possibleBacktraces.push_back(thisBacktrace);
+				possibleBacktraces_scores.push_back(finalScore);
+
+				// std::cerr << Utilities::timestamp() << "Thread " <<  omp_get_thread_num()<< ", iteration " << iI << ", score: " << finalScore << "\n" << std::flush;
+
+				unsigned int alignment_seqI = 0;
+				unsigned int alignment_graphI = 0;
+				for(unsigned int alignmentI = 0; alignmentI < reconstructedSequence.size(); alignmentI++)
+				{
+					std::string S = reconstructedSequence.substr(alignmentI, 1);
+					std::string G = reconstructedGraph.substr(alignmentI, 1);
+					int GL = reconstructedGraph_levels.at(alignmentI);
+
+					std::string S_Identifier = Utilities::ItoStr(alignment_seqI)+"-"+S;
+					std::string G_Identifier = Utilities::ItoStr(GL)+"-"+G;
+					if(S != "_")
+					{
+						if(certainty_alignment_sequence.at(alignment_seqI).count(G_Identifier) == 0)
+						{
+							certainty_alignment_sequence.at(alignment_seqI)[G_Identifier] = 0;
+						}
+						certainty_alignment_sequence.at(alignment_seqI)[G_Identifier]++;
+
+						alignment_seqI++;
+					}
+					if(GL != -1)
+					{
+						if(certainty_alignment_graph.at(alignment_graphI).count(S_Identifier) == 0)
+						{
+							certainty_alignment_graph.at(alignment_graphI)[S_Identifier] = 0;
+						}
+						certainty_alignment_graph.at(alignment_graphI)[S_Identifier]++;
+
+						alignment_graphI++;
+					}
+				}
+				certainty_totalIterations++;
+			}
+		}		
 	}
 
 	std::cerr << std::flush;
@@ -1142,12 +1268,11 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 	// std::cout << Utilities::timestamp() << " Finished GraphAlignerUnique::seedAndExtend(..)! Average certainty " << certainty_average_sequenceCertainty << " (sequence) / " << certainty_average_graphCertainty << " (graph).; matching positions in sequence: " << matches_alignment << " / " << sequence.length() << ".\n" << std::flush;
 
 	return selectedBacktrace;
-}
+}   
 
 
 std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired(oneReadPair readPair, bool usePairing)
 {
-	std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
 	assert(! usePairing);
 
 	assert(readPair.reads.first.sequence.find("_") == std::string::npos);
@@ -1156,17 +1281,20 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	assert(readPair.reads.second.sequence.find("_") == std::string::npos);
 	assert(readPair.reads.second.sequence.find("*") == std::string::npos);
 	assert(readPair.reads.second.sequence.find("N") == std::string::npos);
-
+		
+	std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
+	
 	forReturn.first = seedAndExtend_local(readPair.reads.first.sequence);
+			
 	forReturn.second = seedAndExtend_local(readPair.reads.second.sequence);
-
+	
 	return forReturn;
 }
 
 seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string sequence_nonReverse)
 {
 	seedAndExtend_return_local forReturn;
-
+	
 	// std::cout << Utilities::timestamp() << " Enter GraphAlignerUnique::seedAndExtend(..)!\n" << std::flush;
 
 	bool useReverse;
@@ -1206,6 +1334,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 			return (  rhs_uniqueness < lhs_uniqueness  );
 		}
 	};
+	
 
 	std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>> uniquelyTrimmedChains_ordered(cmpChainUniqueness);
 
@@ -1217,6 +1346,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 			uniquelyTrimmedChains_ordered
 	);
 
+	
 	std::vector<seedAndExtend_return> possibleBacktraces;
 	std::vector<double> possibleBacktraces_scores;
 
@@ -1226,196 +1356,335 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 	certainty_alignment_sequence.resize(sequence.length());
 	certainty_alignment_graph.resize(g->NodesPerLevel.size() - 1);
 
-	omp_set_num_threads(threads);
-	rng_seeds.resize(threads);
+	int required_rng_seeds;
+	if(threads == 1)
+	{
+		required_rng_seeds = omp_get_num_threads();
+		if(required_rng_seeds < 1)
+		{
+			required_rng_seeds = 1;
+		}
+	}
+	else
+	{
+		required_rng_seeds = threads;
+	}
+	
+	rng_seeds.resize(required_rng_seeds);
 	srand(time(NULL));
-	for(unsigned int tI = 0; tI < threads; tI++)
+	for(unsigned int tI = 0; tI < required_rng_seeds; tI++)
 	{
 		rng_seeds.at(tI) = rand();
 	}
 
-	#pragma omp parallel for
-	for(int iI = 0; iI <= iterationsMainRandomizationLoop; iI++)
+	// very hacky, code duplication
+	if(threads > 1)
 	{
-		assert(omp_get_num_threads() == threads);
-
-		bool thisIterationRandomization = (iI != 0);
-
-		std::set<kMerEdgeChain*> selectedChains;
-		std::vector<kMerEdgeChain*> sequencePositions_covered;
-		std::vector<kMerEdgeChain*> moreChains;
-
-		if(verbose)
+		// todo remove later
+		assert(1 == 0);
+		omp_set_num_threads(threads);
+	
+		#pragma omp parallel for
+		for(int iI = 0; iI <= iterationsMainRandomizationLoop; iI++)
 		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)
+			assert(omp_get_num_threads() == threads);
+
+			bool thisIterationRandomization = (iI != 0);
+
+			std::set<kMerEdgeChain*> selectedChains;
+			std::vector<kMerEdgeChain*> sequencePositions_covered;
+			std::vector<kMerEdgeChain*> moreChains;
+
+			if(verbose)
 			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix properly unique chains.\n" << std::flush;
-			}
-		}
-		fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
-		if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix non-unique chains.\n" << std::flush;
-			}
-		}
-
-		fixNonUniqueChains(sequence, sequencePositions_covered, thisIterationRandomization, chains_for_sequence, moreChains);
-		if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Add chains to vNW.\n" << std::flush;
-			}
-		}
-
-		VirtualNWTable_Unique vNW(this, &sequence);
-		std::map<kMerEdgeChain*, int> currentChains_start;
-		std::map<kMerEdgeChain*, NWPath*> chains2Paths;
-		kMerEdgeChains2vNW(vNW, sequencePositions_covered, currentChains_start, chains2Paths);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Complete gaps in vNW.\n" << std::flush;
-			}
-		}
-
-		double finalScore;
-		int finalScore_z;
-		NWEdge* finalScore_backtrack;
-		std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startNormal;
-		std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startAffineGap;
-		std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startAffineGap;
-		std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startNormal;
-
-		vNW_completeRemainingGaps_and_score_local(
-				sequence,
-				vNW,
-				sequencePositions_covered,
-				chains2Paths,
-				currentChains_start,
-				lastPositionDistances_perZ_startNormal,
-				lastPositionDistances_perZ_startAffineGap,
-				NWedges_graphDist_startNormal,
-				NWedges_graphDist_startAffineGap,
-				finalScore,
-				finalScore_z,
-				finalScore_backtrack
-		);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Backtrack!\n" << std::flush;
-			}
-		}
-
-		std::string reconstructedSequence;
-		std::string reconstructedGraph;
-		std::vector<int> reconstructedGraph_levels;
-
-		seedAndExtend_backtrack_local(
-				vNW,
-				sequence,
-				finalScore,
-				finalScore_z,
-				finalScore_backtrack,
-				reconstructedSequence,
-				reconstructedGraph,
-				reconstructedGraph_levels,
-				lastPositionDistances_perZ_startNormal,
-				lastPositionDistances_perZ_startAffineGap,
-				NWedges_graphDist_startNormal,
-				NWedges_graphDist_startAffineGap
-		);
-
-		if(verbose)
-		{
-			//pragma omp critical
-			if(omp_get_thread_num() == 2)
-			{
-				std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Backtracking done.\n" << std::flush;
-			}
-		}
-
-		seedAndExtend_return thisBacktrace;
-		thisBacktrace.Score = finalScore;
-		thisBacktrace.graph_aligned = reconstructedGraph;
-		thisBacktrace.graph_aligned_levels = reconstructedGraph_levels;
-		thisBacktrace.sequence_aligned = reconstructedSequence;
-
-		if(omp_get_thread_num() == 2)
-		{
-			// std::cout << Utilities::timestamp() << "Free some memory.\n" << std::flush;
-		}
-
-		vNW.freeMemory();
-		for(unsigned int moreChainI = 0; moreChainI < moreChains.size(); moreChainI++)
-		{
-			delete(moreChains.at(moreChainI));
-		}
-		if(omp_get_thread_num() == 2)
-		{
-			// std::cout << Utilities::timestamp() << "Freeing done.\n" << std::flush;
-		}
-
-		// continue;
-
-		#pragma omp critical
-		{
-			possibleBacktraces.push_back(thisBacktrace);
-			possibleBacktraces_scores.push_back(finalScore);
-
-			// std::cerr << Utilities::timestamp() << "Thread " <<  omp_get_thread_num()<< ", iteration " << iI << ", score: " << finalScore << "\n" << std::flush;
-
-			unsigned int alignment_seqI = 0;
-			unsigned int alignment_graphI = 0;
-			for(unsigned int alignmentI = 0; alignmentI < reconstructedSequence.size(); alignmentI++)
-			{
-				std::string S = reconstructedSequence.substr(alignmentI, 1);
-				std::string G = reconstructedGraph.substr(alignmentI, 1);
-				int GL = reconstructedGraph_levels.at(alignmentI);
-
-				std::string S_Identifier = Utilities::ItoStr(alignment_seqI)+"-"+S;
-				std::string G_Identifier = Utilities::ItoStr(GL)+"-"+G;
-				if(S != "_")
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)
 				{
-					if(certainty_alignment_sequence.at(alignment_seqI).count(G_Identifier) == 0)
-					{
-						certainty_alignment_sequence.at(alignment_seqI)[G_Identifier] = 0;
-					}
-					certainty_alignment_sequence.at(alignment_seqI)[G_Identifier]++;
-
-					alignment_seqI++;
-				}
-				if(GL != -1)
-				{
-					if(certainty_alignment_graph.at(alignment_graphI).count(S_Identifier) == 0)
-					{
-						certainty_alignment_graph.at(alignment_graphI)[S_Identifier] = 0;
-					}
-					certainty_alignment_graph.at(alignment_graphI)[S_Identifier]++;
-
-					alignment_graphI++;
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix properly unique chains.\n" << std::flush;
 				}
 			}
-			certainty_totalIterations++;
+			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
+			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix non-unique chains.\n" << std::flush;
+				}
+			}
+
+			fixNonUniqueChains(sequence, sequencePositions_covered, thisIterationRandomization, chains_for_sequence, moreChains);
+			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Add chains to vNW.\n" << std::flush;
+				}
+			}
+
+			VirtualNWTable_Unique vNW(this, &sequence);
+			std::map<kMerEdgeChain*, int> currentChains_start;
+			std::map<kMerEdgeChain*, NWPath*> chains2Paths;
+			kMerEdgeChains2vNW(vNW, sequencePositions_covered, currentChains_start, chains2Paths);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Complete gaps in vNW.\n" << std::flush;
+				}
+			}
+
+			double finalScore;
+			int finalScore_z;
+			NWEdge* finalScore_backtrack;
+			std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startNormal;
+			std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startAffineGap;
+			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startAffineGap;
+			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startNormal;
+
+			vNW_completeRemainingGaps_and_score_local(
+					sequence,
+					vNW,
+					sequencePositions_covered,
+					chains2Paths,
+					currentChains_start,
+					lastPositionDistances_perZ_startNormal,
+					lastPositionDistances_perZ_startAffineGap,
+					NWedges_graphDist_startNormal,
+					NWedges_graphDist_startAffineGap,
+					finalScore,
+					finalScore_z,
+					finalScore_backtrack
+			);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Backtrack!\n" << std::flush;
+				}
+			}
+
+			std::string reconstructedSequence;
+			std::string reconstructedGraph;
+			std::vector<int> reconstructedGraph_levels;
+
+			seedAndExtend_backtrack_local(
+					vNW,
+					sequence,
+					finalScore,
+					finalScore_z,
+					finalScore_backtrack,
+					reconstructedSequence,
+					reconstructedGraph,
+					reconstructedGraph_levels,
+					lastPositionDistances_perZ_startNormal,
+					lastPositionDistances_perZ_startAffineGap,
+					NWedges_graphDist_startNormal,
+					NWedges_graphDist_startAffineGap
+			);
+
+			if(verbose)
+			{
+				//pragma omp critical
+				if(omp_get_thread_num() == 2)
+				{
+					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Backtracking done.\n" << std::flush;
+				}
+			}
+
+			seedAndExtend_return thisBacktrace;
+			thisBacktrace.Score = finalScore;
+			thisBacktrace.graph_aligned = reconstructedGraph;
+			thisBacktrace.graph_aligned_levels = reconstructedGraph_levels;
+			thisBacktrace.sequence_aligned = reconstructedSequence;
+
+			if(omp_get_thread_num() == 2)
+			{
+				// std::cout << Utilities::timestamp() << "Free some memory.\n" << std::flush;
+			}
+
+			vNW.freeMemory();
+			for(unsigned int moreChainI = 0; moreChainI < moreChains.size(); moreChainI++)
+			{
+				delete(moreChains.at(moreChainI));
+			}
+			if(omp_get_thread_num() == 2)
+			{
+				// std::cout << Utilities::timestamp() << "Freeing done.\n" << std::flush;
+			}
+
+			// continue;
+
+			#pragma omp critical
+			{
+				possibleBacktraces.push_back(thisBacktrace);
+				possibleBacktraces_scores.push_back(finalScore);
+
+				// std::cerr << Utilities::timestamp() << "Thread " <<  omp_get_thread_num()<< ", iteration " << iI << ", score: " << finalScore << "\n" << std::flush;
+
+				unsigned int alignment_seqI = 0;
+				unsigned int alignment_graphI = 0;
+				for(unsigned int alignmentI = 0; alignmentI < reconstructedSequence.size(); alignmentI++)
+				{
+					std::string S = reconstructedSequence.substr(alignmentI, 1);
+					std::string G = reconstructedGraph.substr(alignmentI, 1);
+					int GL = reconstructedGraph_levels.at(alignmentI);
+
+					std::string S_Identifier = Utilities::ItoStr(alignment_seqI)+"-"+S;
+					std::string G_Identifier = Utilities::ItoStr(GL)+"-"+G;
+					if(S != "_")
+					{
+						if(certainty_alignment_sequence.at(alignment_seqI).count(G_Identifier) == 0)
+						{
+							certainty_alignment_sequence.at(alignment_seqI)[G_Identifier] = 0;
+						}
+						certainty_alignment_sequence.at(alignment_seqI)[G_Identifier]++;
+
+						alignment_seqI++;
+					}
+					if(GL != -1)
+					{
+						if(certainty_alignment_graph.at(alignment_graphI).count(S_Identifier) == 0)
+						{
+							certainty_alignment_graph.at(alignment_graphI)[S_Identifier] = 0;
+						}
+						certainty_alignment_graph.at(alignment_graphI)[S_Identifier]++;
+
+						alignment_graphI++;
+					}
+				}
+				certainty_totalIterations++;
+			}
 		}
 	}
+	else
+	{
+		assert(threads == 1);
 
+		for(int iI = 0; iI <= iterationsMainRandomizationLoop; iI++)
+		{
+			bool thisIterationRandomization = (iI != 0);
+
+			std::set<kMerEdgeChain*> selectedChains;
+			std::vector<kMerEdgeChain*> sequencePositions_covered;
+			std::vector<kMerEdgeChain*> moreChains;
+
+			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
+			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
+
+
+			fixNonUniqueChains(sequence, sequencePositions_covered, thisIterationRandomization, chains_for_sequence, moreChains);
+			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
+
+			VirtualNWTable_Unique vNW(this, &sequence);
+			std::map<kMerEdgeChain*, int> currentChains_start;
+			std::map<kMerEdgeChain*, NWPath*> chains2Paths;
+			kMerEdgeChains2vNW(vNW, sequencePositions_covered, currentChains_start, chains2Paths);
+
+			double finalScore;
+			int finalScore_z;
+			NWEdge* finalScore_backtrack;
+			std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startNormal;
+			std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startAffineGap;
+			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startAffineGap;
+			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startNormal;
+
+			vNW_completeRemainingGaps_and_score_local(
+					sequence,
+					vNW,
+					sequencePositions_covered,
+					chains2Paths,
+					currentChains_start,
+					lastPositionDistances_perZ_startNormal,
+					lastPositionDistances_perZ_startAffineGap,
+					NWedges_graphDist_startNormal,
+					NWedges_graphDist_startAffineGap,
+					finalScore,
+					finalScore_z,
+					finalScore_backtrack
+			);
+
+			std::string reconstructedSequence;
+			std::string reconstructedGraph;
+			std::vector<int> reconstructedGraph_levels;
+
+			seedAndExtend_backtrack_local(
+					vNW,
+					sequence,
+					finalScore,
+					finalScore_z,
+					finalScore_backtrack,
+					reconstructedSequence,
+					reconstructedGraph,
+					reconstructedGraph_levels,
+					lastPositionDistances_perZ_startNormal,
+					lastPositionDistances_perZ_startAffineGap,
+					NWedges_graphDist_startNormal,
+					NWedges_graphDist_startAffineGap
+			);
+
+			seedAndExtend_return thisBacktrace;
+			thisBacktrace.Score = finalScore;
+			thisBacktrace.graph_aligned = reconstructedGraph;
+			thisBacktrace.graph_aligned_levels = reconstructedGraph_levels;
+			thisBacktrace.sequence_aligned = reconstructedSequence;
+
+			vNW.freeMemory();
+			for(unsigned int moreChainI = 0; moreChainI < moreChains.size(); moreChainI++)
+			{
+				delete(moreChains.at(moreChainI));
+			}
+
+			{
+				possibleBacktraces.push_back(thisBacktrace);
+				possibleBacktraces_scores.push_back(finalScore);
+
+				// std::cerr << Utilities::timestamp() << "Thread " <<  omp_get_thread_num()<< ", iteration " << iI << ", score: " << finalScore << "\n" << std::flush;
+
+				unsigned int alignment_seqI = 0;
+				unsigned int alignment_graphI = 0;
+				for(unsigned int alignmentI = 0; alignmentI < reconstructedSequence.size(); alignmentI++)
+				{
+					std::string S = reconstructedSequence.substr(alignmentI, 1);
+					std::string G = reconstructedGraph.substr(alignmentI, 1);
+					int GL = reconstructedGraph_levels.at(alignmentI);
+
+					std::string S_Identifier = Utilities::ItoStr(alignment_seqI)+"-"+S;
+					std::string G_Identifier = Utilities::ItoStr(GL)+"-"+G;
+					if(S != "_")
+					{
+						if(certainty_alignment_sequence.at(alignment_seqI).count(G_Identifier) == 0)
+						{
+							certainty_alignment_sequence.at(alignment_seqI)[G_Identifier] = 0;
+						}
+						certainty_alignment_sequence.at(alignment_seqI)[G_Identifier]++;
+
+						alignment_seqI++;
+					}
+					if(GL != -1)
+					{
+						if(certainty_alignment_graph.at(alignment_graphI).count(S_Identifier) == 0)
+						{
+							certainty_alignment_graph.at(alignment_graphI)[S_Identifier] = 0;
+						}
+						certainty_alignment_graph.at(alignment_graphI)[S_Identifier]++;
+
+						alignment_graphI++;
+					}
+				}
+				certainty_totalIterations++;
+			}
+		}		
+	}
 	std::cerr << std::flush;
 	if(verbose)
 	{
@@ -4562,6 +4831,8 @@ void GraphAlignerUnique::seedAndExtend_backtrack_local(VirtualNWTable_Unique& vN
 
 				if(firstStep)
 				{
+					// std::cerr << "\nA firstStep\n" << std::flush;
+					
 					for(unsigned int zI = 0; zI < g->NodesPerLevel.back().size(); zI++)
 					{
 						graphPointDistance_withBacktrack distance_startAffinely;
@@ -4582,6 +4853,8 @@ void GraphAlignerUnique::seedAndExtend_backtrack_local(VirtualNWTable_Unique& vN
 				}
 				else if(nextEdge_goingBack == 0)
 				{
+					// std::cerr << "\nA nextEdge_goingBack == 0\n" << std::flush;
+				
 					// going back to origin
 					graphPointDistance_withBacktrack distance_startAffinely;
 					distance_startAffinely.start_in_affine_sequenceGap = true;
@@ -4600,6 +4873,11 @@ void GraphAlignerUnique::seedAndExtend_backtrack_local(VirtualNWTable_Unique& vN
 				}
 				else
 				{
+				
+					// std::cerr << "\nA Call MTM\n" << std::flush;
+					// std::cerr << "\t" << start_x_graph << " - " << stop_x_graph << "\n";
+					// std::cerr << "\t" << start_z_graph << " - " << stop_z_graph << "\n";
+		
 					findShortGappedGraphConnection_affine_MTM(
 							stop_x_graph,
 							stop_z_graph,
@@ -4608,6 +4886,9 @@ void GraphAlignerUnique::seedAndExtend_backtrack_local(VirtualNWTable_Unique& vN
 							distances_startAffinely,
 							distances_startNormally
 					);
+					
+					// std::cerr << "\t" << distances_startAffinely.size() << "\n";
+					// std::cerr << "\t" << distances_startNormally.size() << "\n" << std::flush;
 				}
 
 				if(verboseBacktrack)
@@ -4801,7 +5082,14 @@ void GraphAlignerUnique::seedAndExtend_backtrack_local(VirtualNWTable_Unique& vN
 					std::vector<double> scores;
 					std::vector<backtrackBookkeeper> backtracks;
 
-					assert((nextEdge_goingBack == 0) || (distances_startNormally.size() == 1));
+					if(!((nextEdge_goingBack == 0) || firstStep || (distances_startNormally.size() == 1)))
+					{
+						std::cout << "\n\n";
+						std::cout << "firstStep: " << firstStep << "\n";						
+						std::cout << "nextEdge_goingBack: " << nextEdge_goingBack << "\n";
+						std::cout << "distances_startNormally.size(): " << distances_startNormally.size() << "\n\n" << std::flush;
+					}
+					assert((nextEdge_goingBack == 0) || firstStep || (distances_startNormally.size() == 1));
 
 					if(verboseBacktrack)
 					{
@@ -6032,13 +6320,16 @@ void GraphAlignerUnique::printSequenceChainCoverageStats(std::string& sequence, 
 			maxGapComplexity = gapComplexity;
 		}
 	}
-
-	std::cout << "\t" << "Chains covering " << positions_coveredByChain << " / " << sequence.length() << " positions." << "\n" << std::flush;
-	std::cout << "\t" << "Number of gaps: " << gapNumber << "\n" << std::flush;
-	std::cout << "\t" << "Average complexity: " << ((gapNumber != 0) ? (gapComplexities_sum/gapNumber) : 0) << "\n" << std::flush;
-	std::cout << "\t" << "Maximum complexity: " << ((gapNumber != 0) ? maxGapComplexity : 0) << "\n" << std::flush;
-	std::cout << "\t" << "Average sequence length: " << ((gapNumber != 0) ? (gapSequenceLengths_sum/gapNumber) : 0) << "\n" << std::flush;
-	std::cout << "\t" << "Average graph length: " << ((gapNumber != 0) ? (gapGraphLengths_sum/gapNumber) : 0) << "\n" << std::flush;
+	
+	if(verbose)
+	{
+		std::cout << "\t" << "Chains covering " << positions_coveredByChain << " / " << sequence.length() << " positions." << "\n" << std::flush;
+		std::cout << "\t" << "Number of gaps: " << gapNumber << "\n" << std::flush;
+		std::cout << "\t" << "Average complexity: " << ((gapNumber != 0) ? (gapComplexities_sum/gapNumber) : 0) << "\n" << std::flush;
+		std::cout << "\t" << "Maximum complexity: " << ((gapNumber != 0) ? maxGapComplexity : 0) << "\n" << std::flush;
+		std::cout << "\t" << "Average sequence length: " << ((gapNumber != 0) ? (gapSequenceLengths_sum/gapNumber) : 0) << "\n" << std::flush;
+		std::cout << "\t" << "Average graph length: " << ((gapNumber != 0) ? (gapGraphLengths_sum/gapNumber) : 0) << "\n" << std::flush;
+	}
 }
 
 void GraphAlignerUnique::fixUniqueChains(std::string& sequence, bool thisIterationRandomization, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered, std::set<kMerEdgeChain*>& selectedChains, 	std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers)

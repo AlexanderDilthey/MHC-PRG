@@ -140,7 +140,7 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 }
 
 
-std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std::vector<Edge*> edgePath, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd)
+std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std::vector<Edge*> edgePath, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly)
 {
 	std::vector<oneReadPair> forReturn;
 
@@ -204,7 +204,7 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 			assert(returnedQuality > 0);
 
 			bool generateError = Utilities::oneBernoulliTrial( 1 - this->read_quality_correctness.at(position_in_read).at(returnedQuality), rnd_gen);
-			if(generateError)
+			if(generateError && (! perfectly))
 			{
 				returnedBase =  Utilities::randomNucleotide(rnd_gen);
 				thread_generated_errors++;
@@ -235,6 +235,12 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 				int insertions = rnd_INs.at(base)(rnd_gen);
 				int deletions = rnd_DELs.at(base)(rnd_gen);
 
+				if(perfectly)
+				{
+					insertions = 0;
+					deletions = 0;
+				}
+				
 				// std::cout << "\tbase " << base << " " << insertions << " " << deletions << "\n" << std::flush;
 
 				INDEL_events += (insertions + deletions);
