@@ -88,7 +88,7 @@ std::vector<kMerEdgeChain*> trimChainsForUniqueness(std::vector<kMerEdgeChain*>&
 void analyzeChainUniqueness(std::string& sequence, std::vector<kMerEdgeChain*>& uniquelyTrimmedChains, std::map<std::string, int>& kMer_sequence_occurrences, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered);
 void cleanChainsAccordingToSelectedChain(kMerEdgeChain* selectedChain, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& availableChains);
 void selectedChainsConsistencyCheck(std::set<kMerEdgeChain*> selectedChains);
-void fixUniqueChains(std::string& sequence, bool thisIterationRandomization, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered, std::set<kMerEdgeChain*>& selectedChains, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers);
+void fixUniqueChains(std::string& sequence, bool thisIterationRandomization, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered, std::set<kMerEdgeChain*>& selectedChains, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers, bool rescueNonUnique);
 void trimChain(kMerEdgeChain* inputChain, std::string& sequence, int removeLeft, int removeRight);
 
 void fixNonUniqueChains(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered, bool thisIterationRandomization, std::vector<kMerEdgeChain*>& allChains, std::vector<kMerEdgeChain*>& newChains);
