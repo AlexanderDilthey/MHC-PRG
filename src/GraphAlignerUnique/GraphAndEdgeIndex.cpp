@@ -46,7 +46,7 @@ std::vector<kMerEdgeChain*> GraphAndEdgeIndex::findChains(std::string sequence)
 	std::vector<std::string> kMers = partitionStringIntokMers(sequence, kMerSize);
 
 	bool verbose = false;
-
+	
 	if(! superquiet)
 		std::cout  << Utilities::timestamp() << "GraphAndEdgeIndex::findChains(..): Process " << kMers.size() << " kMers.\n" << std::flush;
 
@@ -69,16 +69,32 @@ std::vector<kMerEdgeChain*> GraphAndEdgeIndex::findChains(std::string sequence)
 
 	for(unsigned int seqI = kMerSize; seqI < sequence.size(); seqI++)
 	{
-		if((! superquiet) && ((seqI % 10000) == 0))
-			std::cout << "\r" << "seqI " << seqI << " / " << sequence.size() << std::flush;
-
 		std::string seqCharacter = sequence.substr(seqI, 1);
+	
+		if((! superquiet) && ((seqI % 100000) == 0))
+			std::cout << "\r" << "seqI " << seqI << " / " << sequence.size() << ": Search character " << seqCharacter << "\n" << std::flush;
+
+		if(verbose)
+			std::cout << "seqI " << seqI << " / " << sequence.size() << ": Search character " << seqCharacter << "\n" << std::flush;
+
 
 		// extend running chains
 		for(int chainI = (runningChains.size() - 1); chainI >= 0; chainI--)
 		{
 			kMerEdgeChain& chain = runningChains.at(chainI);
 			Node* targetNode = chain.traversedEdges.back()->To;
+			
+			if(verbose)
+			{
+				std::cout << "\t" << "Process chain " << chainI << "/" <<  runningChains.size() << " [" << (kMerEdgeChain*)(&chain) << "], ending in targetNode " << targetNode << "\n" << std::flush;
+				std::cout << "\t\tChains still in: ";
+				for(unsigned int cI2 = 0; cI2 < runningChains.size(); cI2++)
+				{
+					std::cout << (kMerEdgeChain*)(&(runningChains.at(cI2))) << " ";
+				}
+				std::cout << "\n";
+			}
+
 //			if(chain.traversedEdges.at(0)->From->level == 77)
 //			{
 //				std::cerr << "Chain starting node " << chain.traversedEdges.at(0)->From << ": Enter extension.\n";
@@ -89,11 +105,18 @@ std::vector<kMerEdgeChain*> GraphAndEdgeIndex::findChains(std::string sequence)
 				std::vector<Edge*> moreTraversedEdges = nodes_jumpOverGaps.at(targetNode);
 				chain.traversedEdges.insert(chain.traversedEdges.end(), moreTraversedEdges.begin(), moreTraversedEdges.end());
 				targetNode = moreTraversedEdges.back()->To;
+				
+				if(verbose)
+				{
+					std::cout << "\t" << "Had to jump over target nodes, new final node " << targetNode << "\n" << std::flush;
+				}
+				
 //				if(chain.traversedEdges.at(0)->From->level == 77)
 //				{
 //					std::cerr << "Chain starting node " << chain.traversedEdges.at(0)->From << ": Jump over gaps.\n";
 //				}
 			}
+			
 			std::vector<std::vector<Edge*>> compatibleEdgeSequences;
 			std::set<Edge*> availableStartEdges = targetNode->Outgoing_Edges;
 
@@ -167,12 +190,24 @@ std::vector<kMerEdgeChain*> GraphAndEdgeIndex::findChains(std::string sequence)
 			{
 				Edge* availableStartEdge = *availableStartEdgeIt;
 				std::vector<std::vector<Edge*> > followingPaths = forwardScan(availableStartEdge);
-
+				
+				if(verbose)
+				{
+					std::cout << "\t\t" << "Scan forward paths from edge " << availableStartEdge << " [coming from node " << availableStartEdge->From << "]" << "\n" << std::flush;
+				}
+				
 				for(unsigned int fI = 0; fI < followingPaths.size(); fI++)
 				{
 					std::vector<Edge*>& impliedEdgeSequence = followingPaths.at(fI);
 					Edge* lastEdge = impliedEdgeSequence.at(impliedEdgeSequence.size() - 1);
 					std::string edgeEmission = g->CODE.deCode(lastEdge->locus_id, lastEdge->emission);
+					
+					
+					if(verbose)
+					{
+						std::cout << "\t\t\t" << "Alternative " << fI << "/" << followingPaths.size() << ": path length " << impliedEdgeSequence.size() << " with symbol: " << edgeEmission << " [looking for " << seqCharacter << "]" << "\n" << std::flush;
+					}
+									
 					assert(edgeEmission != "_");
 //					if(chain.traversedEdges.at(0)->From->level == 77)
 //					{
@@ -194,8 +229,36 @@ std::vector<kMerEdgeChain*> GraphAndEdgeIndex::findChains(std::string sequence)
 
 			if(compatibleEdgeSequences.size() == 0)
 			{
+				assert(&(chain) == &(runningChains.at(chainI)));
+				if(verbose)
+				{				
+					// std::cout << "\n\t\t\tChains still in: ";
+					// for(unsigned int cI2 = 0; cI2 < runningChains.size(); cI2++)
+					// {
+						// std::cout << (kMerEdgeChain*)(&(runningChains.at(cI2))) << " ";
+					// }
+					// std::cout << "\n";		
+					std::cout << "\t\t Get rid of chainI " << chainI << "/" << (kMerEdgeChain*)(&chain) << "\n" << std::flush;
+
+				}
+								
 				archiveChain(chain);
+				std::vector<kMerEdgeChain>::iterator toDeleteIt = runningChains.begin() + chainI;
+				
+				assert(&(*toDeleteIt) == &(chain));
+				
 				runningChains.erase(runningChains.begin() + chainI);
+				
+				// if(verbose)
+				// {				
+					// std::cout << "\t\t\tChains still in: ";
+					// for(unsigned int cI2 = 0; cI2 < runningChains.size(); cI2++)
+					// {
+						// std::cout << (kMerEdgeChain*)(&(runningChains.at(cI2))) << " ";
+					// }
+					// std::cout << "\n";					
+				// }				
+				
 			}
 			else if(compatibleEdgeSequences.size() == 1)
 			{

@@ -613,13 +613,15 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 	
 	// {
-		// std::string read = "TTTTCTATGCTGTGGAAGGTCTGTTCTTTCACTCTTCACAATAAATCTTGTGCTCACTCTTTGGGTCCGTGCCACCTTTAAGAGCTATAACACTCACTGC";
+		// std::string read = "GCCACCCTGAGGTGCTGGGCCCTGAGCTTCTACCCTGTGGAGATCACACTGACCTGGCAGCGGGATGGGGAGGACCAGACCCAGGACACGGAGCTTGTGG";
+		// read = "CGCCGTGGGCTACGTGGACGACACAGAGTTCGTGCGGTTCGACAGCGACTCCGTGAGTCCGAGGATGGAGCGGCGGGCGCCGTGGGTGGAGCAGGAGGGG";
+		
 		// Graph* g = new Graph();
 		// g->readFromFile(graph_filename);
 			
 			
 		// GraphAlignerUnique* gA = new GraphAlignerUnique(g, aligner_kMerSize);
-		// gA->setIterationsMainRandomizationLoop(1);
+		// gA->setIterationsMainRandomizationLoop(0);
 		// gA->setThreads(1);	
 
 		// std::vector<seedAndExtend_return_local> allBacktraces;
@@ -644,7 +646,9 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 			// std::cout << "chainI: " << chainI << "\n";
 			// std::cout << "\t" << "chain_firstNode: " << chain_firstNode << " level: " << chain_firstNode->level << "\n";
 			// std::cout << "\t" << "chain_lastNode: " << chain_lastNode << " level: " << chain_lastNode->level << "\n";
-
+			// std::cout << "\t" << "sequence_begin: "  << chain->sequence_begin << "\n";
+			// std::cout << "\t" << "sequence_end: "  << chain->sequence_end << "\n";
+			
 				// std::string impliedSequence;
 				// for(unsigned int eI = 0; eI < chain->traversedEdges.size(); eI++)
 				// {
@@ -692,11 +696,20 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 	std::cout << Utilities::timestamp() << "\tdone.\n" << std::flush;	
 
-	std::string fileName_for_incorrectAlignments = "../tmp/incorrectAlignments.txt";
-	std::ofstream incorrectAlignmentsStream;
-	incorrectAlignmentsStream.open(fileName_for_incorrectAlignments.c_str());
-	assert(incorrectAlignmentsStream.is_open());
-
+	std::string fileName_for_incorrectAlignments_unpaired = "../tmp/incorrectAlignments_unpaired.txt";
+	std::string fileName_for_incorrectAlignments_paired = "../tmp/incorrectAlignments_paired.txt";
+	std::ofstream incorrectAlignmentsStream_unpaired;
+	incorrectAlignmentsStream_unpaired.open(fileName_for_incorrectAlignments_unpaired.c_str());
+	assert(incorrectAlignmentsStream_unpaired.is_open());
+	std::ofstream incorrectAlignmentsStream_paired;
+	incorrectAlignmentsStream_paired.open(fileName_for_incorrectAlignments_paired.c_str());
+	assert(incorrectAlignmentsStream_paired.is_open());
+	
+	std::string fileName_for_unpaired_better = "../tmp/alignments_unpaired_better.txt";
+	std::ofstream unpairedAlignmentsBetterStream;
+	unpairedAlignmentsBetterStream.open(fileName_for_unpaired_better.c_str());
+	assert(unpairedAlignmentsBetterStream.is_open());
+		
 	int simulateGenomePairs = 1;
 	for(int genomePair = 1; genomePair <= simulateGenomePairs; genomePair++)
 	{
@@ -716,7 +729,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		std::vector<oneReadPair> combinedPairs_for_alignment_filtered;
 		for(unsigned int pI = 0; pI < combinedPairs_for_alignment.size(); pI++)
 		{
-			if((pI % 1) != 0)
+			if((pI % 1) != 0)  
 			{
 				continue;
 			}
@@ -731,13 +744,13 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 		std::cout << "\t" << "After filtering out N / *, have " << combinedPairs_for_alignment_filtered.size() << " read pairs." << "\n" << std::flush;
 
-		auto checkOneReadLevelCorrectness = [&](oneRead& r, seedAndExtend_return_local& r_aligned, int& levels_total, int& levels_OK, bool printToFile) -> void {
+		auto checkOneReadLevelCorrectness = [&](oneRead& r, seedAndExtend_return_local& r_aligned, int& levels_total, int& levels_OK, int& positions_total, int& positions_matches, bool printToFile, std::ofstream& incorrectAlignmentsStream) -> void {
 		
 			levels_total = 0;
 			levels_OK = 0;
 
-			int positions_total = 0;
-			int positions_matches = 0;
+			positions_total = 0;
+			positions_matches = 0;
 			
 			assert(r.coordinates_edgePath.size() == r.sequence.length());
 			int cI_in_unaligned_sequence = -1;
@@ -865,7 +878,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 				alignments_perThread.at(tI).push_back(alignment_pair);
 				alignments_readPairI_perThread.at(tI).push_back(pairI);
 				
-				if(tI == 2)
+				if(tI == 0)
 				{
 					std::cout  << Utilities::timestamp() << "\t\t" << "Thread " << tI << ": align pair " << pairI << "\n" << std::flush;
 				}
@@ -920,7 +933,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		
 		std::cout  << Utilities::timestamp() << "\t\t\t" << "Merging done.\n" << std::flush;
 		
-		auto evaluateAlignments = [&](std::vector<oneReadPair>& readPairs, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector< int >& alignments_readPairI, bool printToFile) -> void {
+		auto evaluateAlignments = [&](std::vector<oneReadPair>& readPairs, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector< int >& alignments_readPairI, bool printToFile, std::ofstream& incorrectAlignmentsStream, std::map<int, int>&  levelsOK_perPair) -> void {
 
 			
 			assert(readPairs.size() == alignments.size());
@@ -928,6 +941,8 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 			
 			int summary_levels_evaluated = 0;
 			int summary_levels_OK = 0;
+			int positions_total = 0;
+			int positions_matches = 0;			
 			
 			for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
 			{
@@ -940,29 +955,158 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 				int r1_levels; int r1_levels_OK;
 				int r2_levels; int r2_levels_OK;
-
-				checkOneReadLevelCorrectness(r1, alignments_thisPair.first, r1_levels, r1_levels_OK, printToFile);
-				checkOneReadLevelCorrectness(r2, alignments_thisPair.second, r2_levels, r2_levels_OK, printToFile);
+				int r1_positions_total; int r1_positions_OK;
+				int r2_positions_total; int r2_positions_OK;
+				
+				checkOneReadLevelCorrectness(r1, alignments_thisPair.first, r1_levels, r1_levels_OK, r1_positions_total, r1_positions_OK, printToFile, incorrectAlignmentsStream);
+				checkOneReadLevelCorrectness(r2, alignments_thisPair.second, r2_levels, r2_levels_OK, r2_positions_total, r2_positions_OK, printToFile, incorrectAlignmentsStream);
 
 				summary_levels_evaluated += (r1_levels + r2_levels);
 				summary_levels_OK += (r1_levels_OK + r2_levels_OK);
+				
+				positions_total += (r1_positions_total + r2_positions_total);
+				positions_matches += (r1_positions_OK + r2_positions_OK);
+				
+				assert(levelsOK_perPair.count(pairI) == 0);
+				levelsOK_perPair[pairI] = (r1_levels_OK + r2_levels_OK);			
+				
 			}
 
-			std::cout << "\t\t" << "Summary: " << summary_levels_evaluated << " evaluated, of which " << summary_levels_OK << " were OK. ";
+			std::cout << "\t\t" << "Matches: " << positions_total << " evaluated, of which " << positions_matches << " were OK. ";
+				std::cout << "(" <<  std::setw(5) << (double)positions_matches/(double)positions_total << ")" << "\n\n" << std::flush;				
+			
+			std::cout << "\t\t" << "Levels: " << summary_levels_evaluated << " evaluated, of which " << summary_levels_OK << " were OK. ";
 				std::cout << "(" <<  std::setw(5) << (double)summary_levels_OK/(double)summary_levels_evaluated << ")" << "\n\n" << std::flush;
 		};
 
+		std::map<int, int> noPairing_levelsOK_perPair;
+		std::map<int, int> withPairing_levelsOK_perPair;
 		
 		std::cout << "Evaluation WITHOUT pairs:\n\n" << std::flush;
-		evaluateAlignments(combinedPairs_for_alignment_filtered, noPairing_alignments, noPairing_alignments_readPairI, true);
-		
+		evaluateAlignments(combinedPairs_for_alignment_filtered, noPairing_alignments, noPairing_alignments_readPairI, true, incorrectAlignmentsStream_unpaired, noPairing_levelsOK_perPair);
+			
 		std::cout << "Evaluation WITH pairs:\n\n" << std::flush;
-		evaluateAlignments(combinedPairs_for_alignment_filtered, withPairing_alignments, withPairing_alignments_readPairI, false);
+		evaluateAlignments(combinedPairs_for_alignment_filtered, withPairing_alignments, withPairing_alignments_readPairI, false, incorrectAlignmentsStream_paired, withPairing_levelsOK_perPair);
+		
+		// find alignments for which UNPAIRED is better (unexpectedly)
+	
+		std::map<int, std::pair<seedAndExtend_return_local, seedAndExtend_return_local>*> noPairing_alignments_perPair;
+		std::map<int, std::pair<seedAndExtend_return_local, seedAndExtend_return_local>*> withPairing_alignments_perPair;
+		for(unsigned int i = 0; i < noPairing_alignments.size(); i++)
+		{
+			int pairI = noPairing_alignments_readPairI.at(i);
+			assert(noPairing_alignments_perPair.count(pairI) == 0);
+			noPairing_alignments_perPair[pairI] = &(noPairing_alignments.at(i));
+		}
+		for(unsigned int i = 0; i < withPairing_alignments.size(); i++)
+		{
+			int pairI = withPairing_alignments_readPairI.at(i);
+			assert(withPairing_alignments_perPair.count(pairI) == 0);
+			withPairing_alignments_perPair[pairI] = &(withPairing_alignments.at(i));
+		}
+		
+		
+		assert(noPairing_levelsOK_perPair.size() == withPairing_levelsOK_perPair.size());
+		assert(noPairing_levelsOK_perPair.size() == combinedPairs_for_alignment_filtered.size());
+		for(std::map<int, int>::iterator pIt = noPairing_levelsOK_perPair.begin(); pIt != noPairing_levelsOK_perPair.end(); pIt++)
+		{
+			int pairI = pIt->first;
+			int noPairing_OK = noPairing_levelsOK_perPair.at(pairI);
+			int withPairing_OK = withPairing_levelsOK_perPair.at(pairI);
+			
+			oneReadPair& rP = combinedPairs_for_alignment_filtered.at(pairI);
+			oneRead& r1 = rP.reads.first;
+			oneRead& r2 = rP.reads.second;
+		
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>* alignment_paired = withPairing_alignments_perPair.at(pairI);
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>* alignment_unpaired = noPairing_alignments_perPair.at(pairI);
+			
+			std::cout << "noPairing_OK vs withPairing_OK: " << noPairing_OK << " / " << withPairing_OK << "\n" << std::flush;
+			
+			if(noPairing_OK > withPairing_OK)
+			{
+				auto printAlignmentVersusTruth = [&](oneRead& r, seedAndExtend_return_local& r_aligned, std::ofstream& outputStream, std::string indent) -> void {
+				
+					int cI_in_unaligned_sequence = -1;
+					std::vector<std::string> correctLevelsInAlignmentOrder;
+
+					int levels_OK = 0;
+					int levels_total = 0;
+					
+					for(unsigned int cI = 0; cI < r_aligned.sequence_aligned.size(); cI++)
+					{
+						char sequenceCharacter_from_alignment = r_aligned.sequence_aligned.at(cI);
+						char graphCharacter_from_alignment = r_aligned.graph_aligned.at(cI);
+						
+						if(sequenceCharacter_from_alignment == '_')
+						{
+							correctLevelsInAlignmentOrder.push_back("/");
+						}
+						else
+						{
+							cI_in_unaligned_sequence++;
+							int specifiedEdgeLevel = r_aligned.graph_aligned_levels.at(cI);
+							
+							int cI_in_unaligned_sequence_correctlyAligned = cI_in_unaligned_sequence;
+							if(r_aligned.reverse)
+							{
+								cI_in_unaligned_sequence_correctlyAligned = (r.sequence.length() - cI_in_unaligned_sequence - 1);
+							}
+							assert(cI_in_unaligned_sequence_correctlyAligned >= 0);
+							assert(cI_in_unaligned_sequence_correctlyAligned < (int)r.sequence.length());
+
+							int correctEdgeLevel = r.coordinates_edgePath.at(cI_in_unaligned_sequence_correctlyAligned);
+							correctLevelsInAlignmentOrder.push_back(Utilities::ItoStr(correctEdgeLevel));
+
+							levels_total++;
+							if(specifiedEdgeLevel == correctEdgeLevel)
+							{
+								levels_OK++;
+							}
+					
+							char sequenceCharacter_from_originalRead = r.sequence.at(cI_in_unaligned_sequence_correctlyAligned);
+							if(r_aligned.reverse)
+							{	
+								sequenceCharacter_from_originalRead = Utilities::reverse_char_nucleotide(sequenceCharacter_from_originalRead);
+							}						
+							assert(sequenceCharacter_from_alignment == sequenceCharacter_from_originalRead);
+						}
+					}
+
+						outputStream << indent << "Read " << r.name << ": " << levels_OK << " of " << levels_total << " levels OK\n";
+						outputStream << indent << "\t" << "  Raw read:" << "\t" << r.sequence << "\n";
+						outputStream << indent << "\t" << " Qualities:" << "\t" << r.quality << "\n\n";
+						outputStream << indent << "\t" << "Al. genome:" << "\t" << r_aligned.graph_aligned << "\n";
+						outputStream << indent << "\t" << "  Al. read:" << "\t" << r_aligned.sequence_aligned << "\n\n";
+						outputStream << indent << "\t" << "Al. levels:" << "\t" << Utilities::join(Utilities::ItoStr(r_aligned.graph_aligned_levels), " ") << "\n";
+						outputStream << indent << "\t" << "True levls:" << "\t" << Utilities::join(correctLevelsInAlignmentOrder, " ") << "\n\n";
+						outputStream << std::flush;				
+				};
+				
+				unpairedAlignmentsBetterStream << "Genome " << genomePair << ", read pair " << pairI << ": " << noPairing_OK << " no-pairs vs " << withPairing_OK << " with-pairs.\n";
+					unpairedAlignmentsBetterStream << "\t" << "diff_starting_coordinates: " << rP.diff_starting_coordinates << "\n";
+					unpairedAlignmentsBetterStream << "\t" << "Unpaired: " << "\n";
+						unpairedAlignmentsBetterStream << "\t\t" << "Read 1: " << "\n";
+							printAlignmentVersusTruth(r1, alignment_unpaired->first, unpairedAlignmentsBetterStream, "\t\t\t");
+						unpairedAlignmentsBetterStream << "\t\t" << "Read 2: " << "\n";				
+							printAlignmentVersusTruth(r2, alignment_unpaired->second, unpairedAlignmentsBetterStream, "\t\t\t");
+							
+					unpairedAlignmentsBetterStream << "\t" << "Paired: " << "\n";
+						unpairedAlignmentsBetterStream << "\t\t" << "Read 1: " << "\n";
+							printAlignmentVersusTruth(r1, alignment_paired->first, unpairedAlignmentsBetterStream, "\t\t\t");
+						unpairedAlignmentsBetterStream << "\t\t" << "Read 2: " << "\n";				
+							printAlignmentVersusTruth(r2, alignment_paired->second, unpairedAlignmentsBetterStream, "\t\t\t");
+								
+				unpairedAlignmentsBetterStream << "=====================================================\n\n\n" << std::flush;
+			}
+		}
 		
 	}
 
-	incorrectAlignmentsStream.close();
-
+	incorrectAlignmentsStream_unpaired.close();
+	incorrectAlignmentsStream_paired.close();
+	unpairedAlignmentsBetterStream.close();
+	
 	for(int tI = 0; tI < outerThreads; tI++)
 	{
 		delete(graphAligners.at(tI));
