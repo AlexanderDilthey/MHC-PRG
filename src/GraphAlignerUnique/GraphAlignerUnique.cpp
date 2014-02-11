@@ -211,8 +211,11 @@ void GraphAlignerUnique::analyzeChainUniqueness(std::string& sequence, std::vect
 
 		assert(kMers_impliedSequence.size() > 0);
 
-		// std::cout << "\t\t" << chainI << "\t" << kMers_doubleUnique << "\t" << ((double)kMers_doubleUnique/(double)kMers_impliedSequence.size()) << "\n" << std::flush;
-
+		if(verbose)
+		{
+			std::cout << "\t\t" << "analyzeChainUniqueness(..): " << chainI << "[" << chain << "]\t" << kMers_doubleUnique << "\t" << ((double)kMers_doubleUnique/(double)kMers_impliedSequence.size()) << "\n" << std::flush;
+		}
+		
 		uniquelyTrimmedChains_doubleUniquekMers[chain] = kMers_doubleUnique;
 		uniquelyTrimmedChains_ordered.insert(chain);
 	}
@@ -520,7 +523,8 @@ std::vector<std::pair<int, int> > GraphAlignerUnique::findGaps_chainCoverage(std
 
 void GraphAlignerUnique::fixNonUniqueChains(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered, bool thisIterationRandomization, std::vector<kMerEdgeChain*>& allChains, std::vector<kMerEdgeChain*>& newChains)
 {
-	// std::cout << Utilities::timestamp() << "GraphAlignerUnique::fixNonUniqueChain(..): Enter function with " << allChains.size() << " total chains.\n" << std::flush;
+	if(verbose)
+		std::cout << Utilities::timestamp() << "GraphAlignerUnique::fixNonUniqueChain(..): Enter function with " << allChains.size() << " total chains.\n" << std::flush;
 
 	int assignedChains;
 	int iteration_gapsClosing = 0;
@@ -544,7 +548,7 @@ void GraphAlignerUnique::fixNonUniqueChains(std::string& sequence, std::vector<k
 
 void GraphAlignerUnique::closeOneGap_withNonUniqueChains(std::string& sequence, std::pair<int, int> gapCoordinates, std::vector<kMerEdgeChain*>& sequencePositions_covered, bool thisIterationRandomization, std::vector<kMerEdgeChain*>& chainsToConsider, std::vector<kMerEdgeChain*>& newTrimmedChains, int& assignedChains)
 {
-	if(verbose) std::cout << Utilities::timestamp() << " Examine gap from " << gapCoordinates.first << " to " << gapCoordinates.second << "\n" << std::flush;
+	if(verbose) std::cout << Utilities::timestamp() << "closeOneGap_withNonUniqueChains(..): Examine gap from " << gapCoordinates.first << " to " << gapCoordinates.second << "\n" << std::flush;
 
 	int gapLength = gapCoordinates.second - gapCoordinates.first + 1;
 	assert(gapLength > 0);
@@ -635,7 +639,7 @@ void GraphAlignerUnique::closeOneGap_withNonUniqueChains(std::string& sequence, 
 	std::function<bool(kMerEdgeChain*,kMerEdgeChain*)> cmpChainUniqueness = [&](kMerEdgeChain* lhs, kMerEdgeChain* rhs) -> bool {
 		int rhs_uniqueness = chains_localUniqueness.at(rhs);
 		int lhs_uniqueness = chains_localUniqueness.at(lhs);
-		if(lhs == rhs)
+		if(rhs_uniqueness == lhs_uniqueness)
 		{
 			return (rhs < lhs);
 		}
@@ -657,6 +661,9 @@ void GraphAlignerUnique::closeOneGap_withNonUniqueChains(std::string& sequence, 
 	);
 
 	std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>> remainingChains = relevantChains_ordered;
+	
+	if(verbose) std::cout << Utilities::timestamp() << "closeOneGap_withNonUniqueChains(..): After analyzeLocalChainUniqueness(..), have  " << remainingChains.size() << " chains in remainingChains." << "\n" << std::flush;
+
 	while((remainingChains.size() > 0) && (chains_localUniqueness.at(*remainingChains.begin()) > minimumChainUniqueness))
 	{
 		if(thisIterationRandomization)
@@ -932,7 +939,7 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 
 	std::vector<kMerEdgeChain*> chains_for_sequence = gI.findChains(sequence);
 
-	if(verbose) std::cout << Utilities::timestamp() << "Make chain " << chains_for_sequence.size() << " uniquely ending.\n" << std::flush;
+	if(verbose) std::cout << Utilities::timestamp() << "Make " << chains_for_sequence.size() << " chains uniquely ending.\n" << std::flush;
 
 	std::vector<kMerEdgeChain*> uniquelyTrimmedChains = trimChainsForUniqueness(chains_for_sequence, sequence, kMer_sequence_occurrences);
 
@@ -943,7 +950,7 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 	std::function<bool(kMerEdgeChain*,kMerEdgeChain*)> cmpChainUniqueness = [&](kMerEdgeChain* lhs, kMerEdgeChain* rhs) -> bool {
 		int rhs_uniqueness = uniquelyTrimmedChains_doubleUniquekMers.at(rhs);
 		int lhs_uniqueness = uniquelyTrimmedChains_doubleUniquekMers.at(lhs);
-		if(lhs == rhs)
+		if(lhs_uniqueness == rhs_uniqueness)
 		{
 			return (rhs < lhs);
 		}
@@ -962,7 +969,7 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 			uniquelyTrimmedChains_doubleUniquekMers,
 			uniquelyTrimmedChains_ordered
 	);
-
+	
 	std::vector<seedAndExtend_return> possibleBacktraces;
 	std::vector<double> possibleBacktraces_scores;
 
@@ -1003,7 +1010,7 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix properly unique chains.\n" << std::flush;
 				}
 			}
-			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
+			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers, false);
 			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
 
 			if(verbose)
@@ -1178,7 +1185,7 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 			std::vector<kMerEdgeChain*> sequencePositions_covered;
 			std::vector<kMerEdgeChain*> moreChains;
 
-			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
+			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers, false);
 			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
 
 			fixNonUniqueChains(sequence, sequencePositions_covered, thisIterationRandomization, chains_for_sequence, moreChains);
@@ -1441,6 +1448,8 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 {
 	seedAndExtend_return_local forReturn;
 	
+	// verbose = true;
+	
 	// std::cout << Utilities::timestamp() << " Enter GraphAlignerUnique::seedAndExtend(..)!\n" << std::flush;
 
 	bool useReverse;
@@ -1466,12 +1475,25 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 
 	if(verbose) std::cout << Utilities::timestamp() << "Analyze " << uniquelyTrimmedChains.size() << " trimmed chains.\n" << std::flush;
 
+	bool rescureNonUniqueChains = false;
+	if(uniquelyTrimmedChains.size() == 0)
+	{
+		if(verbose) std::cout << Utilities::timestamp() << "Uniqueness-trimming has removed all chains, rescure by accepting all.\n" << std::flush;
+		for(unsigned int chainI = 0; chainI < chains_for_sequence.size(); chainI++)
+		{
+			kMerEdgeChain* chainCopy = new kMerEdgeChain(*(chains_for_sequence.at(chainI)));
+			uniquelyTrimmedChains.push_back(chainCopy);
+		}
+		if(verbose) std::cout << Utilities::timestamp() << "Rescured, now have " << uniquelyTrimmedChains.size() << " chains.\n" << std::flush;
+		rescureNonUniqueChains = true;
+	}
+	
 	std::map<kMerEdgeChain*, int> uniquelyTrimmedChains_doubleUniquekMers;
 
 	std::function<bool(kMerEdgeChain*,kMerEdgeChain*)> cmpChainUniqueness = [&](kMerEdgeChain* lhs, kMerEdgeChain* rhs) -> bool {
 		int rhs_uniqueness = uniquelyTrimmedChains_doubleUniquekMers.at(rhs);
 		int lhs_uniqueness = uniquelyTrimmedChains_doubleUniquekMers.at(lhs);
-		if(lhs == rhs)
+		if(lhs_uniqueness == rhs_uniqueness)
 		{
 			return (rhs < lhs);
 		}
@@ -1491,6 +1513,8 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 			uniquelyTrimmedChains_doubleUniquekMers,
 			uniquelyTrimmedChains_ordered
 	);
+
+	if(verbose) std::cout << Utilities::timestamp() << "After analyzeChainUniqueness(..), have " << uniquelyTrimmedChains_ordered.size() << " elements in uniquelyTrimmedChains_ordered trimmed chains.\n" << std::flush;
 
 	
 	std::vector<seedAndExtend_return> possibleBacktraces;
@@ -1549,7 +1573,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix properly unique chains.\n" << std::flush;
 				}
 			}
-			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
+			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers, rescureNonUniqueChains);
 			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
 
 			if(verbose)
@@ -1718,13 +1742,17 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 
 		for(int iI = 0; iI <= iterationsMainRandomizationLoop; iI++)
 		{
+			if(verbose)
+			{
+				std::cout << "Main iterations loop: " << iI << "\n" << std::flush;
+			}
 			bool thisIterationRandomization = (iI != 0);
 
 			std::set<kMerEdgeChain*> selectedChains;
 			std::vector<kMerEdgeChain*> sequencePositions_covered;
 			std::vector<kMerEdgeChain*> moreChains;
 
-			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers);
+			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers, rescureNonUniqueChains);
 			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
 
 
@@ -6493,14 +6521,14 @@ void GraphAlignerUnique::printSequenceChainCoverageStats(std::string& sequence, 
 	}
 }
 
-void GraphAlignerUnique::fixUniqueChains(std::string& sequence, bool thisIterationRandomization, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered, std::set<kMerEdgeChain*>& selectedChains, 	std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers)
+void GraphAlignerUnique::fixUniqueChains(std::string& sequence, bool thisIterationRandomization, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered, std::set<kMerEdgeChain*>& selectedChains, 	std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers, bool rescueNonUnique)
 {
-	if(verbose) std::cout << Utilities::timestamp() << "GraphAlignerUnique::fixUniqueChains(..): Fix chains, starting with " << uniquelyTrimmedChains_ordered.size() << " chains.\n" << std::flush;
+	if(verbose) std::cout << Utilities::timestamp() << "GraphAlignerUnique::fixUniqueChains(..): Fix chains, starting with " << uniquelyTrimmedChains_ordered.size() << " chains. Randomization = " << thisIterationRandomization << ".\n" << std::flush;
 
 	std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>> remainingChains = uniquelyTrimmedChains_ordered;
 	sequencePositions_covered.resize(sequence.length(), 0);
 
-	while((remainingChains.size() > 0) && (uniquelyTrimmedChains_doubleUniquekMers.at(*remainingChains.begin()) >= minimumChainUniqueness))
+	while((remainingChains.size() > 0) && ((uniquelyTrimmedChains_doubleUniquekMers.at(*remainingChains.begin()) >= minimumChainUniqueness) || rescueNonUnique))
 	{
 		if(thisIterationRandomization)
 		{
@@ -6510,7 +6538,7 @@ void GraphAlignerUnique::fixUniqueChains(std::string& sequence, bool thisIterati
 			for(int chainI = 1; chainI <= randomizationParameter; chainI++)
 			{
 				kMerEdgeChain* candidateChain  = *candidateIt;
-				if(uniquelyTrimmedChains_doubleUniquekMers.at(*remainingChains.begin()) < minimumChainUniqueness)
+				if((uniquelyTrimmedChains_doubleUniquekMers.at(*remainingChains.begin()) < minimumChainUniqueness) && (! rescueNonUnique))
 				{
 					break;
 				}
