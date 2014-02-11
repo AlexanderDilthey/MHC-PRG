@@ -68,7 +68,11 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 	double combined_log_likelihood = 0;
 
 	totalMismatches = 0;
-
+	
+	bool verbose = false;
+	
+	if(verbose) std::cout << "SCORE\n";
+	
 	for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
 	{
 		std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
@@ -96,7 +100,7 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 			if(graphCharacter == "_")
 			{
 				// sequence non gap, graph gap -- insertion
-				combined_log_likelihood += (rate_insertions + log(1/4));
+				combined_log_likelihood += (rate_insertions + log(1.0/4.0));
 				totalMismatches++;
 			}
 			else
@@ -104,14 +108,16 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 				// two well-defined characters
 				char qualityCharacter = underlyingRead.quality.at(indexIntoOriginalReadData_correctlyAligned);
 				double pCorrect = Utilities::PhredToPCorrect(qualityCharacter);
-				assert((pCorrect >= 0) && (pCorrect <= 1));
+				assert((pCorrect > 0) && (pCorrect <= 1));
 				if(sequenceCharacter == graphCharacter)
 				{
 					combined_log_likelihood += log(pCorrect);
 				}
 				else
 				{
-					combined_log_likelihood += log(1 - pCorrect);
+					double pIncorrect = 1 - pCorrect;
+					assert((pIncorrect > 0) && (pIncorrect < 1));
+					combined_log_likelihood += log(pIncorrect);
 					totalMismatches++;
 				}
 			}
@@ -132,6 +138,8 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 				totalMismatches++;
 			}
 		}
+		
+		if(verbose) std::cout << "\t" << cI << "\t" << combined_log_likelihood << "\n";
 	}
 
 	return combined_log_likelihood;
@@ -1362,6 +1370,8 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired(oneReadPair readPair, bool usePairing, double insertSize_mean, double insertSize_sd)
 {
 
+	bool verbose = false;
+	
 	assert(readPair.reads.first.sequence.find("_") == std::string::npos);
 	assert(readPair.reads.first.sequence.find("*") == std::string::npos);
 	assert(readPair.reads.first.sequence.find("N") == std::string::npos);
@@ -1382,6 +1392,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
 		seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
 
+		if(verbose) std::cout << "Read 1 alternatives:\n" << std::flush;
 		std::vector<double> likelihoods_read1_alternatives;
 		for(unsigned int i = 0; i < read1_backtraces.size(); i++)
 		{
@@ -1389,9 +1400,12 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			int ignore;
 			double LL = scoreOneAlignment(readPair.reads.first, thisBacktrace, ignore);
 			likelihoods_read1_alternatives.push_back(LL);
+			
+			if(verbose) std::cout << "\t" << i << " " << LL << "\n" << std::flush;
 		}
 		assert(likelihoods_read1_alternatives.size() == read1_backtraces.size());
 
+		if(verbose) std::cout << "Read 2 alternatives:\n" << std::flush;		
 		std::vector<double> likelihoods_read2_alternatives;
 		for(unsigned int i = 0; i < read2_backtraces.size(); i++)
 		{
@@ -1399,12 +1413,16 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			int ignore;
 			double LL = scoreOneAlignment(readPair.reads.second, thisBacktrace, ignore);
 			likelihoods_read2_alternatives.push_back(LL);
+			
+			if(verbose) std::cout << "\t" << i << " " << LL << "\n" << std::flush;			
 		}
 		assert(likelihoods_read2_alternatives.size() == read2_backtraces.size());
 
+		
 
 		std::vector<double> combinedScores;
 		std::vector<std::pair<unsigned int, unsigned int> > combinedScores_indices;
+		if(verbose) std::cout << "Read combinations alternatives:\n" << std::flush;
 		for(unsigned int aI1 = 0; aI1 < read1_backtraces.size(); aI1++)
 		{
 			for(unsigned int aI2 = 0; aI2 < read2_backtraces.size(); aI2++)
@@ -1416,7 +1434,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 				assert((distance_graph_levels_P >= 0) && (distance_graph_levels_P <= 1));
 
-				combinedScore += log(distance_graph_levels);
+				combinedScore += log(distance_graph_levels_P);
 
 				if(read1_backtraces.at(aI1).reverse != read2_backtraces.at(aI2).reverse)
 				{
@@ -1425,6 +1443,15 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 				combinedScores.push_back(combinedScore);
 				combinedScores_indices.push_back(std::make_pair(aI1, aI2));
+				
+			
+				if(verbose)
+				{
+					std::cout << "\t" << aI1 << "/" << aI2 << ": ";
+					std::cout << "LL1: " << likelihoods_read1_alternatives.at(aI1) << " LL2: " << likelihoods_read2_alternatives.at(aI2) << " ";
+					std::cout << "REV1: " << read1_backtraces.at(aI1).reverse << " REV2:" << read2_backtraces.at(aI2).reverse << " ";
+					std::cout << "Distance: " << distance_graph_levels << " (" << log(distance_graph_levels_P) << ")" << "\n" << std::flush;
+				}
 			}
 		}
 
@@ -1495,7 +1522,18 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 		int lhs_uniqueness = uniquelyTrimmedChains_doubleUniquekMers.at(lhs);
 		if(lhs_uniqueness == rhs_uniqueness)
 		{
-			return (rhs < lhs);
+			int sequence_length_rhs = rhs->sequence_end - rhs->sequence_begin;
+			assert(sequence_length_rhs > 0);
+			int sequence_length_lhs = lhs->sequence_end - lhs->sequence_begin;
+			assert(sequence_length_lhs > 0);
+			if(sequence_length_rhs == sequence_length_lhs)
+			{
+				return (rhs < lhs);
+			}
+			else
+			{
+				return (sequence_length_rhs < sequence_length_lhs);
+			}
 		}
 		else
 		{
@@ -1573,6 +1611,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 					std::cout << Utilities::timestamp() << "Thread " << omp_get_thread_num() << "; Fix properly unique chains.\n" << std::flush;
 				}
 			}
+			
 			fixUniqueChains(sequence, thisIterationRandomization, uniquelyTrimmedChains_ordered, selectedChains, sequencePositions_covered, uniquelyTrimmedChains_doubleUniquekMers, rescureNonUniqueChains);
 			if(iI == 0) printSequenceChainCoverageStats(sequence, sequencePositions_covered);
 
@@ -2635,7 +2674,7 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score(std::string& sequen
 
 void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack)
 {
-	bool verbose = false;
+	// bool verbose = true;
 	bool superquiet = false;
 
 	double minusInfinity = -1 * numeric_limits<double>::max();
@@ -2907,8 +2946,11 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 	}
 
 
-//	std::cerr << "Process " << gaps.size() << " gaps (or pseudo-gaps).\n" << std::flush;
-
+	if(verbose)
+	{
+		std::cout << "vNW_completeRemainingGaps_and_score_local(..): Process " << gaps.size() << " gaps (or pseudo-gaps).\n" << std::flush;
+	}
+	
 //	std::cerr << "sequencePositions_covered.at(0): " << sequencePositions_covered.at(0) << "\n" << std::flush;
 
 	for(int gapI = 0; gapI < (int)gaps.size(); gapI++)
@@ -2931,7 +2973,7 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 		assert(graphDistance_gap >= 0);
 
 		int sequencePosition_left = (leftChain) ? leftChain->sequence_end : 0;
-		int sequencePosition_right = (rightChain) ? rightChain->sequence_begin : sequence.length();
+		int sequencePosition_right = (rightChain) ? rightChain->sequence_begin : sequence.length();   
 		int sequenceDistance_gap = sequencePosition_right - sequencePosition_left - 1;
 		assert(sequenceDistance_gap >= -1);
 
@@ -2940,23 +2982,31 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 
 		bool extendedLeftPathToZero = false;
 		bool extendedRightPathToZero = false;
-//
-//		std::cout << std::flush;
-//		std::cerr << " Gap " << gapI << ", from " << gapCoordinates.first << " to " << gapCoordinates.second << "\n" << std::flush;
-//		std::cerr << "\t" << "leftChain: " << leftChain << "\n";
-//		std::cerr << "\t" << "rightChain: " << rightChain << "\n";
-//		std::cerr << "\t" << "leftPath: " << leftPath << "\n";
-//		std::cerr << "\t" << "rightPath: " << rightPath << "\n";
-//		std::cerr << "\t" << "leftBoundaryNode: " << leftBoundaryNode << "\n";
-//		std::cerr << "\t" << "rightBoundaryNode: " << rightBoundaryNode << "\n";
-//		std::cerr << "\t" << "gapBoundary_left_level: " << gapBoundary_left_level << "\n";
-//		std::cerr << "\t" << "gapBoundary_right_level: " << gapBoundary_right_level << "\n" << std::flush;
-//		std::cerr << "\t" << "isLeftBeginning: " << isLeftBeginning << "\n";
-//		std::cerr << "\t" << "isRightEnd: " << isRightEnd << "\n" << std::flush;
 
+		if(verbose)
+		{
+			std::cout << std::flush;
+			std::cout << " Gap " << gapI << ", from " << gapCoordinates.first << " to " << gapCoordinates.second << "\n" << std::flush;
+			std::cout << "\t" << "leftChain: " << leftChain << "\n";
+			std::cout << "\t" << "rightChain: " << rightChain << "\n";
+			std::cout << "\t" << "leftPath: " << leftPath << "\n";
+			std::cout << "\t" << "rightPath: " << rightPath << "\n";
+			std::cout << "\t" << "leftBoundaryNode: " << leftBoundaryNode << "\n";
+			std::cout << "\t" << "rightBoundaryNode: " << rightBoundaryNode << "\n";
+			std::cout << "\t" << "gapBoundary_left_level: " << gapBoundary_left_level << "\n";
+			std::cout << "\t" << "gapBoundary_right_level: " << gapBoundary_right_level << "\n" << std::flush;
+			std::cout << "\t" << "isLeftBeginning: " << isLeftBeginning << "\n";
+			std::cout << "\t" << "isRightEnd: " << isRightEnd << "\n\n" << std::flush;
+			std::cout << "\t" << "sequencePosition_left: " << sequencePosition_left << "\n";
+			std::cout << "\t" << "sequencePosition_right: " << sequencePosition_right << "\n";
+			std::cout << "\t" << "sequenceDistance_gap: " << sequenceDistance_gap << "\n";
+			std::cout << "\t" << "graphDistance_gap: " << graphDistance_gap << "\n";
+		}
 
-
-		if((sequenceDistance_gap > 0) && (graphDistance_gap > 0))
+		// I don't know exactly what this -1 in sequenceDistance_gap is supposed to achieve. The following
+		// condition has a special case for !leftChain and start position of chain == 1.
+		// We might have to do the same for the graph.
+		if(((sequenceDistance_gap > 0) || (isLeftBeginning && (sequencePosition_right == 1))) && (graphDistance_gap > 0))
 		{
 			if(leftPath != 0)
 			{
@@ -2969,6 +3019,11 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 
 				assert((sequencePosition_left+1) == exitEdgeToExtend->to_y);
 
+				if(verbose)
+				{
+					std::cout << "\t" << "fullNeedleman_diagonal_extension from left end (inwards)\n"; 
+				}
+				
 				std::vector<localExtension_pathDescription> forwardExtensions = fullNeedleman_diagonal_extension(
 						sequence,
 						exitEdgeToExtend->to_y,
@@ -3016,6 +3071,12 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 
 				vNW.removePath(rightPath);
 
+				if(verbose)
+				{
+					std::cout << "\t" << "fullNeedleman_diagonal_extension from right end (inwards)\n"; 
+				}
+				
+				
 				std::vector<localExtension_pathDescription> backwardExtensions = fullNeedleman_diagonal_extension(
 						sequence,
 						entryEdgeToExtend->from_y,
@@ -6574,11 +6635,13 @@ void GraphAlignerUnique::fixUniqueChains(std::string& sequence, bool thisIterati
 			remainingChains.erase(selectedChain);
 			selectedChains.insert(selectedChain);
 
-
-//				std::cerr << "\t" << "select x of " << remainingChains.size() << ": " << selectedChain << "\n" << std::flush;
-
-			// std::cerr << "selected chain in sequence from " << selectedChain->sequence_begin << " to " << selectedChain->sequence_end << ", inclusive.\n" << std::flush;
-
+			if(verbose)
+			{
+				
+				// std::cerr << "\t" << "select x of " << remainingChains.size() << ": " << selectedChain << "\n" << std::flush;
+				std::cout << "fixUniqueChains(..): selected chain in sequence from " << selectedChain->sequence_begin << " to " << selectedChain->sequence_end << ", inclusive.\n" << std::flush;
+			}
+			
 			for(int seqI = selectedChain->sequence_begin; seqI <= selectedChain->sequence_end; seqI++)
 			{
 				assert(sequencePositions_covered.at(seqI) == 0);
