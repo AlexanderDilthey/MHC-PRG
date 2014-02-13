@@ -1370,8 +1370,8 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired(oneReadPair readPair, bool usePairing, double insertSize_mean, double insertSize_sd)
 {
 
-	bool verbose = false;
-	
+	// bool verbose = true;
+	   
 	assert(readPair.reads.first.sequence.find("_") == std::string::npos);
 	assert(readPair.reads.first.sequence.find("*") == std::string::npos);
 	assert(readPair.reads.first.sequence.find("N") == std::string::npos);
@@ -1401,7 +1401,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			double LL = scoreOneAlignment(readPair.reads.first, thisBacktrace, ignore);
 			likelihoods_read1_alternatives.push_back(LL);
 			
-			if(verbose) std::cout << "\t" << i << " " << LL << "\n" << std::flush;
+			if(verbose) std::cout << "\t" << i << " " << LL << " [" << thisBacktrace.graph_aligned_levels.front() << " - " << thisBacktrace.graph_aligned_levels.back() << "]\n" << std::flush;
 		}
 		assert(likelihoods_read1_alternatives.size() == read1_backtraces.size());
 
@@ -1414,7 +1414,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			double LL = scoreOneAlignment(readPair.reads.second, thisBacktrace, ignore);
 			likelihoods_read2_alternatives.push_back(LL);
 			
-			if(verbose) std::cout << "\t" << i << " " << LL << "\n" << std::flush;			
+			if(verbose) std::cout << "\t" << i << " " << LL << " [" << thisBacktrace.graph_aligned_levels.front() << " - " << thisBacktrace.graph_aligned_levels.back() << "]\n" << std::flush;
 		}
 		assert(likelihoods_read2_alternatives.size() == read2_backtraces.size());
 
@@ -1436,7 +1436,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 				combinedScore += log(distance_graph_levels_P);
 
-				if(read1_backtraces.at(aI1).reverse != read2_backtraces.at(aI2).reverse)
+				if(read1_backtraces.at(aI1).reverse == read2_backtraces.at(aI2).reverse)
 				{
 					combinedScore = minusInfinity;
 				}
@@ -1450,13 +1450,18 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					std::cout << "\t" << aI1 << "/" << aI2 << ": ";
 					std::cout << "LL1: " << likelihoods_read1_alternatives.at(aI1) << " LL2: " << likelihoods_read2_alternatives.at(aI2) << " ";
 					std::cout << "REV1: " << read1_backtraces.at(aI1).reverse << " REV2:" << read2_backtraces.at(aI2).reverse << " ";
-					std::cout << "Distance: " << distance_graph_levels << " (" << log(distance_graph_levels_P) << ")" << "\n" << std::flush;
+					std::cout << "Distance: " <<  read1_backtraces.at(aI1).graph_aligned_levels.back() << " to " << read2_backtraces.at(aI2).graph_aligned_levels.front() << ", i.e. " << distance_graph_levels << " (" << log(distance_graph_levels_P) << ")" << "  == > " << combinedScore <<  "\n" << std::flush;
 				}
 			}
 		}
 
 		std::pair<double, unsigned int> bestCombination = Utilities::findVectorMax(combinedScores);
 
+		if(verbose)
+		{
+			std::cout << "CHOOSE alternative " << combinedScores_indices.at(bestCombination.second).first << " / " << combinedScores_indices.at(bestCombination.second).second << "\n" << std::flush;
+		}
+		
 		std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
 		forReturn.first = read1_backtraces.at(combinedScores_indices.at(bestCombination.second).first);
 		forReturn.second = read2_backtraces.at(combinedScores_indices.at(bestCombination.second).second);
@@ -1475,7 +1480,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 {
 	seedAndExtend_return_local forReturn;
 	
-	// verbose = true;
+	verbose = false;
 	
 	// std::cout << Utilities::timestamp() << " Enter GraphAlignerUnique::seedAndExtend(..)!\n" << std::flush;
 
@@ -5903,7 +5908,7 @@ void GraphAlignerUnique::findShortGappedGraphConnection_affine_MTM(int start_x, 
 	distances_startNormally.clear();
 
 	bool printMe = (((stop_x - start_x) > 100000) && (omp_get_thread_num() == 2));
-	// printMe = false;
+	printMe = false;
 
 	std::ostringstream print_buffer;
 	if(printMe)
@@ -7405,7 +7410,7 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 
 	if(verbose)
 	{
-		std::cout << "fullNeedleman_affine_diagonal_extension(..) called.\n" << std::flush;
+		std::cout << "fullNeedleman_affine_diagonal_extension(..) called, direction " << directionPositive << ".\n" << std::flush;
 	}
 
 	unsigned int levels = g->NodesPerLevel.size();
@@ -8193,25 +8198,28 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 		forReturn.push_back(pathReturn);
 	};
 
-//	for(unsigned int x = 607; x <= 610; x++)
-//	{
-//		for(unsigned int y = 76; y <= 78; y++)
-//		{
-//			std::cerr << "x = " << x << ", y = " << y << ": ";
-//			if((scores.count(x) == 0) || (scores.at(x).count(y) == 0) || (scores.at(x).at(y).size() == 0))
-//			{
-//				std::cerr << "Undefined.";
-//			}
-//			else
-//			{
-//				for(unsigned int z = 0; z < scores.at(x).at(y).size(); z++)
-//				{
-//					std::cerr << "\n\t z = " << z << ": " << scores.at(x).at(y).at(z).D;
-//				}
-//			}
-//			std::cerr << "\n\n" << std::flush;
-//		}
-//	}
+	if(verbose)
+	{
+		for(unsigned int x = 231412; x <= 231418; x++)
+		{
+			for(unsigned int y = 0; y <= 5; y++)
+			{
+				std::cerr << "x = " << x << ", y = " << y << ": ";
+				if((scores.count(x) == 0) || (scores.at(x).count(y) == 0) || (scores.at(x).at(y).size() == 0))
+				{
+					std::cerr << "Undefined.";
+				}
+				else
+				{
+					for(unsigned int z = 0; z < scores.at(x).at(y).size(); z++)
+					{
+						std::cerr << "\n\t z = " << z << ": " << scores.at(x).at(y).at(z).D;
+					}
+				}
+				std::cerr << "\n\n" << std::flush;
+			}
+		}
+	}
 
 	if(! returnGlobalScore)
 	{

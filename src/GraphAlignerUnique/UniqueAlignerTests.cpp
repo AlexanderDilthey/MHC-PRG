@@ -612,8 +612,21 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 	int aligner_kMerSize = 25;
 
 	
+	// todo remove
+	// boost::mt19937 rnd_gen;
+		// auto seed = boost::random::random_device()();
+		// rnd_gen.seed(seed);	
+	// boost::random::uniform_int_distribution<> nucleotide_gen (0,3);
+	// char nucleotides[4] = {'A', 'C', 'G', 'T'};
+	// for(unsigned int i = 0; i < 100; i++)
 	// {
-		// std::string read = "GCCACCCTGAGGTGCTGGGCCCTGAGCTTCTACCCTGTGGAGATCACACTGACCTGGCAGCGGGATGGGGAGGACCAGACCCAGGACACGGAGCTTGTGG";
+		// std::cout << Utilities::randomNucleotide(rnd_gen) << " " << std::flush;
+	// }
+	// assert(1 == 0);
+			
+	
+	// {
+		// std::string read = "TTTGTTGACCTTTATTATGACATTCACCAGAAGTTGAAATTGTGTGTTTCTGGTTAATTTTTAATTTATATTTTTTATTTGTAATTCCTTTGAATTATTT";
 		// read = "CGCCGTGGGCTACGTGGACGACACAGAGTTCGTGCGGTTCGACAGCGACTCCGTGAGTCCGAGGATGGAGCGGCGGGCGCCGTGGGTGGAGCAGGAGGGG";
 		
 		// Graph* g = new Graph();
@@ -665,6 +678,59 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		// }
 	// }	
 	// assert(1 == 0);
+	
+	
+	// {
+		// std::string r1_seq = "TTCCCCACCCCAGGCGTCCTGTCCATTCTCAAGATGGCCACATGCGTGCTGGTGGAGTGTCCCATGACAGATGCAAAATGCCTGAATTTTCTGACTCTTC";
+		// std::string r2_seq = "CACCACCACAGCCGCCCACTTCTGGAAGGTTCCATCCCCTGCAGGCCTGGTCTCCACGAGCTCCGTGTGTGGGTCTGGTCCTCCCCATCCCGCTGCCAGG";
+		// std::string r1_qualities = "`ccffdffhhhhgijjiijigj`ijihPjjjahjjjjf[jjgi\\jjjijejjjiihjbi^ijigdjjhfafhhfccfhg\\cddXjfdfSf^ddddddd^d";
+		// std::string r2_qualities = "dedRddddfdbfdhdchddSecefhX^hbijjeji]jjdhjjigjjgjbX]djSjjfjiihijjhj^ijejiijjijajjjjieijiIhhgffffff``b";
+		// int difference_starting_coordinates = 206;
+		
+		// oneRead r1("r1", r1_seq, r1_qualities);
+		// oneRead r2("r2", r2_seq, r2_qualities);
+		// oneReadPair rP(r1, r2, difference_starting_coordinates);
+		
+		// Graph* g = new Graph();
+		// g->readFromFile(graph_filename);
+			
+		// GraphAlignerUnique* gA = new GraphAlignerUnique(g, aligner_kMerSize);
+		// gA->setIterationsMainRandomizationLoop(4);
+		// gA->setThreads(1);	
+
+		// auto alignReadPair = [&](oneReadPair& rP, std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignment, bool usePairing) -> void
+		// {		    
+			// std::cout << "Align with usePairing = " << usePairing << "\n";
+			// alignment = gA->seedAndExtend_local_paired(rP, usePairing, insertSize_mean, insertSize_sd);
+		// };
+		
+		// std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pairs;
+		// std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_noPairs;
+		// alignReadPair(rP, alignment_pairs, true);
+		// alignReadPair(rP, alignment_noPairs, false);
+		
+		// auto printAlignment = [&](seedAndExtend_return_local& alignment) -> void {
+			// std::cout <<  "\t\t" << "Al. genome:" << "\t" << alignment.graph_aligned << "\n";
+			// std::cout << "\t\t" << "  Al. read:" << "\t" << alignment.sequence_aligned << "\n\n";
+			// std::cout << "\t\t" << "Al. levels:" << "\t" << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), " ") << "\n";
+		// };
+		
+		// std::cout << "Paired alignment:" << "\n\n";
+		// std::cout << "\t" << "Read 1: " << "\n\n";
+		// printAlignment(alignment_pairs.first);
+		// std::cout << "\t" << "Read 2: " << "\n\n";
+		// printAlignment(alignment_pairs.second);
+		// std::cout << "\n";
+		
+		// std::cout << "Unpaired alignment:" << "\n\n";
+		// std::cout << "\t" << "Read 1: " << "\n\n";
+		// printAlignment(alignment_noPairs.first);
+		// std::cout << "\t" << "Read 2: " << "\n\n";
+		// printAlignment(alignment_noPairs.second);
+		// std::cout << "\n" << std::flush;
+				
+	// }	
+	// assert(1 == 0);	
 
 	std::cout << Utilities::timestamp() << "testSeedAndExtend_local_realGraph(..): Loading graph.\n" << std::flush;
 
@@ -717,8 +783,8 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 		diploidEdgePointerPath diploidPath = graphs.at(0)->simulateRandomDiploidPath();
 
-		std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_edgePath(diploidPath.h1, haploidCoverage, insertSize_mean, insertSize_sd, true);
-		std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_edgePath(diploidPath.h2, haploidCoverage, insertSize_mean, insertSize_sd, true);
+		std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_edgePath(diploidPath.h1, haploidCoverage, insertSize_mean, insertSize_sd, false);
+		std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_edgePath(diploidPath.h2, haploidCoverage, insertSize_mean, insertSize_sd, false);
 
 		std::vector<oneReadPair> combinedPairs_for_alignment;
 		combinedPairs_for_alignment.insert(combinedPairs_for_alignment.end(), simulatedReadPairs_h1.begin(), simulatedReadPairs_h1.end());
@@ -885,9 +951,6 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 			}
 		};
 		
-		; 
-		
-		
 		std::cout << Utilities::timestamp() << "\t\t" << "Start alignment.\n" << std::flush;
 		
 		// no pairing
@@ -986,7 +1049,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		evaluateAlignments(combinedPairs_for_alignment_filtered, noPairing_alignments, noPairing_alignments_readPairI, true, incorrectAlignmentsStream_unpaired, noPairing_levelsOK_perPair);
 			
 		std::cout << "Evaluation WITH pairs:\n\n" << std::flush;
-		evaluateAlignments(combinedPairs_for_alignment_filtered, withPairing_alignments, withPairing_alignments_readPairI, false, incorrectAlignmentsStream_paired, withPairing_levelsOK_perPair);
+		evaluateAlignments(combinedPairs_for_alignment_filtered, withPairing_alignments, withPairing_alignments_readPairI, true, incorrectAlignmentsStream_paired, withPairing_levelsOK_perPair);
 		
 		// find alignments for which UNPAIRED is better (unexpectedly)
 	
@@ -1008,6 +1071,10 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		
 		assert(noPairing_levelsOK_perPair.size() == withPairing_levelsOK_perPair.size());
 		assert(noPairing_levelsOK_perPair.size() == combinedPairs_for_alignment_filtered.size());
+		int paired_better = 0;
+		int unpaired_better = 0;
+		int paired_unpaired_equal = 0;
+		
 		for(std::map<int, int>::iterator pIt = noPairing_levelsOK_perPair.begin(); pIt != noPairing_levelsOK_perPair.end(); pIt++)
 		{
 			int pairI = pIt->first;
@@ -1020,11 +1087,11 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		
 			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>* alignment_paired = withPairing_alignments_perPair.at(pairI);
 			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>* alignment_unpaired = noPairing_alignments_perPair.at(pairI);
-			
-			std::cout << "noPairing_OK vs withPairing_OK: " << noPairing_OK << " / " << withPairing_OK << "\n" << std::flush;
-			
+						
 			if(noPairing_OK > withPairing_OK)
 			{
+				unpaired_better++;
+				
 				auto printAlignmentVersusTruth = [&](oneRead& r, seedAndExtend_return_local& r_aligned, std::ofstream& outputStream, std::string indent) -> void {
 				
 					int cI_in_unaligned_sequence = -1;
@@ -1073,14 +1140,14 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 						}
 					}
 
-						outputStream << indent << "Read " << r.name << ": " << levels_OK << " of " << levels_total << " levels OK\n";
-						outputStream << indent << "\t" << "  Raw read:" << "\t" << r.sequence << "\n";
-						outputStream << indent << "\t" << " Qualities:" << "\t" << r.quality << "\n\n";
-						outputStream << indent << "\t" << "Al. genome:" << "\t" << r_aligned.graph_aligned << "\n";
-						outputStream << indent << "\t" << "  Al. read:" << "\t" << r_aligned.sequence_aligned << "\n\n";
-						outputStream << indent << "\t" << "Al. levels:" << "\t" << Utilities::join(Utilities::ItoStr(r_aligned.graph_aligned_levels), " ") << "\n";
-						outputStream << indent << "\t" << "True levls:" << "\t" << Utilities::join(correctLevelsInAlignmentOrder, " ") << "\n\n";
-						outputStream << std::flush;				
+					outputStream << indent << "Read " << r.name << ": " << levels_OK << " of " << levels_total << " levels OK\n";
+					outputStream << indent << "\t" << "  Raw read:" << "\t" << r.sequence << "\n";
+					outputStream << indent << "\t" << " Qualities:" << "\t" << r.quality << "\n\n";
+					outputStream << indent << "\t" << "Al. genome:" << "\t" << r_aligned.graph_aligned << "\n";
+					outputStream << indent << "\t" << "  Al. read:" << "\t" << r_aligned.sequence_aligned << "\n\n";
+					outputStream << indent << "\t" << "Al. levels:" << "\t" << Utilities::join(Utilities::ItoStr(r_aligned.graph_aligned_levels), " ") << "\n";
+					outputStream << indent << "\t" << "True levls:" << "\t" << Utilities::join(correctLevelsInAlignmentOrder, " ") << "\n\n";
+					outputStream << std::flush;				
 				};
 				
 				unpairedAlignmentsBetterStream << "Genome " << genomePair << ", read pair " << pairI << ": " << noPairing_OK << " no-pairs vs " << withPairing_OK << " with-pairs.\n";
@@ -1099,8 +1166,25 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 								
 				unpairedAlignmentsBetterStream << "=====================================================\n\n\n" << std::flush;
 			}
+			else
+			{
+				if(noPairing_OK == withPairing_OK)
+				{
+					paired_unpaired_equal++;
+				}
+				else
+				{
+					assert(withPairing_OK > noPairing_OK);
+					paired_better++;
+				}
+			}
 		}
 		
+		std::cout << "\nPairing statistics:\n";
+		std::cout << "\t" << "With pairing better : " << paired_better << "\n";
+		std::cout << "\t" << "With/without equal  : " << paired_unpaired_equal << "\n";
+		std::cout << "\t" << "W/out pairing better: " << unpaired_better << "\n";
+		std::cout << "\t" << "Total               : " << (paired_better + paired_unpaired_equal + unpaired_better) << "\n" << std::flush;
 	}
 
 	incorrectAlignmentsStream_unpaired.close();

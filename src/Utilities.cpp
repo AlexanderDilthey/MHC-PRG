@@ -694,7 +694,7 @@ char Utilities::choose_from_normalized_map(std::map<char, double> m)
 
 char Utilities::choose_from_normalized_map(std::map<char, double> m, boost::mt19937& rng)
 {
-	boost::random::uniform_01<boost::mt19937> f_gen(rng);
+	boost::random::uniform_01<boost::mt19937&> f_gen(rng);
 	double f = f_gen();
 	assert(f >= 0);
 	assert(f <= 1);
@@ -789,7 +789,7 @@ bool Utilities::oneBernoulliTrial(double p)
 
 bool Utilities::oneBernoulliTrial(double p, boost::mt19937& rng)
 {
-	boost::random::uniform_01<boost::mt19937> f_gen(rng);
+	boost::random::uniform_01<boost::mt19937&> f_gen(rng);
 	double f = f_gen();
 	assert(f >= 0);
 	assert(f <= 1);
