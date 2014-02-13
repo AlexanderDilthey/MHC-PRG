@@ -125,7 +125,7 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 			read_INDEL_freq.at(i) = read_INDEL_freq.at(i) / total_data_position;
 			if(read_INDEL_freq.at(i) == 0)
 			{
-				read_INDEL_freq.at(i) = 1e-8;
+				read_INDEL_freq.at(i) = 1e-4;
 			}
 		}
 	}
@@ -171,13 +171,14 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 	double global_indel_events = 0;
 	double global_generated_bases = 0;
 	double global_generated_errors = 0;
-
+	std::map<char, double> global_error_NUC;
+	
 	{
 		boost::mt19937 rnd_gen;
 
 		auto seed = boost::random::random_device()();
-		rnd_gen.seed(seed);
-
+		rnd_gen.seed(seed);  
+		
 		boost::random::poisson_distribution<> rnd_starting_reads ( poissonStartRate );
 		std::vector< boost::random::poisson_distribution<> > rnd_INs;
 		std::vector< boost::random::poisson_distribution<> > rnd_DELs;
@@ -204,9 +205,15 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 			assert(returnedQuality > 0);
 
 			bool generateError = Utilities::oneBernoulliTrial( 1 - this->read_quality_correctness.at(position_in_read).at(returnedQuality), rnd_gen);
+						
 			if(generateError && (! perfectly))
 			{
 				returnedBase =  Utilities::randomNucleotide(rnd_gen);
+				if(global_error_NUC.count(returnedBase) == 0)
+				{
+					global_error_NUC[returnedBase] = 0;
+				}
+				global_error_NUC[returnedBase]++;
 				thread_generated_errors++;
 			}
 			else
@@ -217,9 +224,8 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 			thread_generated_bases++;
 
 			returnedQuality += 32;
-
 		};
-
+		
 		auto sampleRead = [&](long long index_into_baseString, std::string& read, std::string& read_qualities, std::vector<int>& coordinates_string, bool& success) -> void {
 
 			read.resize(this->read_length, 0);
@@ -289,6 +295,7 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 
 				index_into_baseString++;
 			}
+		
 
 			thread_indel_events += INDEL_events;
 			// std::cout << "INDEL events: " << INDEL_events << "\n";
@@ -371,7 +378,7 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 				}
 			}
 		}
-
+		  
 		{
 			global_generated_bases += thread_generated_bases;
 			global_generated_errors += thread_generated_errors;
@@ -382,7 +389,12 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 	std::cout << "readSimulator::simulate_paired_reads_from_edgePath(..): Simulated " << forReturn.size() << " read pairs.\n";
 	std::cout << "\t" << "global_generated_bases" << ": " << global_generated_bases << "\n";
 	std::cout << "\t" << "global_generated_errors" << ": " << global_generated_errors << "\n";
-	std::cout << "\t" << "global_indel_events" << ": " << global_indel_events << "\n";
+	std::cout << "\t" << "global_indel_events" << ": " << global_indel_events << "\n\n";
+	std::cout << "\t" << "error base counts: \n";
+	for(std::map<char, double>::iterator bIt = global_error_NUC.begin(); bIt != global_error_NUC.end(); bIt++)
+	{
+		std::cout << "\t\t" << bIt->first << ": " << bIt->second << "\n";
+	}
 	std::cout << "\n" << std::flush;
 
 	return forReturn;
