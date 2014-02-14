@@ -480,6 +480,246 @@ void testSeedAndExtend_local()
 	std::cout << std::flush;
 }
 
+
+void testSeedAndExtend_short()
+{
+	// this thing uses "mutation" and extension
+
+	int individualTests = 0;
+	int individualTests_fullSuccessful = 0;
+
+	size_t achievableMatches = 0;
+	size_t achievedMatches = 0;
+	double sum_scores = 0;
+
+	size_t rightPositionCharacters_counted = 0;
+	size_t rightPositionCharacters_correct = 0;
+
+	bool verbose = false;
+
+	for(unsigned int graphIteration = 1; graphIteration <= 10; graphIteration++)
+	{
+		std::cout << "Graph test iteration " << graphIteration << "\n\n=============================================================\n\n=============================================================\n\n";
+
+		if(verbose)
+			std::cout << "Generate random genome to align to...\n" << std::flush;
+
+		diploidGenomeString gS = generateRandomGenome(800);
+		_printDiploidGenomeString(gS);
+
+		if(verbose)
+			std::cout << "Generate graph from genome...\n" << std::flush;
+		Graph* gS_graph = genomeString2Graph(gS);
+
+		if(verbose)
+			std::cout << "Create GraphAlignerUnique...\n" << std::flush;
+
+		int aligner_kMerSize = 5;
+		GraphAlignerUnique gA(gS_graph, aligner_kMerSize);
+		GraphAlignerUnique gA2(gS_graph, aligner_kMerSize);
+//		GraphAlignerUnique gA3(gS_graph, aligner_kMerSize);
+
+		gA.setThreads(1);
+		gA2.setThreads(1);
+		gA2.setIterationsMainRandomizationLoop(0);
+//		gA3.setThreads(1);
+//		gA3.setIterationsMainRandomizationLoop(2);
+
+
+		GraphAligner_affine gA_classical(gS_graph, aligner_kMerSize);
+
+		std::cout << "\t...done!\n" << std::flush;
+
+		int test_iterations = 10;
+		for(int iteration = 1; iteration <= test_iterations; iteration++)
+		{
+			std::cout << "[SHORT] Test iteration " << iteration << "\n==============================================\n(individual iteration " << individualTests << ")\n\n" << std::flush;
+
+			// generate random string
+			std::string randomString;
+			std::string underlyingEdges;
+			std::vector<int> underlyingEdges_levels;
+			int stringStart;
+			int stringStop;
+
+			if(verbose)
+				std::cout << "Sample possible emission from graph...\n" << std::flush;
+
+			sampleStringFromGraph_for_Simple_longRange_SeedAndExtend(
+					gS_graph,
+					aligner_kMerSize,
+					gA.get_S_match(),
+					gA.get_S_mismatch(),
+					gA.get_S_gapOpen(),
+					gA.get_S_gapExtend(),
+					randomString,
+					underlyingEdges,
+					underlyingEdges_levels,
+					stringStart,
+					stringStop,
+
+					15,
+					20,
+
+					2,
+					4,
+
+					2,
+					3,
+
+					3,
+					7,
+
+					1,
+					4,
+
+					true
+			);
+
+			if(verbose)
+				std::cout << "... sampling done!\n" << std::flush;
+
+			assert(randomString.length() == underlyingEdges.length());
+			assert(underlyingEdges_levels.size() == underlyingEdges.length());
+
+//			int minimumAchievableScore = gA_classical.score_fullNeedleman_affine(underlyingEdges, underlyingEdges_levels, randomString);
+			int minimumAchievableMatches = gA_classical.countMatchesInSequence(underlyingEdges, underlyingEdges_levels, randomString);
+
+//			if(verbose || true)
+//				std::cout << "1) BASELINE " << "\n\n" << "String" << "\n" << randomString << ",\n\nin alignment with expected score " << minimumAchievableScore <<  " and " << minimumAchievableMatches << " matches of sequence string: " << "\n\n\t" << underlyingEdges << "\n\t" << randomString << "\n\n" << std::flush;
+//
+
+			achievableMatches += minimumAchievableMatches;
+
+			// find correct alignment positions for characters in aligned string
+			std::vector<int> randomString_characterOrigin;
+			std::vector<bool> randomString_unmodifiedCharacterFromGraph;
+			for(unsigned int cI = 0; cI < randomString.size(); cI++)
+			{
+				randomString_characterOrigin.push_back(underlyingEdges_levels.at(cI));
+				if(randomString.at(cI) == underlyingEdges.at(cI))
+				{
+					randomString_unmodifiedCharacterFromGraph.push_back(true);
+				}
+				else
+				{
+					randomString_unmodifiedCharacterFromGraph.push_back(false);
+				}
+			}
+
+			// remove gaps from generated random str
+			std::string randomString_noGaps;
+			std::vector<int> randomString_noGaps_characterOrigin;
+			std::vector<int> randomString_noGaps_unmodifiedCharacterFromGraph;
+			for(unsigned int cI = 0; cI < randomString.size(); cI++)
+			{
+				char string_character = randomString.at(cI);
+				if(string_character != '_')
+				{
+					randomString_noGaps.push_back(string_character);
+					randomString_noGaps_characterOrigin.push_back(randomString_characterOrigin.at(cI));
+				}
+			}
+
+//			if(verbose)
+//				std::cout << "Start full-string alignment...\n" << std::flush;
+//
+
+			std::vector<seedAndExtend_return_local> allBacktraces;
+			seedAndExtend_return_local wholeString_alignments_short = gA.seedAndExtend_short(randomString_noGaps, allBacktraces);
+//
+//			seedAndExtend_return_local wholeString_alignments_local = gA3.seedAndExtend_local(randomString_noGaps, allBacktraces);
+
+//			seedAndExtend_return wholeString_alignments = gA.seedAndExtend(randomString_noGaps);
+			seedAndExtend_return wholeString_alignments_2 = gA2.seedAndExtend(randomString_noGaps);
+
+//			 std::cerr << "wholeString_alignments.Score: " << wholeString_alignments.Score << "\n" << std::flush;
+
+			{
+				seedAndExtend_return_local& thisAlignment = wholeString_alignments_short;
+
+				int thisAlignmentScore = gA.score(thisAlignment.graph_aligned, thisAlignment.graph_aligned_levels, thisAlignment.sequence_aligned);
+
+//				int thisAlignmentScore_2 = gA2.score(wholeString_alignments_2.graph_aligned, wholeString_alignments_2.graph_aligned_levels, wholeString_alignments_2.sequence_aligned);
+
+				int thisAlignmentMatches = gA_classical.countMatchesInSequence(thisAlignment.graph_aligned, thisAlignment.graph_aligned_levels, thisAlignment.sequence_aligned);
+
+
+				if(true || verbose)
+				{
+					std::cout << "\tSHORT Alignment [internal score " << thisAlignment.Score << "]>\n";
+					std::cout << "\t\t" << thisAlignment.graph_aligned << "\n";
+					std::cout << "\t\t" << thisAlignment.sequence_aligned << "\n";
+					std::cout << "\t\tLocal NW score_ " << thisAlignmentScore << ", matches in sequence " << thisAlignmentMatches << "\n" << std::flush;
+
+//					std::cout << "\t\tCompare with local alignment [score " << wholeString_alignments_local.Score << "]>:\n";
+//					std::cout << "\t\t\t" << wholeString_alignments_local.graph_aligned << "\n";
+//					std::cout << "\t\t\t" << wholeString_alignments_local.sequence_aligned << "\n\n" << std::flush;
+
+					std::cout << "\t\tCompare with (one, max-only) global alignment [global score " << wholeString_alignments_2.Score << "]>:\n";
+					std::cout << "\t\t\t" << wholeString_alignments_2.graph_aligned << "\n";
+					std::cout << "\t\t\t" << wholeString_alignments_2.sequence_aligned << "\n" << std::flush;
+				}
+
+				assert(thisAlignment.Score == thisAlignmentScore);
+//
+//			assert(wholeString_alignments_2.Score == thisAlignmentScore_2);
+//			assert(wholeString_alignments.Score >= wholeString_alignments_2.Score);
+				sum_scores += thisAlignment.Score;
+
+//				assert(thisAlignmentMatches >= minimumAchievableMatches);
+
+				unsigned int covered_noGap_characters = 0;
+				unsigned int validatable_noGap_characters = 0;
+				unsigned int validatable_noGap_characters_OK = 0;
+
+				for(unsigned int alignedI = 0; alignedI < thisAlignment.sequence_aligned.size(); alignedI++)
+				{
+					char alignedC = thisAlignment.sequence_aligned.at(alignedI);
+					int originGraph = thisAlignment.graph_aligned_levels.at(alignedI);
+					if(alignedC != '_')
+					{
+						int origin = randomString_noGaps_characterOrigin.at(covered_noGap_characters);
+						if(origin != -1)
+						{
+							validatable_noGap_characters++;
+							if(origin == originGraph)
+							{
+								validatable_noGap_characters_OK++;
+							}
+						}
+						covered_noGap_characters++;
+					}
+				}
+
+//				if(verbose || true)
+//					std::cout << "Can validate " << validatable_noGap_characters << " characters, " << validatable_noGap_characters_OK << " at right position!\n" << std::flush;
+
+				achievedMatches += thisAlignmentMatches;
+
+				rightPositionCharacters_counted += validatable_noGap_characters;
+				rightPositionCharacters_correct += validatable_noGap_characters_OK;
+
+//				assert( 1 == 0);
+			}
+
+			individualTests++;
+		}
+
+		delete(gS_graph);
+	}
+
+	assert(achievableMatches > 0);
+	assert(rightPositionCharacters_counted > 0);
+
+	std::cout << "testSeedAndExtend_short(): " << individualTests << " tests, of which " << individualTests_fullSuccessful << " were fully successful.\n";
+	std::cout << "\t Matches: " << achievedMatches  << " / " << achievableMatches << " => " << ((double)achievedMatches/(double)achievableMatches) << "\n";
+	std::cout << "\t Positions: " << rightPositionCharacters_correct  << " / " << rightPositionCharacters_counted << " => " << (double(rightPositionCharacters_correct)/(double)rightPositionCharacters_counted) << "\n";
+	std::cout << "\t Sum of scores: " << sum_scores << "\n";
+
+	std::cout << std::flush;
+}
+
 void testChains()
 {
 

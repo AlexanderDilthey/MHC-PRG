@@ -128,6 +128,7 @@ public:
 	GraphAlignerUnique(Graph* graph, int k);
 	seedAndExtend_return seedAndExtend(std::string sequence);
 	seedAndExtend_return_local seedAndExtend_local(std::string sequence, std::vector<seedAndExtend_return_local>& allBacktraces);
+	seedAndExtend_return_local seedAndExtend_short(std::string sequence, std::vector<seedAndExtend_return_local>& allBacktraces);
 
 	std::pair<seedAndExtend_return_local, seedAndExtend_return_local> seedAndExtend_local_paired(oneReadPair readPair, bool usePairing, double insertSize_mean, double insertSize_sd);
 

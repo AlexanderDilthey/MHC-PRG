@@ -2029,6 +2029,262 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 	return selectedBacktrace_forReturn;
 }
 
+
+seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces)
+{
+	seedAndExtend_return_local forReturn;
+
+	verbose = true;
+	int seedAndExtend_short_maximumBacktraces = 5;
+
+	// just to remind everyone that this is for short reads
+	assert(sequence_nonReverse.length() < 200);
+
+	if(verbose)
+		std::cout << Utilities::timestamp() << " Enter GraphAlignerUnique::seedAndExtend_short(..)!\n" << std::flush;
+
+	bool useReverse;
+	std::string sequence;
+	std::vector<std::string> kMers_sequence;
+	std::map<std::string, int> kMer_sequence_occurrences;
+
+	seedAndExtend_init_occurrence_strand_etc(
+			sequence_nonReverse,
+			useReverse,
+			sequence,
+			kMers_sequence,
+			kMer_sequence_occurrences
+	);
+
+	if(verbose) std::cout << Utilities::timestamp() << "Find chains.\n" << std::flush;
+
+	std::vector<kMerEdgeChain*> chains_for_sequence = gI.findChains(sequence);
+
+	std::function<bool(kMerEdgeChain*,kMerEdgeChain*)> cmpChainLength = [&](kMerEdgeChain* lhs, kMerEdgeChain* rhs) -> bool {
+		int sequence_length_rhs = rhs->sequence_end - rhs->sequence_begin;
+		assert(sequence_length_rhs > 0);
+		int sequence_length_lhs = lhs->sequence_end - lhs->sequence_begin;
+		assert(sequence_length_lhs > 0);
+		if(sequence_length_rhs == sequence_length_lhs)
+		{
+			return (rhs < lhs);
+		}
+		else
+		{
+			return (sequence_length_rhs < sequence_length_lhs);
+		}
+	};
+
+	std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>> chains_orderedByLength(cmpChainLength);
+	for(unsigned int chainI = 0; chainI < chains_for_sequence.size(); chainI++)
+	{
+		chains_orderedByLength.insert(chains_for_sequence.at(chainI));
+	}
+	assert(chains_orderedByLength.size() == chains_for_sequence.size());
+
+	int required_rng_seeds;
+	if(threads == 1)
+	{
+		required_rng_seeds = omp_get_num_threads();
+		if(required_rng_seeds < 1)
+		{
+			required_rng_seeds = 1;
+		}
+	}
+	else
+	{
+		required_rng_seeds = threads;
+	}
+
+	rng_seeds.resize(required_rng_seeds);
+	for(unsigned int tI = 0; tI < required_rng_seeds; tI++)
+	{
+		rng_seeds.at(tI) = 0;
+	}
+
+
+	std::vector<seedAndExtend_return> possibleBacktraces;
+	std::vector<double> possibleBacktraces_scores;
+
+	assert(threads == 1);
+	std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>::iterator currentChain = chains_orderedByLength.begin();
+
+	double best_chain_totalScore;
+	double best_chain_subOptimality;
+	int best_chain_initialMatches;
+
+	for(int chainI = 0; chainI < chains_for_sequence.size(); chainI++)
+	{
+		assert(currentChain != chains_orderedByLength.end());
+		kMerEdgeChain* thisChain = *currentChain;
+
+		int matches_this_chain = thisChain->sequence_end - thisChain->sequence_begin + 1;
+		assert(matches_this_chain > 0);
+
+		if(verbose)
+					std::cout << "\tChain " << chainI << "/" << chains_for_sequence.size() << ", going from " << thisChain->sequence_begin << " to " << thisChain->sequence_end << "\n" << std::flush;
+
+		if(chainI > 0)
+		{
+			int matches_less_than_best_chain = best_chain_initialMatches - matches_this_chain;
+			assert(matches_less_than_best_chain >= 0);
+			double forgone_score = matches_less_than_best_chain * S_match;
+			if((1*forgone_score) > best_chain_subOptimality)
+			{
+				if(verbose)
+				{
+					std::cout << "\t\tABORT. This chain has " << matches_this_chain << ", which is " << matches_less_than_best_chain << " less than the best chain. We assume that " << 0.5*forgone_score << " of this are lost, and the best chain is " << best_chain_subOptimality << " away from optimality.\n" << std::flush;
+				}
+				break;
+			}
+		}
+		std::set<kMerEdgeChain*> selectedChains;
+		std::vector<kMerEdgeChain*> sequencePositions_covered;
+		sequencePositions_covered.resize(sequence.length());
+
+		selectedChains.insert(thisChain);
+
+		for(int seqI = thisChain->sequence_begin; seqI <= thisChain->sequence_end; seqI++)
+		{
+			assert(sequencePositions_covered.at(seqI) == 0);
+			sequencePositions_covered.at(seqI) = thisChain;
+		}
+
+		VirtualNWTable_Unique vNW(this, &sequence);
+		std::map<kMerEdgeChain*, int> currentChains_start;
+		std::map<kMerEdgeChain*, NWPath*> chains2Paths;
+		kMerEdgeChains2vNW(vNW, sequencePositions_covered, currentChains_start, chains2Paths);
+
+		double finalScore;
+		int finalScore_z;
+		NWEdge* finalScore_backtrack;
+		std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startNormal;
+		std::vector<std::map<NWEdge*, graphPointDistance> > lastPositionDistances_perZ_startAffineGap;
+		std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startAffineGap;
+		std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startNormal;
+
+		vNW_completeRemainingGaps_and_score_local(
+				sequence,
+				vNW,
+				sequencePositions_covered,
+				chains2Paths,
+				currentChains_start,
+				lastPositionDistances_perZ_startNormal,
+				lastPositionDistances_perZ_startAffineGap,
+				NWedges_graphDist_startNormal,
+				NWedges_graphDist_startAffineGap,
+				finalScore,
+				finalScore_z,
+				finalScore_backtrack
+		);
+
+		std::string reconstructedSequence;
+		std::string reconstructedGraph;
+		std::vector<int> reconstructedGraph_levels;
+
+		seedAndExtend_backtrack_local(
+				vNW,
+				sequence,
+				finalScore,
+				finalScore_z,
+				finalScore_backtrack,
+				reconstructedSequence,
+				reconstructedGraph,
+				reconstructedGraph_levels,
+				lastPositionDistances_perZ_startNormal,
+				lastPositionDistances_perZ_startAffineGap,
+				NWedges_graphDist_startNormal,
+				NWedges_graphDist_startAffineGap
+		);
+
+		seedAndExtend_return thisBacktrace;
+		thisBacktrace.Score = finalScore;
+		thisBacktrace.graph_aligned = reconstructedGraph;
+		thisBacktrace.graph_aligned_levels = reconstructedGraph_levels;
+		thisBacktrace.sequence_aligned = reconstructedSequence;
+
+		possibleBacktraces.push_back(thisBacktrace);
+		possibleBacktraces_scores.push_back(finalScore);
+
+		vNW.freeMemory();
+
+		if(verbose)
+			std::cout << "\t\tScore " << finalScore << "\n" << std::flush;
+
+		int score_for_matches_from_chain = matches_this_chain * S_match;
+		int optimal_chain_score = S_match * sequence.length();
+		int alignment_suboptimality = optimal_chain_score - finalScore;
+		assert(alignment_suboptimality >= 0);
+
+
+		if((chainI == 0) || (best_chain_totalScore < finalScore))
+		{
+			best_chain_totalScore = finalScore;
+			best_chain_subOptimality = alignment_suboptimality;
+			best_chain_initialMatches = matches_this_chain;
+		}
+
+		currentChain++;
+	}
+	// assert(currentChain == chains_orderedByLength.end());
+
+	std::cerr << std::flush;
+	if(verbose)
+	{
+		std::cout << std::flush << Utilities::timestamp() << "All chains have been examined have returned.\n" << std::flush;
+	}
+
+	std::pair<double, unsigned int> selectedMaximum = Utilities::findVectorMax(possibleBacktraces_scores);
+	seedAndExtend_return selectedBacktrace = possibleBacktraces.at(selectedMaximum.second);
+
+	std::vector<std::pair<double, unsigned int>> backtraces_scores_and_positions;
+	for(unsigned int i = 0; i < possibleBacktraces.size(); i++)
+	{
+		std::pair<double, unsigned int> thisBacktrace_score_and_position = std::make_pair(possibleBacktraces_scores.at(i), i);
+		backtraces_scores_and_positions.push_back(thisBacktrace_score_and_position);
+	}
+	std::sort(backtraces_scores_and_positions.begin(), backtraces_scores_and_positions.end(), [](std::pair<double, unsigned int> a, std::pair<double, unsigned int> b) {
+		return (a.first < b.first);
+	});
+	std::reverse(backtraces_scores_and_positions.begin(), backtraces_scores_and_positions.end());
+	if(backtraces_scores_and_positions.size() > 1)
+	{
+		assert(possibleBacktraces_scores.at(backtraces_scores_and_positions.at(0).second) >= possibleBacktraces_scores.at(backtraces_scores_and_positions.at(1).second));
+	}
+	assert((possibleBacktraces_scores.size() == 0) || (selectedMaximum.first == possibleBacktraces_scores.at(backtraces_scores_and_positions.at(0).second)));
+
+	allBacktraces.clear();
+	unsigned int maxNumberReturnedBacktraces = (backtraces_scores_and_positions.size() > seedAndExtend_short_maximumBacktraces) ? seedAndExtend_short_maximumBacktraces : backtraces_scores_and_positions.size();
+	for(unsigned int bI = 0; bI < maxNumberReturnedBacktraces; bI++)
+	{
+		seedAndExtend_return& possibleBacktrace = possibleBacktraces.at(backtraces_scores_and_positions.at(bI).second);
+		seedAndExtend_return_local possibleBacktrace_forReturn;
+
+		possibleBacktrace_forReturn.Score = possibleBacktrace.Score;
+		possibleBacktrace_forReturn.graph_aligned = possibleBacktrace.graph_aligned;
+		possibleBacktrace_forReturn.sequence_aligned = possibleBacktrace.sequence_aligned;
+		possibleBacktrace_forReturn.graph_aligned_levels = possibleBacktrace.graph_aligned_levels;
+		possibleBacktrace_forReturn.reverse = useReverse;
+
+		allBacktraces.push_back(possibleBacktrace_forReturn);
+	}
+
+	seedAndExtend_return_local selectedBacktrace_forReturn;
+	selectedBacktrace_forReturn.Score = selectedBacktrace.Score;
+	selectedBacktrace_forReturn.graph_aligned = selectedBacktrace.graph_aligned;
+	selectedBacktrace_forReturn.sequence_aligned = selectedBacktrace.sequence_aligned;
+	selectedBacktrace_forReturn.graph_aligned_levels = selectedBacktrace.graph_aligned_levels;
+	selectedBacktrace_forReturn.reverse = useReverse;
+
+	for(unsigned int i = 0; i < chains_for_sequence.size(); i++)
+	{
+		kMerEdgeChain* c = chains_for_sequence.at(i);
+		delete(c);
+	}
+
+	return selectedBacktrace_forReturn;
+}
+
 void GraphAlignerUnique::vNW_completeRemainingGaps_and_score(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack)
 {
 	bool verbose = false;
@@ -2679,8 +2935,8 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score(std::string& sequen
 
 void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack)
 {
-	// bool verbose = true;
-	bool superquiet = false;
+	bool verbose = false;
+	bool superquiet = true;
 
 	double minusInfinity = -1 * numeric_limits<double>::max();
 	double Infinity = numeric_limits<double>::max();
@@ -3005,7 +3261,7 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 			std::cout << "\t" << "sequencePosition_left: " << sequencePosition_left << "\n";
 			std::cout << "\t" << "sequencePosition_right: " << sequencePosition_right << "\n";
 			std::cout << "\t" << "sequenceDistance_gap: " << sequenceDistance_gap << "\n";
-			std::cout << "\t" << "graphDistance_gap: " << graphDistance_gap << "\n";
+			std::cout << "\t" << "graphDistance_gap: " << graphDistance_gap << "\n"<< std::flush;
 		}
 
 		// I don't know exactly what this -1 in sequenceDistance_gap is supposed to achieve. The following
@@ -3068,7 +3324,6 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 
 			if(rightPath != 0)
 			{
-
 				std::set<NWEdge*> existingEntryEdges = rightPath->entry_edges;
 				assert(existingEntryEdges.size() == 1);
 
@@ -3201,8 +3456,6 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 			vNW.addPath(leftPath);
 //			std::cerr << "E\n" << std::flush;
 		}
-
-
 
 		std::vector<NWEdge*> entryEdges_vector;
 		std::vector<NWEdge*> exitEdges_vector;
@@ -4251,8 +4504,8 @@ void GraphAlignerUnique::seedAndExtend_backtrack(VirtualNWTable_Unique& vNW2, st
 	bool verboseBacktrack = (omp_get_thread_num() == 2);
 	verboseBacktrack = false;
 
-	if(verbose || verboseBacktrack)
-		std::cout << Utilities::timestamp()  << " Thread " << omp_get_thread_num() << " Start backtrace...\n" << std::flush;
+//	if(verbose || verboseBacktrack)
+//		std::cout << Utilities::timestamp()  << " Thread " << omp_get_thread_num() << " Start backtrace...\n" << std::flush;
 
 	bool firstStep = true;
 	do {
@@ -4887,8 +5140,8 @@ void GraphAlignerUnique::seedAndExtend_backtrack_local(VirtualNWTable_Unique& vN
 	bool verboseBacktrack = (omp_get_thread_num() == 2);
 	verboseBacktrack = false;
 
-	if(verbose || verboseBacktrack)
-		std::cout << Utilities::timestamp()  << " Thread " << omp_get_thread_num() << " Start backtrace...\n" << std::flush;
+//	if(verbose || verboseBacktrack)
+//		std::cout << Utilities::timestamp()  << " Thread " << omp_get_thread_num() << " Start backtrace...\n" << std::flush;
 
 	bool firstStep = true;
 	do {
@@ -7465,6 +7718,13 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 	unsigned int statesPerLevel0 = g->NodesPerLevel.at(startLevel_graph).size();
 	assert((startZ_graph >= 0) && (startZ_graph < (int)statesPerLevel0));
 
+
+	// parameters
+	// threshold_for_filtering: will remove all cells from NW table in a given diagonal which have value > 15 difference from maximum
+	int threshold_for_filtering = 15;
+	int maximum_steps_nonIncrease = 40;
+
+
 	for(unsigned int stateI = 0; stateI < statesPerLevel0; stateI++)
 	{
 		if((int)stateI == startZ_graph)
@@ -7504,6 +7764,12 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 	for(int diagonalI = 1; diagonalI <= diagonals; diagonalI++)
 	{
 
+		if(verbose)
+		{
+			std::cout << "\t diagonalI " << diagonalI << "/" << diagonals << ".\n" << std::flush;
+		}
+
+
 //		int scores_size = 0;
 //		for(std::map<int, std::map<int, std::map<int, mScore>> >::iterator it1 = scores.begin(); it1 != scores.end(); it1++)
 //		{
@@ -7517,13 +7783,16 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 //		}
 		//std::cerr << "\t\tdiagonalI = " << diagonalI << " => scores_size: " << scores_size << "\n" << std::flush;
 
-		if((diagonalI - lastMaximumIncrease_at_diagonalI) > 40)
+		if((diagonalI - lastMaximumIncrease_at_diagonalI) > maximum_steps_nonIncrease)
 		{
 			break;
 		}
 
 		std::map<int, std::map<int, std::map<int, mScore_alternatives > > >  thisDiagonal;
 		std::map<int, std::map<int, std::map<int, mScore_backtrace_alternatives > > > thisDiagonal_backtrace;
+
+		if(verbose)
+			std::cout << "\t\tfrom m-2 diagonal" << "\n" << std::flush;
 
 		// extend from m-2 diagonal
 		for(int m2I = 0; m2I < (int)m2_diagonal.size(); m2I++)
@@ -7569,6 +7838,9 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 				thisDiagonal_backtrace[next_levelI][next_seqI][next_stateI].D.push_back(backtrack_MatchMismatch);
 			}
 		}
+
+		if(verbose)
+			std::cout << "\t\tfrom m-1 diagonal" << "\n" << std::flush;
 
 		// extend from m-1 diagonal
 		for(int m1I = 0; m1I < (int)m1_diagonal.size(); m1I++)
@@ -7714,6 +7986,9 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 				}
 			}
 		}
+
+		if(verbose)
+			std::cout << "\t\tmaximal" << "\n" << std::flush;
 
 		// call maxima for this diagonal
 		std::vector<std::vector<int> > m_thisDiagonal;
@@ -7949,7 +8224,9 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 			}
 		}
 
-		int threshold_for_filtering = 15;
+		if(verbose)
+			std::cout << "\t\tfiltering" << "\n" << std::flush;
+
 		std::vector<std::vector<int> > m_thisDiagonal_filtered;
 		if(m_thisDiagonal.size() > 0)
 		{

@@ -330,8 +330,8 @@ void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(c
 				std::string qualities = al.Qualities;
 				std::string sequence  = al.QueryBases;
 				if ( al.IsReverseStrand() ) {
-					BamTools::Utilities::Reverse(qualities);
-					BamTools::Utilities::ReverseComplement(sequence);
+					std::reverse(qualities.begin(), qualities.end());
+					Utilities::seq_reverse_complement(sequence);
 				}
 
 				BAMalignment simpleAlignment;
