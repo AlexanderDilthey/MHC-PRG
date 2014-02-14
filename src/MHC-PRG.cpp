@@ -205,7 +205,8 @@ int main(int argc, char *argv[])
 		// testSeedAndExtend();
 		//GraphAlignerUnique::tests::testChains();
 		//GraphAlignerUnique::tests::testSeedAndExtend();
-		GraphAlignerUnique::tests::testSeedAndExtend_local();
+		//GraphAlignerUnique::tests::testSeedAndExtend_local();
+		GraphAlignerUnique::tests::testSeedAndExtend_short();
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "testGraphAligner_realGraph"))
 	{
