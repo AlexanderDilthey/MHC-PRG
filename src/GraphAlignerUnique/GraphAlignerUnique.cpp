@@ -1367,7 +1367,7 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 }   
 
 
-std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired(oneReadPair readPair, bool usePairing, double insertSize_mean, double insertSize_sd)
+std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired_or_short(oneReadPair readPair, bool usePairing, bool use_short, double insertSize_mean, double insertSize_sd)
 {
 
 	// bool verbose = true;
@@ -1389,8 +1389,16 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 	if(usePairing)
 	{
-		seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
-		seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
+		if(use_short)
+		{
+			seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces);
+			seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces);
+		}
+		else
+		{
+			seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
+			seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
+		}
 
 		if(verbose) std::cout << "Read 1 alternatives:\n" << std::flush;
 		std::vector<double> likelihoods_read1_alternatives;
@@ -1470,8 +1478,8 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	else
 	{
 		std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
-		forReturn.first = seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
-		forReturn.second = seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
+		forReturn.first = (use_short)? seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces) : seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
+		forReturn.second = (use_short) ? seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces) : seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
 		return forReturn;
 	}
 }

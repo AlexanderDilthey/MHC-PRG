@@ -1179,7 +1179,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 				    
 				assert((tI >= 0) && (tI < graphAligners.size()));
 
-				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = graphAligners.at(tI)->seedAndExtend_local_paired(rP, usePairing, insertSize_mean, insertSize_sd);
+				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = graphAligners.at(tI)->seedAndExtend_local_paired_or_short(rP, usePairing, true, insertSize_mean, insertSize_sd);
 
 				alignments_perThread.at(tI).push_back(alignment_pair);
 				alignments_readPairI_perThread.at(tI).push_back(pairI);
