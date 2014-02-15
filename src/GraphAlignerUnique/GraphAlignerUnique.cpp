@@ -2042,7 +2042,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 {
 	seedAndExtend_return_local forReturn;
 
-	verbose = true;
+	// verbose = true;
 	int seedAndExtend_short_maximumBacktraces = 5;
 
 	// just to remind everyone that this is for short reads

@@ -157,6 +157,7 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 			edgePath_string_originLevel.push_back(eI);
 		}
 	}
+	assert(edgePath_string.size() == edgePath_string_originLevel.size());
 
 	double poissonStartRate = expected_haploid_coverage / ( 2.0 * (double)(read_length)); // this is of reads and their pairs, thus / 2
 
@@ -263,10 +264,10 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 						read_qualities.at(base) = quality_for_read;
 						base++;
 
+						coordinates_string.push_back(-1);
+						
 						if(base >= this->read_length)
 							break;
-
-						coordinates_string.push_back(-1);
 					}
 
 					if(base >= this->read_length)
@@ -288,11 +289,12 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 				assert(index_into_baseString < edgePath_string.size());
 
 				sampleOneBase(base, edgePath_string.at(index_into_baseString), base_for_read, quality_for_read);
-				coordinates_string.push_back(index_into_baseString);
 
 				read.at(base) = base_for_read;
 				read_qualities.at(base) = quality_for_read;
-
+				coordinates_string.push_back(index_into_baseString);
+				
+				// std::cout << "index_into_baseString: " << index_into_baseString << "; base: " << base << "; coordinates_string.size(): " << coordinates_string.size() << "\n" << std::flush;
 				index_into_baseString++;
 			}
 		
@@ -300,6 +302,15 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 			thread_indel_events += INDEL_events;
 			// std::cout << "INDEL events: " << INDEL_events << "\n";
 
+			if(!((! success) || (coordinates_string.size() == read.size())))
+			{
+				std::cerr << "success: " << success << "\n";
+				std::cerr << "coordinates_string.size(): " << coordinates_string.size() << "\n";
+				std::cerr << "read.size(): " << read.size() << "\n" << std::flush;
+			}
+			
+			assert((! success) || (coordinates_string.size() == read.size()));
+			
 			if(paranoid && success)
 			{
 				assert(std::find(read.begin(), read.end(), 0) == read.end());
@@ -371,7 +382,12 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 					r2.coordinates_string = read2_coordinates_string;
 					r2.coordinates_edgePath = read2_coordinates_edgePath;
 
+					assert(r1.coordinates_string.size() == r1.sequence.size());
+					assert(r2.coordinates_string.size() == r2.sequence.size());
+					assert(r1.coordinates_string.size() == r1.coordinates_edgePath.size());
+					assert(r2.coordinates_string.size() == r2.coordinates_edgePath.size());
 					
+					  
 					oneReadPair rP(r1, r2, jumpSize);
 
 					forReturn.push_back(rP);
