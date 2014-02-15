@@ -848,9 +848,11 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 {
 	readSimulator rS(qualityMatrixFile);
 
-	double haploidCoverage = 30;
+	double haploidCoverage = 10;
 	int aligner_kMerSize = 25;
-
+	int simulateGenomePairs = 1;
+	int outerThreads = 1;
+	int skipPairs_MOD = 10;
 	
 	// todo remove
 	// boost::mt19937 rnd_gen;
@@ -976,7 +978,6 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 	std::cout << Utilities::timestamp() << "testSeedAndExtend_local_realGraph(..): Create GraphAlignerUnique.\n" << std::flush;
 
-	int outerThreads = 32;
 	omp_set_num_threads(outerThreads);
 	
 	std::vector<Graph*> graphs;  
@@ -999,6 +1000,12 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		graphs.at(tI) = g;
 	}
 	
+	int assignedLevels_totalReads = 0;
+	std::vector<int> levels_assigned_reads;
+	std::vector<int> levels_assigned_reads_recovered;
+	levels_assigned_reads.resize(graphs.at(0)->NodesPerLevel.size(), 0);
+	levels_assigned_reads_recovered.resize(graphs.at(0)->NodesPerLevel.size(), 0);
+
 
 	std::cout << Utilities::timestamp() << "\tdone.\n" << std::flush;	
 
@@ -1015,8 +1022,9 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 	std::ofstream unpairedAlignmentsBetterStream;
 	unpairedAlignmentsBetterStream.open(fileName_for_unpaired_better.c_str());
 	assert(unpairedAlignmentsBetterStream.is_open());
-		
-	int simulateGenomePairs = 1;
+
+	std::string fileName_for_correctLevel_summary = "../tmp/summary_correct_perLevel.txt";
+
 	for(int genomePair = 1; genomePair <= simulateGenomePairs; genomePair++)
 	{
 		std::cout << Utilities::timestamp() << "testSeedAndExtend_local_realGraph(..): Iteration " << genomePair << " / " << simulateGenomePairs << "\n" << std::flush;
@@ -1035,7 +1043,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		std::vector<oneReadPair> combinedPairs_for_alignment_filtered;
 		for(unsigned int pI = 0; pI < combinedPairs_for_alignment.size(); pI++)
 		{
-			if((pI % 1) != 0)  
+			if((pI % skipPairs_MOD) != 0)
 			{
 				continue;
 			}
@@ -1052,6 +1060,8 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 		auto checkOneReadLevelCorrectness = [&](oneRead& r, seedAndExtend_return_local& r_aligned, int& levels_total, int& levels_OK, int& positions_total, int& positions_matches, bool printToFile, std::ofstream& incorrectAlignmentsStream) -> void {
 		
+			assignedLevels_totalReads++;
+
 			levels_total = 0;
 			levels_OK = 0;
 
@@ -1096,9 +1106,11 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 					correctLevelsInAlignmentOrder.push_back(Utilities::ItoStr(correctEdgeLevel));
 
 					levels_total++;
+					levels_assigned_reads.at(correctEdgeLevel)++;
 					if(specifiedEdgeLevel == correctEdgeLevel)
 					{
 						levels_OK++;
+						levels_assigned_reads_recovered.at(correctEdgeLevel)++;
 					}
 
 					char sequenceCharacter_from_originalRead = r.sequence.at(cI_in_unaligned_sequence_correctlyAligned);
@@ -1425,6 +1437,15 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		std::cout << "\t" << "With/without equal  : " << paired_unpaired_equal << "\n";
 		std::cout << "\t" << "W/out pairing better: " << unpaired_better << "\n";
 		std::cout << "\t" << "Total               : " << (paired_better + paired_unpaired_equal + unpaired_better) << "\n" << std::flush;
+
+		std::ofstream correctLevel_summary_stream;
+		correctLevel_summary_stream.open(fileName_for_correctLevel_summary.c_str());
+		assert(correctLevel_summary_stream.is_open());
+		correctLevel_summary_stream << "Genome iteration: " << genomePair << "\n" << std::flush;
+		correctLevel_summary_stream << "Total reads evaluated: " << assignedLevels_totalReads << "\n" << std::flush;
+		correctLevel_summary_stream << Utilities::join(Utilities::ItoStr(levels_assigned_reads), " ") << "\n" << std::flush;
+		correctLevel_summary_stream << Utilities::join(Utilities::ItoStr(levels_assigned_reads_recovered), " ") << "\n" << std::flush;
+		correctLevel_summary_stream.close();
 	}
 
 	incorrectAlignmentsStream_unpaired.close();
