@@ -1372,12 +1372,12 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 	// bool verbose = true;
 	   
-	assert(readPair.reads.first.sequence.find("_") == std::string::npos);
-	assert(readPair.reads.first.sequence.find("*") == std::string::npos);
-	assert(readPair.reads.first.sequence.find("N") == std::string::npos);
-	assert(readPair.reads.second.sequence.find("_") == std::string::npos);
-	assert(readPair.reads.second.sequence.find("*") == std::string::npos);
-	assert(readPair.reads.second.sequence.find("N") == std::string::npos);
+	// assert(readPair.reads.first.sequence.find("_") == std::string::npos);
+	// assert(readPair.reads.first.sequence.find("*") == std::string::npos);
+	// assert(readPair.reads.first.sequence.find("N") == std::string::npos);
+	// assert(readPair.reads.second.sequence.find("_") == std::string::npos);
+	// assert(readPair.reads.second.sequence.find("*") == std::string::npos);
+	// assert(readPair.reads.second.sequence.find("N") == std::string::npos);
 
 	std::vector<seedAndExtend_return_local> read1_backtraces;
 	std::vector<seedAndExtend_return_local> read2_backtraces;

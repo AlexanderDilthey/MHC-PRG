@@ -175,7 +175,7 @@ std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string
 void alignShortReadsToHLAGraph(std::string FASTQ, std::string graph, std::string referenceGenome, double insertSize_mean, double insertSize_sd)
 {
 	int aligner_kMerSize = 25;
-	int outerThreads = 15;
+	int outerThreads = 1;
 	int skipPairs_MOD = 1;
 	bool evaluateWithoutPairing = false;
 	bool useShort = true;
