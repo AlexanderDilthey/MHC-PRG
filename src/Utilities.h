@@ -87,7 +87,7 @@ public:
 	static double PhredToPCorrect(char nucleotideQuality);
 
 
-
+	static bool fileReadable(std::string file);
 
 };
 

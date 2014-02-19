@@ -6,6 +6,8 @@
 
 ../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A1.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 --output_FASTQ test.fastQ
 
+	../bin/MHC-PRG domode filterReads --input_FASTQ test.fastQ --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 --output_FASTQ test_round2.fastQ
+
 ../bin/MHC-PRG domode describekMerGraph ../tmp2/GS_nextGen/hla/graph.txt.kmers_31 ../tmp2/GS_nextGen/hla/derived/ HLAGRAPH_31 --output_kMer_levels --referenceGenomeCortexGraph ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx
 
 ## this does not work, for there is no PGF protection
@@ -15,7 +17,6 @@
 ## estimate some insert size
 
 dilthey@sequoia:~/picard/picard-tools-1.83$ java -jar CollectInsertSizeMetrics.jar INPUT=/gpfs1/well/gsk_hla/bam_output/AA02O9Q_A1.bam H=HIST_AA02O9Q_A1 O=INSERTSIZE_AA02O9Q_A1
-
 
 ../bin/MHC-PRG domode testGraphAligner_realGraph ../tmp2/GS_nextGen/hla/graph.txt
 

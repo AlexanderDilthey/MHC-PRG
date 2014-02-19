@@ -203,6 +203,8 @@ void readFilter::doFilter()
 			// std::cout << read.a1.sequence << " " << read.a2.sequence << "\n";
 			// std::cout << forward_combined_optim << " " << reverse_combined_optim << "\n\n"; 
 			
+			std::cout << read.a1.readID << " // " << read.a2.readID << ": " << forward_combined_optim << " / " << reverse_combined_optim << "\n";
+
 			pass_positive = ((forward_combined_optim >= positiveThreshold) || (reverse_combined_optim >= positiveThreshold));
 		}
 
@@ -264,8 +266,14 @@ void readFilter::doFilter()
 						  << read.a2.qualities   << "\n";
 	};
 
-
-	filterBAM(input_BAM, output_FASTQ, &decisionFunction, &printFunction);
+	if(input_BAM.length())
+	{
+		filterBAM(input_BAM, output_FASTQ, &decisionFunction, &printFunction);
+	}
+	else
+	{
+		filterFastQPairs(input_FASTQ, output_FASTQ, &decisionFunction, &printFunction);
+	}
 
 	fastq_1_output.close();
 	fastq_1_output.close();
@@ -273,6 +281,91 @@ void readFilter::doFilter()
 	if(apply_filter_negative)
 	{
 		delete(negative_kMers);
+	}
+}
+
+void filterFastQPairs(std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
+{
+	std::string file_1 = fastq_basePath + "_1";
+	std::string file_2 = fastq_basePath + "_2";
+
+	if(! Utilities::fileReadable(file_1))
+	{
+		throw std::runtime_error("Expected file "+file_1+" can't be opened.");
+	}
+	if(! Utilities::fileReadable(file_2))
+	{
+		throw std::runtime_error("Expected file "+file_2+" can't be opened.");
+	}
+
+	filterFastQPairs(file_1, file_2, outputFile, decide, print);
+}
+
+void filterFastQPairs(std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
+{
+	std::ifstream fastQ_1_stream;
+	fastQ_1_stream.open(fastq_1_path.c_str());
+	assert(fastQ_1_stream.is_open());
+
+	std::ifstream fastQ_2_stream;
+	fastQ_2_stream.open(fastq_2_path.c_str());
+	assert(fastQ_2_stream.is_open());
+
+	auto getLinesFromFastQ = [](std::ifstream& inputStream, unsigned int lines) -> std::vector<std::string> {
+		std::vector<std::string> forReturn;
+		assert(lines > 0);
+		for(unsigned int lI = 0; lI < lines; lI++)
+		{
+			assert(inputStream.good());
+			std::string thisLine;
+			std::getline(inputStream, thisLine);
+			Utilities::eraseNL(thisLine);
+			forReturn.push_back(thisLine);
+		}
+		assert(forReturn.size() == lines);
+		return forReturn;
+	};
+
+	auto getReadFromFastQ = [&](std::ifstream& inputStream, std::string& ret_readID, std::string& ret_sequence, std::string& ret_qualities) -> void {
+		std::vector<std::string> lines = getLinesFromFastQ(inputStream, 4);
+		assert(lines.at(2) == "+");
+		ret_readID = lines.at(0);
+		ret_sequence = lines.at(1);
+		ret_qualities = lines.at(3);
+		assert(ret_sequence.length() == ret_qualities.length());
+	};
+
+	while(fastQ_1_stream.good())
+	{
+		assert(fastQ_2_stream.good());
+
+		std::string read1_ID; std::string read1_sequence; std::string read1_qualities;
+		getReadFromFastQ(fastQ_1_stream, read1_ID, read1_sequence, read1_qualities);
+
+		std::string read2_ID; std::string read2_sequence; std::string read2_qualities;
+		getReadFromFastQ(fastQ_2_stream, read2_ID, read2_sequence, read2_qualities);
+
+		BAMalignment simpleAlignment_1;
+		simpleAlignment_1.readID = read1_ID;
+		simpleAlignment_1.qualities = read1_qualities;
+		simpleAlignment_1.sequence = read1_sequence;
+
+		BAMalignment simpleAlignment_2;
+		simpleAlignment_2.readID = read2_ID;
+		simpleAlignment_2.qualities = read2_qualities;
+		simpleAlignment_2.sequence = read2_sequence;
+
+		fastq_readPair thisPair;
+		bool success_1 = thisPair.takeAlignment(simpleAlignment_1, 1);
+		assert(success_1);
+		bool success_2 = thisPair.takeAlignment(simpleAlignment_2, 2);
+		assert(success_2);
+		assert(thisPair.isComplete());
+
+		if((*decide)(thisPair))
+		{
+			(*print)(thisPair);
+		}
 	}
 }
 
