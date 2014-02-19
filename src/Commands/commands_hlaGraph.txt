@@ -17,7 +17,7 @@
 
 	And now align:
 	
-	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ test_round2.fastQ --graph ../tmp2/GS_nextGen/hla/graph.txt --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
+	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ test_round2.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
 		
 ../bin/MHC-PRG domode describekMerGraph ../tmp2/GS_nextGen/hla/graph.txt.kmers_31 ../tmp2/GS_nextGen/hla/derived/ HLAGRAPH_31 --output_kMer_levels --referenceGenomeCortexGraph ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx
 
