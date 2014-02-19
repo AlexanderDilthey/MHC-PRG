@@ -117,6 +117,7 @@ void readFilter::doFilter()
 
 		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
 
+		assert(k == 31);
 		negative_kMers = new DeBruijnGraph<1, 31, 1>(cortex_height, cortex_width);
 
 		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary...\n" << std::flush;
@@ -203,7 +204,7 @@ void readFilter::doFilter()
 			// std::cout << read.a1.sequence << " " << read.a2.sequence << "\n";
 			// std::cout << forward_combined_optim << " " << reverse_combined_optim << "\n\n"; 
 			
-			std::cout << read.a1.readID << " // " << read.a2.readID << ": " << forward_combined_optim << " / " << reverse_combined_optim << "\n";
+			// std::cout << read.a1.readID << " // " << read.a2.readID << ": " << forward_combined_optim << " / " << reverse_combined_optim << "\n";
 
 			pass_positive = ((forward_combined_optim >= positiveThreshold) || (reverse_combined_optim >= positiveThreshold));
 		}
@@ -243,6 +244,8 @@ void readFilter::doFilter()
 //			double negativity_2 = (kMers_2_TOTAL == 0) ? 1 : (kMers_2_notOK / kMers_2_TOTAL);
 			double combined_negativity = ((kMers_1_TOTAL + kMers_2_TOTAL) == 0) ? 1 : ((kMers_1_notOK + kMers_2_notOK) / (kMers_1_TOTAL + kMers_2_TOTAL));
 
+			// std::cout << read.a1.readID << " // " << read.a2.readID << ": " << combined_negativity << "\n";
+			
 			pass_negative = (combined_negativity <= negativeThreshold);
 
 			return (pass_positive && pass_negative);
@@ -316,6 +319,10 @@ void filterFastQPairs(std::string fastq_1_path, std::string fastq_2_path, std::s
 		assert(lines > 0);
 		for(unsigned int lI = 0; lI < lines; lI++)
 		{
+			if(!inputStream.good())
+			{
+				return forReturn;
+			}
 			assert(inputStream.good());
 			std::string thisLine;
 			std::getline(inputStream, thisLine);
@@ -327,12 +334,22 @@ void filterFastQPairs(std::string fastq_1_path, std::string fastq_2_path, std::s
 	};
 
 	auto getReadFromFastQ = [&](std::ifstream& inputStream, std::string& ret_readID, std::string& ret_sequence, std::string& ret_qualities) -> void {
+		assert(inputStream.good());
 		std::vector<std::string> lines = getLinesFromFastQ(inputStream, 4);
-		assert(lines.at(2) == "+");
-		ret_readID = lines.at(0);
-		ret_sequence = lines.at(1);
-		ret_qualities = lines.at(3);
-		assert(ret_sequence.length() == ret_qualities.length());
+		if(lines.size() == 4)
+		{
+			assert(lines.at(2) == "+");
+			ret_readID = lines.at(0);
+			ret_sequence = lines.at(1);
+			ret_qualities = lines.at(3);
+			assert(ret_sequence.length() == ret_qualities.length());
+		}
+		else
+		{
+			ret_readID.clear();
+			ret_sequence.clear();
+			ret_qualities.clear();
+		}
 	};
 
 	while(fastQ_1_stream.good())
@@ -345,6 +362,12 @@ void filterFastQPairs(std::string fastq_1_path, std::string fastq_2_path, std::s
 		std::string read2_ID; std::string read2_sequence; std::string read2_qualities;
 		getReadFromFastQ(fastQ_2_stream, read2_ID, read2_sequence, read2_qualities);
 
+		assert((read1_ID.length() && read2_ID.length()) || ((!read1_ID.length()) && (!read2_ID.length())));
+		if((!read1_ID.length()) && (!read2_ID.length()))
+		{
+			break;
+		}
+		
 		BAMalignment simpleAlignment_1;
 		simpleAlignment_1.readID = read1_ID;
 		simpleAlignment_1.qualities = read1_qualities;
@@ -362,6 +385,15 @@ void filterFastQPairs(std::string fastq_1_path, std::string fastq_2_path, std::s
 		assert(success_2);
 		assert(thisPair.isComplete());
 
+		assert((read1_ID.substr(read1_ID.length() - 2, 2) == "/1") || (read1_ID.substr(read1_ID.length() - 2, 2) == "/2"));
+		assert((read2_ID.substr(read2_ID.length() - 2, 2) == "/1") || (read2_ID.substr(read2_ID.length() - 2, 2) == "/2"));
+		
+		if(!(read1_ID.substr(0, read1_ID.length() - 2) == read2_ID.substr(0, read2_ID.length() - 2)))
+		{
+			std::cerr << "Warning: read IDs don't match! " << read1_ID << " vs " << read2_ID << "\n";
+		}
+		assert(read1_ID.substr(0, read1_ID.length() - 2) == read2_ID.substr(0, read2_ID.length() - 2));		
+		
 		if((*decide)(thisPair))
 		{
 			(*print)(thisPair);
