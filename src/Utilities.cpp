@@ -32,6 +32,15 @@ Utilities::Utilities() {
 Utilities::~Utilities() {
 }
 
+bool Utilities::fileReadable(std::string file)
+{
+	std::ifstream fS;
+	fS.open(file.c_str());
+	bool forReturn = fS.is_open();
+	fS.close();
+	return forReturn;
+}
+
 std::string Utilities::JoinMapUInt2Str(std::map<std::string, unsigned int> M)
 {
 	std::vector<std::string> forReturn_parts;
