@@ -307,6 +307,42 @@ int main(int argc, char *argv[])
 
 		//		validateAmendedChromotypesVsVCF(output_file_amendedHaplotypes, chromotypes_start, chromotypes_stop, vcfFile, vcf_start, vcf_stop, referenceGenome, deBruijnGraph, kMer_size, cortex_height, cortex_width);
 	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "alignShortReadsToHLAGraph"))
+	{
+		bool labelOnly = false;
+		// omp_set_num_threads(40);
+		CONFIG.threads=40;
+
+
+		std::string input_FASTQ;
+		std::string graph_file;
+		std::string referenceGenome;
+
+		for(unsigned int i = 0; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--input_FASTQ")
+			{
+				input_FASTQ = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--graph")
+			{
+				graph_file = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--referenceGenome")
+			{
+				referenceGenome = arguments.at(i+1);
+			}
+		}
+
+		assert(input_FASTQ.length());
+		assert(graph_file.length());
+		assert(referenceGenome.length());
+
+		alignShortReadsToHLAGraph(input_FASTQ, graph_file, referenceGenome, 190, 100);
+
+	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))
 	{
 		bool labelOnly = false;
