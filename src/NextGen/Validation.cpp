@@ -70,6 +70,213 @@ void evaluate_dGS(diploidGenomeString& gS, diploidGenomeString& gS_unresolved, c
 template<int m, int k, int colours>
 std::pair<diploidGenomeString, diploidGenomeString> greedilyResolveDiploidKMerString(diploidGenomeString& original_gS, DeBruijnGraph<m, k, colours>* graph);
 
+std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_base_path)
+{
+	std::string f1 = fastq_base_path + "_1";
+	std::string f2 = fastq_base_path + "_2";
+
+	if(! Utilities::fileReadable(f1))
+	{
+		throw std::runtime_error("Expected file "+f1+" can't be opened.");
+	}
+
+	if(! Utilities::fileReadable(f2))
+	{
+		throw std::runtime_error("Expected file "+f2+" can't be opened.");
+	}
+
+	return getReadsFromFastQ(f1, f2);
+}
+
+
+std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string fastq_2_path)
+{
+	std::vector<oneReadPair> forReturn;
+
+	std::ifstream fastQ_1_stream;
+	fastQ_1_stream.open(fastq_1_path.c_str());
+	assert(fastQ_1_stream.is_open());
+
+	std::ifstream fastQ_2_stream;
+	fastQ_2_stream.open(fastq_2_path.c_str());
+	assert(fastQ_2_stream.is_open());
+
+	auto getLinesFromFastQ = [](std::ifstream& inputStream, unsigned int lines) -> std::vector<std::string> {
+		std::vector<std::string> forReturn;
+		assert(lines > 0);
+		for(unsigned int lI = 0; lI < lines; lI++)
+		{
+			if(!inputStream.good())
+			{
+				return forReturn;
+			}
+			assert(inputStream.good());
+			std::string thisLine;
+			std::getline(inputStream, thisLine);
+			Utilities::eraseNL(thisLine);
+			forReturn.push_back(thisLine);
+		}
+		assert(forReturn.size() == lines);
+		return forReturn;
+	};
+
+	auto getReadFromFastQ = [&](std::ifstream& inputStream, std::string& ret_readID, std::string& ret_sequence, std::string& ret_qualities) -> void {
+		assert(inputStream.good());
+		std::vector<std::string> lines = getLinesFromFastQ(inputStream, 4);
+		if(lines.size() == 4)
+		{
+			assert(lines.at(2) == "+");
+			ret_readID = lines.at(0);
+			ret_sequence = lines.at(1);
+			ret_qualities = lines.at(3);
+			assert(ret_sequence.length() == ret_qualities.length());
+		}
+		else
+		{
+			ret_readID.clear();
+			ret_sequence.clear();
+			ret_qualities.clear();
+		}
+	};
+
+	while(fastQ_1_stream.good())
+	{
+		assert(fastQ_2_stream.good());
+
+		std::string read1_ID; std::string read1_sequence; std::string read1_qualities;
+		getReadFromFastQ(fastQ_1_stream, read1_ID, read1_sequence, read1_qualities);
+
+		std::string read2_ID; std::string read2_sequence; std::string read2_qualities;
+		getReadFromFastQ(fastQ_2_stream, read2_ID, read2_sequence, read2_qualities);
+
+		assert((read1_ID.length() && read2_ID.length()) || ((!read1_ID.length()) && (!read2_ID.length())));
+		if((!read1_ID.length()) && (!read2_ID.length()))
+		{
+			break;
+		}
+
+		assert((read1_ID.substr(read1_ID.length() - 2, 2) == "/1") || (read1_ID.substr(read1_ID.length() - 2, 2) == "/2"));
+		assert((read2_ID.substr(read2_ID.length() - 2, 2) == "/1") || (read2_ID.substr(read2_ID.length() - 2, 2) == "/2"));
+		if(!(read1_ID.substr(0, read1_ID.length() - 2) == read2_ID.substr(0, read2_ID.length() - 2)))
+		{
+			std::cerr << "Warning: read IDs don't match! " << read1_ID << " vs " << read2_ID << "\n";
+		}
+		assert(read1_ID.substr(0, read1_ID.length() - 2) == read2_ID.substr(0, read2_ID.length() - 2));
+
+		oneRead r1(read1_ID, read1_sequence, read1_qualities);
+		oneRead r2(read2_ID, read2_sequence, read2_qualities);
+		oneReadPair thisPair(r1, r2, 0);
+		forReturn.push_back(thisPair);
+	}
+
+	return forReturn;
+}
+
+void alignShortReadsToHLAGraph(std::string FASTQ, std::string graph, std::string referenceGenome, double insertSize_mean, double insertSize_sd)
+{
+	int aligner_kMerSize = 25;
+	int outerThreads = 15;
+	int skipPairs_MOD = 1;
+	bool evaluateWithoutPairing = false;
+	bool useShort = true;
+
+	std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading reads.\n" << std::flush;
+
+	std::vector<oneReadPair> combinedPairs_for_alignment = getReadsFromFastQ(FASTQ);
+
+	std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading graph.\n" << std::flush;
+
+	std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Create GraphAlignerUnique(s).\n" << std::flush;
+
+	omp_set_num_threads(outerThreads);
+
+	std::vector<Graph*> graphs;
+	std::vector<GraphAlignerUnique::GraphAlignerUnique*> graphAligners;
+	graphs.resize(outerThreads);
+	graphAligners.resize(outerThreads);
+
+	#pragma omp parallel for
+	for(int tI = 0; tI < outerThreads; tI++)
+	{
+		// std::cout << "Thread " << tI << "\n" << std::flush;
+
+		Graph* g = new Graph();
+		g->readFromFile(graph);
+
+		graphAligners.at(tI) = new GraphAlignerUnique::GraphAlignerUnique(g, aligner_kMerSize);
+		graphAligners.at(tI)->setIterationsMainRandomizationLoop(4);
+		graphAligners.at(tI)->setThreads(1);
+
+		graphs.at(tI) = g;
+	}
+
+	int assignedLevels_totalReads = 0;
+	std::vector<int> levels_assigned_reads;
+	std::vector<int> levels_assigned_reads_recovered;
+	std::vector<std::string> levelIDs;
+
+
+	std::cout << "\t" << "Now align " << combinedPairs_for_alignment.size() << " read pairs." << "\n" << std::flush;
+
+
+
+	auto alignReadPairs = [&](std::vector<oneReadPair>& readPairs, std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> >& alignments_perThread, std::vector< std::vector<int> >& alignments_readPairI_perThread, bool usePairing) -> void
+	{
+		unsigned int pairI = 0;
+		unsigned int pairMax = readPairs.size();
+		#pragma omp parallel for schedule(dynamic)
+		for(pairI = 0; pairI < pairMax; pairI++)
+		{
+			int tI = omp_get_thread_num();
+			assert(omp_get_num_threads() == outerThreads);
+			assert((tI >= 0) && (tI < outerThreads));
+
+			assert((pairI >= 0) && (pairI < readPairs.size()));
+			oneReadPair rP = readPairs.at(pairI);
+
+			assert((tI >= 0) && (tI < graphAligners.size()));
+
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = graphAligners.at(tI)->seedAndExtend_local_paired_or_short(rP, usePairing, useShort, insertSize_mean, insertSize_sd);
+
+			alignments_perThread.at(tI).push_back(alignment_pair);
+			alignments_readPairI_perThread.at(tI).push_back(pairI);
+
+			if(tI == 0)
+			{
+				std::cout  << Utilities::timestamp() << "\t\t" << "Thread " << tI << ": align pair " << pairI << "\n" << std::flush;
+			}
+		}
+	};
+
+
+	std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> > withPairing_alignments_perThread;
+	std::vector< std::vector<int> > withPairing_alignments_readPairI_perThread;
+
+	withPairing_alignments_perThread.resize(outerThreads);
+	withPairing_alignments_readPairI_perThread.resize(outerThreads);
+
+	alignReadPairs(combinedPairs_for_alignment, withPairing_alignments_perThread, withPairing_alignments_readPairI_perThread, true);
+
+	// merge
+
+	std::cout  << Utilities::timestamp() << "\t\t" << "All pairs aligned - merge.\n" << std::flush;
+
+	std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > withPairing_alignments;
+	std::vector< int > withPairing_alignments_readPairI;
+	for(unsigned int tI = 0; tI < outerThreads; tI++)
+	{
+		withPairing_alignments.insert(withPairing_alignments.end(), withPairing_alignments_perThread.at(tI).begin(), withPairing_alignments_perThread.at(tI).end());
+		withPairing_alignments_readPairI.insert(withPairing_alignments_readPairI.end(), withPairing_alignments_readPairI_perThread.at(tI).begin(), withPairing_alignments_readPairI_perThread.at(tI).end());
+	}
+
+	std::cout  << Utilities::timestamp() << "\t\t\t" << "Merging done.\n" << std::flush;
+	for(int tI = 0; tI < outerThreads; tI++)
+	{
+		delete(graphAligners.at(tI));
+		delete(graphs.at(tI));
+	}
+}
+
 void validateChromotypesVsVCF(std::string chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width)
 {
 	assert(1 == 0);
