@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
 
 
 		std::string input_FASTQ;
-		std::string graph_file;
+		std::string graph_dir;
 		std::string referenceGenome;
 
 		for(unsigned int i = 0; i < arguments.size(); i++)
@@ -325,9 +325,9 @@ int main(int argc, char *argv[])
 				input_FASTQ = arguments.at(i+1);
 			}
 
-			if(arguments.at(i) == "--graph")
+			if(arguments.at(i) == "--graphDir")
 			{
-				graph_file = arguments.at(i+1);
+				graph_dir = arguments.at(i+1);
 			}
 
 			if(arguments.at(i) == "--referenceGenome")
@@ -337,10 +337,10 @@ int main(int argc, char *argv[])
 		}
 
 		assert(input_FASTQ.length());
-		assert(graph_file.length());
+		assert(graph_dir.length());
 		assert(referenceGenome.length());
 
-		alignShortReadsToHLAGraph(input_FASTQ, graph_file, referenceGenome, 190, 100);
+		alignShortReadsToHLAGraph(input_FASTQ, graph_dir, referenceGenome, 190, 100);
 
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))

@@ -28,6 +28,23 @@
 #include <stdio.h>
 #include "dirent.h"
 
+using namespace boost::math::policies;
+using namespace boost::math;
+
+typedef boost::math::poisson_distribution< double, policy < discrete_quantile < integer_round_inwards> > > poisson_up;
+
+// predeclarations
+
+template<int m, int k, int colours>
+void evaluate_dGS(diploidGenomeString& gS, diploidGenomeString& gS_unresolved, const std::set<std::string>& kMers_reference, DeBruijnGraph<m, k, colours>* graph, std::set<std::string>* kMers_in_dGS, std::set<std::string>* kMers_in_dGS_in_sample, std::map<std::string, double>* kMers_in_dGS_optimality, std::string nameForSummary, ofstream& summaryFileStream, std::string pathForSpatialSummary, std::vector<std::vector<int> > chromotypes_referencePositions);
+
+template<int m, int k, int colours>
+std::pair<diploidGenomeString, diploidGenomeString> greedilyResolveDiploidKMerString(diploidGenomeString& original_gS, DeBruijnGraph<m, k, colours>* graph);
+
+void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs);
+
+// functions
+
 std::vector<std::string> filesInDirectory(std::string path)
 {
 	std::vector<std::string> forReturn;
@@ -58,17 +75,6 @@ std::vector<std::string> filesInDirectory(std::string path)
 
     return forReturn;
 }
-
-using namespace boost::math::policies;
-using namespace boost::math;
-
-typedef boost::math::poisson_distribution< double, policy < discrete_quantile < integer_round_inwards> > > poisson_up;
-
-template<int m, int k, int colours>
-void evaluate_dGS(diploidGenomeString& gS, diploidGenomeString& gS_unresolved, const std::set<std::string>& kMers_reference, DeBruijnGraph<m, k, colours>* graph, std::set<std::string>* kMers_in_dGS, std::set<std::string>* kMers_in_dGS_in_sample, std::map<std::string, double>* kMers_in_dGS_optimality, std::string nameForSummary, ofstream& summaryFileStream, std::string pathForSpatialSummary, std::vector<std::vector<int> > chromotypes_referencePositions);
-
-template<int m, int k, int colours>
-std::pair<diploidGenomeString, diploidGenomeString> greedilyResolveDiploidKMerString(diploidGenomeString& original_gS, DeBruijnGraph<m, k, colours>* graph);
 
 std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_base_path)
 {
@@ -172,17 +178,298 @@ std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string
 	return forReturn;
 }
 
-void alignShortReadsToHLAGraph(std::string FASTQ, std::string graph, std::string referenceGenome, double insertSize_mean, double insertSize_sd)
+void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs)
+{
+	assert(SAMoutputStream.is_open());
+
+	for(unsigned int lI = 0; lI < uncompressed_graph_referencePositions.size(); lI++)
+	{
+		int referencePosition = uncompressed_graph_referencePositions.at(lI);
+		if(!((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < referenceSequence.length()))))
+		{
+			std::cerr << "EARLY CHECK!" << "\n";
+			std::cerr << "referencePosition" << ": " << referencePosition << "\n";
+			std::cerr << "lI" << ": " << lI << "\n";
+			std::cerr << "referenceSequence.length()" << ": " << referenceSequence.length() << "\n" << std::flush;
+		}
+		assert((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < referenceSequence.length())));
+	}
+
+	auto singleAlignment2SAM = [&](seedAndExtend_return_local& alignment, std::string readID) -> void {
+		std::string alignment_graph = alignment.graph_aligned;
+		std::string alignment_sequence = alignment.sequence_aligned;
+		std::vector<int> levels_separated = alignment.graph_aligned_levels;
+
+		assert(levels_separated.size() == alignment_sequence.length());
+
+		std::vector<int> levels_separated_2_reference;
+		levels_separated_2_reference.resize(levels_separated.size(), -1);
+
+		int lastUsedLevel = -1;
+		for(unsigned int levelI = 0; levelI < levels_separated.size(); levelI++)
+		{
+			int level = levels_separated.at(levelI);
+			std::string graphCharacter = alignment_graph.substr(levelI, 1);
+			std::string sequenceCharacter = alignment_sequence.substr(levelI, 1);
+
+			if(level != -1)
+			{
+				assert(level < uncompressed_graph_referencePositions.size());
+				int referencePosition = uncompressed_graph_referencePositions.at(level);
+
+				if(!((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < referenceSequence.length()))))
+				{
+					std::cerr << "referencePosition" << ": " << referencePosition << "\n";
+					std::cerr << "levelI" << ": " << levelI << "\n";
+					std::cerr << "level" << ": " << level << "\n";
+					std::cerr << "referenceSequence.length()" << ": " << referenceSequence.length() << "\n" << std::flush;
+				}
+
+				assert((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < referenceSequence.length())));
+
+				levels_separated_2_reference.at(levelI) = referencePosition;
+			}
+		}
+
+		std::vector<std::string> levels_separated_2_reference_String;
+		std::vector<std::string> levels_referenceCharacters;
+		std::vector<std::string> levels_graphCharacters;
+		std::vector<std::string> levels_readCharacters;
+
+		int firstReferencePosition = -1;
+		int lastReferencePosition = -1;
+		for(unsigned int levelI = 0; levelI < levels_separated_2_reference.size(); levelI++)
+		{
+			levels_separated_2_reference_String.push_back(Utilities::ItoStr(levels_separated_2_reference.at(levelI)));
+			int correspondingReferencePosition = levels_separated_2_reference.at(levelI);
+			if(correspondingReferencePosition != -1)
+			{
+				if(! (((correspondingReferencePosition - 1) >= 0) && ((correspondingReferencePosition - 1) < referenceSequence.length())))
+				{
+					std::cerr << "(correspondingReferencePosition - 1)" << ":" << (correspondingReferencePosition - 1) << "\n";
+					std::cerr << "referenceSequence.length()" << ":" << referenceSequence.length() << "\n" << std::flush;
+				}
+
+				assert((correspondingReferencePosition - 1) >= 0);
+				assert((correspondingReferencePosition - 1) < referenceSequence.length());
+
+				levels_referenceCharacters.push_back(referenceSequence.substr(correspondingReferencePosition - 1, 1));
+			}
+			else
+			{
+				levels_referenceCharacters.push_back("_");
+			}
+			levels_graphCharacters.push_back(alignment_graph.substr(levelI, 1));
+			levels_readCharacters.push_back(alignment_sequence.substr(levelI, 1));
+
+			if(firstReferencePosition == -1)
+			{
+				if((levels_separated_2_reference.at(levelI) != -1) && (alignment_sequence.substr(levelI, 1) != "_"))
+				{
+					firstReferencePosition = levels_separated_2_reference.at(levelI);
+				}
+			}
+
+			if((levels_separated_2_reference.at(levelI) != -1) && (alignment_sequence.substr(levelI, 1) != "_"))
+			{
+				lastReferencePosition = levels_separated_2_reference.at(levelI);
+			}
+
+		}
+
+		// assert((firstReferencePosition != -1) && (lastReferencePosition != -1));
+
+		// std::cout << "Contig: " << contigFullID << "\n";
+		// std::cout << Utilities::join(levels_separated_2_reference_String, " ") << "\n";
+		// std::cout << Utilities::join(levels_referenceCharacters, " ") << "\n";
+		// std::cout << Utilities::join(levels_graphCharacters, " ") << "\n";
+		// std::cout << Utilities::join(levels_contigCharacters, " ") << "\n\n" << std::flush;
+
+		std::string readIDForSAM = readID;
+		readIDForSAM.erase(std::remove_if(readIDForSAM.begin(), readIDForSAM.end(), [&](char c){return (((int)isalnum(c) == 0) || (c == ' '));}), readIDForSAM.end());
+
+		std::string readCharacters_noGaps = alignment_sequence;
+		readCharacters_noGaps.erase(std::remove_if(readCharacters_noGaps.begin(),readCharacters_noGaps.end(), [&](char c){return ((c == '_') ? true : false);}), readCharacters_noGaps.end());
+
+		size_t FLAGS_sizeT = 0;
+		//FLAGS_sizeT = (FLAGS_sizeT || 0x2);
+		if((firstReferencePosition != -1) || (lastReferencePosition != -1))
+		{
+			FLAGS_sizeT = (FLAGS_sizeT || 0x4);
+		}
+
+		int lastPrintedRealReferencePosition = -1;
+		std::string CIGAR_uncompressed;
+		for(unsigned int levelI = 0; levelI < levels_separated_2_reference.size(); levelI++)
+		{
+			int reference_position = levels_separated_2_reference.at(levelI);
+			std::string alignmentCharacter = alignment_sequence.substr(levelI, 1);
+
+			if(reference_position != -1)
+			{
+				if(lastPrintedRealReferencePosition != -1)
+				{
+					if(reference_position != (lastPrintedRealReferencePosition + 1))
+					{
+						if(!(reference_position > lastPrintedRealReferencePosition))
+						{
+							std::cerr << "reference_position" << ": " << reference_position << "\n";
+							std::cerr << "lastPrintedRealReferencePosition" << ": " << lastPrintedRealReferencePosition << "\n" << std::flush;
+						}
+						assert(reference_position > lastPrintedRealReferencePosition);
+						int missingReferencePositions = reference_position - lastPrintedRealReferencePosition - 1;
+						assert(missingReferencePositions > 0);
+						for(unsigned int j = 0; j < missingReferencePositions; j++)
+						{
+							CIGAR_uncompressed.push_back('D');
+						}
+					}
+				}
+			}
+
+			if(reference_position == -1)
+			{
+				if(alignmentCharacter == "_")
+				{
+					// nothing
+				}
+				else
+				{
+					CIGAR_uncompressed.push_back('I');
+				}
+			}
+			else
+			{
+				if(alignmentCharacter == "_")
+				{
+					CIGAR_uncompressed.push_back('D');
+				}
+				else
+				{
+					CIGAR_uncompressed.push_back('M');
+				}
+			}
+
+			if(reference_position != -1)
+			{
+				lastPrintedRealReferencePosition = reference_position;
+			}
+		}
+
+		std::string CIGAR_compressed;
+		size_t CIGAR_sum_M = 0;
+		size_t CIGAR_sum_I = 0;
+		std::string currentOperation;
+		int operationCount = 0;
+		for(unsigned int cigarI = 0; cigarI < CIGAR_uncompressed.size(); cigarI++)
+		{
+			std::string thisOperation = CIGAR_uncompressed.substr(cigarI, 1);
+			if(currentOperation.size() == 0)
+			{
+				currentOperation = thisOperation;
+			}
+			operationCount++;
+			if((cigarI == (CIGAR_uncompressed.size() - 1)) || (CIGAR_uncompressed.substr(cigarI+1, 1) != currentOperation))
+			{
+				CIGAR_compressed += (Utilities::ItoStr(operationCount) + currentOperation);
+
+				if(currentOperation == "M")
+				{
+					CIGAR_sum_M += operationCount;
+				}
+				else if(currentOperation == "I")
+				{
+					CIGAR_sum_I += operationCount;
+				}
+				operationCount = 0;
+				currentOperation = "";
+			}
+		}
+
+		assert(readCharacters_noGaps.length() == (CIGAR_sum_M + CIGAR_sum_I));
+		double P_mapping_wrong = 0.001;
+
+		std::string QNAME = readIDForSAM;
+		std::string FLAG = Utilities::ItoStr(FLAGS_sizeT);
+		std::string RNAME = "ref";
+		std::string POS = Utilities::ItoStr(firstReferencePosition);
+		std::string MAPQ = Utilities::ItoStr(-10.0*log10(P_mapping_wrong)+0.5);
+		std::string CIGAR = CIGAR_compressed;
+		std::string RNEXT = "*";
+		std::string PNEXT = "0";
+		std::string TLEN = Utilities::ItoStr(lastReferencePosition - firstReferencePosition + 1);
+		std::string SEQ = readCharacters_noGaps;
+		std::string QUAL = "*";
+
+		SAMoutputStream <<
+			QNAME << "\t" <<
+			FLAG << "\t" <<
+			RNAME << "\t" <<
+			POS << "\t" <<
+			MAPQ << "\t" <<
+			CIGAR << "\t" <<
+			RNEXT << "\t" <<
+			PNEXT << "\t" <<
+			TLEN << "\t" <<
+			SEQ << "\t" <<
+			QUAL << "\n" << std::flush;
+	};
+
+	for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
+	{
+
+		std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& thisPair_alignment = alignments.at(alignmentI);
+		std::pair<std::string, std::string>& thisPair_readIDs = alignments_readIDs.at(alignmentI);
+
+		singleAlignment2SAM(thisPair_alignment.first, thisPair_readIDs.first);
+		singleAlignment2SAM(thisPair_alignment.second, thisPair_readIDs.second);
+	}
+
+/*
+1 QNAME String [!-?A-~]f1,255g Query template NAME
+2 FLAG Int [0,216-1] bitwise FLAG
+3 RNAME String \*|[!-()+-<>-~][!-~]* Reference sequence NAME
+4 POS Int [0,231-1] 1-based leftmost mapping POSition
+5 MAPQ Int [0,28-1] MAPping Quality
+6 CIGAR String \*|([0-9]+[MIDNSHPX=])+ CIGAR string
+7 RNEXT String \*|=|[!-()+-<>-~][!-~]* Ref. name of the mate/next read
+8 PNEXT Int [0,231-1] Position of the mate/next read
+9 TLEN Int [-231+1,231-1] observed Template LENgth
+10 SEQ String \*|[A-Za-z=.]+ segment SEQuence
+11 QUAL String [!-~]+ ASCII of Phred-scaled base QUALity+33
+*/
+
+}
+
+
+void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::string referenceGenomeFile, double insertSize_mean, double insertSize_sd)
 {
 	int aligner_kMerSize = 25;
 	int outerThreads = 1;
-	int skipPairs_MOD = 1;
-	bool evaluateWithoutPairing = false;
+	int skipPairs_MOD = 1000;
 	bool useShort = true;
+
+	std::string graph = graphDir + "/graph.txt";
+	assert(Utilities::fileReadable(graph));
 
 	std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading reads.\n" << std::flush;
 
 	std::vector<oneReadPair> combinedPairs_for_alignment = getReadsFromFastQ(FASTQ);
+	std::map<std::string, std::string> referenceChromosomes = Utilities::readFASTA(referenceGenomeFile);
+	assert(referenceChromosomes.count("ref"));
+
+	if(skipPairs_MOD != 1)
+	{
+		std::vector<oneReadPair> pairs_after_filtering;
+		for(unsigned int pairI = 0; pairI < combinedPairs_for_alignment.size(); pairI++)
+		{
+			if((pairI % skipPairs_MOD) == 0)
+			{
+				pairs_after_filtering.push_back(combinedPairs_for_alignment.at(pairI));
+			}
+		}
+		combinedPairs_for_alignment = pairs_after_filtering;
+	}
 
 	std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading graph.\n" << std::flush;
 
@@ -210,15 +497,7 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graph, std::string
 		graphs.at(tI) = g;
 	}
 
-	int assignedLevels_totalReads = 0;
-	std::vector<int> levels_assigned_reads;
-	std::vector<int> levels_assigned_reads_recovered;
-	std::vector<std::string> levelIDs;
-
-
 	std::cout << "\t" << "Now align " << combinedPairs_for_alignment.size() << " read pairs." << "\n" << std::flush;
-
-
 
 	auto alignReadPairs = [&](std::vector<oneReadPair>& readPairs, std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> >& alignments_perThread, std::vector< std::vector<int> >& alignments_readPairI_perThread, bool usePairing) -> void
 	{
@@ -269,12 +548,93 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graph, std::string
 		withPairing_alignments_readPairI.insert(withPairing_alignments_readPairI.end(), withPairing_alignments_readPairI_perThread.at(tI).begin(), withPairing_alignments_readPairI_perThread.at(tI).end());
 	}
 
-	std::cout  << Utilities::timestamp() << "\t\t\t" << "Merging done.\n" << std::flush;
+	std::cout  << Utilities::timestamp() << "\t\t\t" << "Merging done, delete.\n" << std::flush;
 	for(int tI = 0; tI < outerThreads; tI++)
 	{
 		delete(graphAligners.at(tI));
 		delete(graphs.at(tI));
 	}
+
+	// Produce normal output file
+	std::string alignments_output_file = FASTQ + ".aligned";
+	std::cout  << Utilities::timestamp() << "\t\t\t" << "Produce alignments file " << alignments_output_file << ".\n" << std::flush;
+
+	std::vector<std::pair<std::string, std::string> > alignments_readIDs;
+	for(unsigned int pairII = 0; pairII < withPairing_alignments_readPairI.size(); pairII++)
+	{
+		int readPairI = withPairing_alignments_readPairI.at(pairII);
+		std::string ID1 = combinedPairs_for_alignment.at(readPairI).reads.first.name;
+		std::string ID2 = combinedPairs_for_alignment.at(readPairI).reads.second.name;
+		alignments_readIDs.push_back(make_pair(ID1, ID2));
+	}
+
+	assert(alignments_readIDs.size() == withPairing_alignments.size());
+
+	auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs) -> void {
+		std::ofstream outputStream;
+		outputStream.open(outputFilename.c_str());
+		assert(outputStream.is_open());
+
+		auto printOnePair = [&](seedAndExtend_return_local alignment) -> void {
+			outputStream << "\t\t" << alignment.Score << "\n";
+			outputStream << "\t\t" << alignment.graph_aligned << "\n";
+			outputStream << "\t\t" << alignment.sequence_aligned << "\n";
+			outputStream << "\t\t" << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), " ") << "\n";
+		};
+
+		for(unsigned int pairI = 0; pairI < alignments.size(); pairI++)
+		{
+			outputStream << "Aligned pair " << pairI << "\n";
+			outputStream << "\t" << "Read " << alignments_readIDs.at(pairI).first;
+			printOnePair(alignments.at(pairI).first);
+			outputStream << "\t" << "Read " << alignments_readIDs.at(pairI).second;
+			printOnePair(alignments.at(pairI).second);
+		}
+		outputStream.close();
+	};
+
+	printAlignmentsToFile(alignments_output_file, withPairing_alignments, alignments_readIDs);
+
+
+	// Produce SAM
+	std::string SAM_output_file = FASTQ + ".sam";
+	std::cout  << Utilities::timestamp() << "\t\t\t" << "Produce SAM " << SAM_output_file << ".\n" << std::flush;
+
+
+	// Get graph loci and reference positions
+	std::ofstream SAM_output_stream;
+	SAM_output_stream.open(SAM_output_file.c_str());
+	assert(SAM_output_stream.is_open());
+
+	std::vector<int> uncompressed_graph_referencePositions;
+	std::vector<std::string> graphLoci = readGraphLoci(graphDir);
+
+	int lastReferencePosition = -1;
+	for(unsigned int i = 0; i < graphLoci.size(); i++)
+	{
+		std::string locusID = graphLoci.at(i);
+		std::vector<std::string> locusParts = Utilities::split(locusID, "_");
+		if(locusParts.size() != 3)
+		{
+			throw std::runtime_error("graphLoci_2_PGFpositions(..): Cannot decompose locus ID " +locusID);
+		}
+		int thisLocus_refPos = Utilities::StrtoI(locusParts.at(2));
+		if((i == 0) || (lastReferencePosition != thisLocus_refPos))
+		{
+			uncompressed_graph_referencePositions.push_back(thisLocus_refPos);
+			lastReferencePosition = thisLocus_refPos;
+		}
+		else
+		{
+			uncompressed_graph_referencePositions.push_back(-1);
+		}
+	}
+
+	alignedShortReads2SAM(SAM_output_stream, uncompressed_graph_referencePositions, referenceChromosomes.at("ref"), withPairing_alignments, alignments_readIDs);
+
+	std::cout  << Utilities::timestamp() << "\t\t\t" << "Done. Output in " << SAM_output_file << ".\n" << std::flush;
+
+
 }
 
 void validateChromotypesVsVCF(std::string chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width)
