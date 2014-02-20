@@ -578,6 +578,7 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 		auto printOnePair = [&](seedAndExtend_return_local alignment) -> void {
 			outputStream << "\t\t" << alignment.Score << "\n";
 			outputStream << "\t\t" << alignment.reverse << "\n";
+			outputStream << "\t\t" << alignment.mapQ << "\n";
 			outputStream << "\t\t" << alignment.graph_aligned << "\n";
 			outputStream << "\t\t" << alignment.sequence_aligned << "\n";
 			outputStream << "\t\t" << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), " ") << "\n";
