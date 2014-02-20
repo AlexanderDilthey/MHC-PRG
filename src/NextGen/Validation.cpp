@@ -713,6 +713,8 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 			}
 		}
 
+
+
 	}
 
 
