@@ -616,7 +616,7 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 		std::vector<std::string> locusParts = Utilities::split(locusID, "_");
 		if(locusParts.size() != 3)
 		{
-			throw std::runtime_error("graphLoci_2_PGFpositions(..): Cannot decompose locus ID " +locusID);
+			throw std::runtime_error("alignShortReadsToHLAGraph(..): Cannot decompose locus ID " +locusID);
 		}
 		int thisLocus_refPos = Utilities::StrtoI(locusParts.at(2));
 		if((i == 0) || (lastReferencePosition != thisLocus_refPos))
