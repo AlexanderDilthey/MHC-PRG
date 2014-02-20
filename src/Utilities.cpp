@@ -41,6 +41,16 @@ bool Utilities::fileReadable(std::string file)
 	return forReturn;
 }
 
+std::vector<int> Utilities::StrtoI(std::vector<std::string> s)
+{
+	std::vector<int> forReturn;
+	for(unsigned int i = 0; i < s.size(); i++)
+	{
+		forReturn.push_back(StrtoI(s.at(i)));
+	}
+	return forReturn;
+}
+
 std::string Utilities::JoinMapUInt2Str(std::map<std::string, unsigned int> M)
 {
 	std::vector<std::string> forReturn_parts;
