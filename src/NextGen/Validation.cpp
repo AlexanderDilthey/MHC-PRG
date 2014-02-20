@@ -185,14 +185,14 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 	for(unsigned int lI = 0; lI < uncompressed_graph_referencePositions.size(); lI++)
 	{
 		int referencePosition = uncompressed_graph_referencePositions.at(lI);
-		if(!((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < referenceSequence.length()))))
+		if(!((referencePosition == -1) || ((referencePosition > 0) && (referencePosition <= referenceSequence.length()))))
 		{
 			std::cerr << "EARLY CHECK!" << "\n";
 			std::cerr << "referencePosition" << ": " << referencePosition << "\n";
 			std::cerr << "lI" << ": " << lI << "\n";
 			std::cerr << "referenceSequence.length()" << ": " << referenceSequence.length() << "\n" << std::flush;
 		}
-		assert((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < referenceSequence.length())));
+		assert((referencePosition == -1) || ((referencePosition > 0) && (referencePosition <= referenceSequence.length())));
 	}
 
 	auto singleAlignment2SAM = [&](seedAndExtend_return_local& alignment, std::string readID) -> void {
@@ -217,7 +217,7 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 				assert(level < uncompressed_graph_referencePositions.size());
 				int referencePosition = uncompressed_graph_referencePositions.at(level);
 
-				if(!((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < referenceSequence.length()))))
+				if(!((referencePosition == -1) || ((referencePosition > 0) && (referencePosition <= referenceSequence.length()))))
 				{
 					std::cerr << "referencePosition" << ": " << referencePosition << "\n";
 					std::cerr << "levelI" << ": " << levelI << "\n";
@@ -225,7 +225,7 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 					std::cerr << "referenceSequence.length()" << ": " << referenceSequence.length() << "\n" << std::flush;
 				}
 
-				assert((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < referenceSequence.length())));
+				assert((referencePosition == -1) || ((referencePosition > 0) && (referencePosition <= referenceSequence.length())));
 
 				levels_separated_2_reference.at(levelI) = referencePosition;
 			}
@@ -445,8 +445,8 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::string referenceGenomeFile, double insertSize_mean, double insertSize_sd)
 {
 	int aligner_kMerSize = 25;
-	int outerThreads = 1;
-	int skipPairs_MOD = 1000;
+	int outerThreads = 8;
+	int skipPairs_MOD = 1;
 	bool useShort = true;
 
 	std::string graph = graphDir + "/graph.txt";
@@ -619,6 +619,10 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 			throw std::runtime_error("alignShortReadsToHLAGraph(..): Cannot decompose locus ID " +locusID);
 		}
 		int thisLocus_refPos = Utilities::StrtoI(locusParts.at(2));
+		if(thisLocus_refPos != -1)
+		{
+			thisLocus_refPos = thisLocus_refPos + 1;
+		}
 		if((i == 0) || (lastReferencePosition != thisLocus_refPos))
 		{
 			uncompressed_graph_referencePositions.push_back(thisLocus_refPos);
