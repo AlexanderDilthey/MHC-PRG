@@ -470,13 +470,17 @@ std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> r
 	auto getAlignment = [&](std::ifstream& inputStream, bool& fail) -> seedAndExtend_return_local {
 		fail = false;
 		seedAndExtend_return_local forReturn;
-		std::vector<std::string> lines = getLines(inputStream, 7);
-		if(lines.size() != 7)
+		std::vector<std::string> lines = getLines(inputStream, 6);
+		if(lines.size() != 6)
 		{
 			fail = true;
 		}
 		else
 		{
+			if(!(lines.at(0).substr(0, 5) == "\tRead"))
+			{
+				std::cerr << "Line 0 should be TABRead, but is not!\n" << lines.at(0) << "\n" << std::flush;
+			}	
 			assert(lines.at(0).substr(0, 5) == "\tRead");
 			std::string str_score = lines.at(1).substr(2);
 			std::string str_reverse = lines.at(2).substr(2);
@@ -859,9 +863,9 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 		for(unsigned int pairI = 0; pairI < alignments.size(); pairI++)
 		{
 			outputStream << "Aligned pair " << pairI << "\n";
-			outputStream << "\t" << "Read " << alignments_readIDs.at(pairI).first;
+			outputStream << "\t" << "Read " << alignments_readIDs.at(pairI).first << "\n";
 			printOnePair(alignments.at(pairI).first);
-			outputStream << "\t" << "Read " << alignments_readIDs.at(pairI).second;
+			outputStream << "\t" << "Read " << alignments_readIDs.at(pairI).second << "\n";
 			printOnePair(alignments.at(pairI).second);
 		}
 		outputStream.close();
