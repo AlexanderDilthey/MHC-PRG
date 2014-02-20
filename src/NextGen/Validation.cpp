@@ -16,6 +16,7 @@
 #include <omp.h>
 #include <functional>
 #include <cctype>
+#include <set>
 
 #include "Validation.h"
 #include "../Utilities.h"
@@ -441,6 +442,277 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 
 }
 
+std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> read_shortReadAlignments_fromFile (std::string file)
+{
+	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> forReturn;
+
+	auto getLines = [](std::ifstream& inputStream, unsigned int lines) -> std::vector<std::string> {
+		std::vector<std::string> forReturn;
+		assert(lines > 0);
+		for(unsigned int lI = 0; lI < lines; lI++)
+		{
+			if(!inputStream.good())
+			{
+				return forReturn;
+			}
+			assert(inputStream.good());
+			std::string thisLine;
+			std::getline(inputStream, thisLine);
+			Utilities::eraseNL(thisLine);
+			forReturn.push_back(thisLine);
+
+		}
+		assert(forReturn.size() == lines);
+		return forReturn;
+	};
+
+
+	auto getAlignment = [&](std::ifstream& inputStream, bool& fail) -> seedAndExtend_return_local {
+		fail = false;
+		seedAndExtend_return_local forReturn;
+		std::vector<std::string> lines = getLines(inputStream, 7);
+		if(lines.size() != 7)
+		{
+			fail = true;
+		}
+		else
+		{
+			assert(lines.at(0).substr(0, 5) == "\tRead");
+			std::string str_score = lines.at(1).substr(2);
+			std::string str_reverse = lines.at(2).substr(2);
+			std::string str_mapQ = lines.at(3).substr(2);
+			std::string str_graph_aligned = lines.at(4).substr(2);
+			std::string str_sequence_aligned = lines.at(5).substr(2);
+			std::string str_levels = lines.at(6).substr(2);
+
+			forReturn.Score = Utilities::StrtoD(str_score);
+			forReturn.reverse = Utilities::StrtoB(str_reverse);
+			forReturn.mapQ = Utilities::StrtoD(str_mapQ);
+			forReturn.graph_aligned = str_graph_aligned;
+			forReturn.sequence_aligned = str_sequence_aligned;
+			forReturn.graph_aligned_levels = Utilities::StrtoI(Utilities::split(str_levels, " "));
+		}
+		return forReturn;
+	};
+	std::ifstream inputStream;
+	inputStream.open(file.c_str());
+	assert(inputStream.is_open());
+	std::string line;
+	while(inputStream.good())
+	{
+		std::getline(inputStream, line);
+		Utilities::eraseNL(line);
+		if(line.length())
+		{
+
+			assert(line.substr(0, std::string("Aligned pair").length()) == "Aligned pair");
+			bool fail_1; bool fail_2;
+
+			seedAndExtend_return_local a1 = getAlignment(inputStream, fail_1);
+			seedAndExtend_return_local a2 = getAlignment(inputStream, fail_2);
+			if(fail_1 || fail_2)
+			{
+				assert(! inputStream.good());
+			}
+
+			if((! fail_1) && (! fail_2))
+			{
+				forReturn.push_back(make_pair(a1, a2));
+			}
+		}
+	}
+	return forReturn;
+}
+
+void HLATypeInference(std::string alignedReads, std::string graphDir, double insertSize_mean, double insertSize_sd)
+{
+	std::string graph = graphDir + "/graph.txt";
+	assert(Utilities::fileReadable(graph));
+
+	// define loci
+	std::vector<std::string> loci = {"DQB1"};
+
+	// define locus -> exon
+	std::map<std::string, std::vector<std::string> > loci_2_exons;
+
+	std::vector<std::string> exons_DQB1 = {"exon2"};
+	loci_2_exons["DQB1"] = exons_DQB1;
+
+	// function to find right exon file
+	std::vector<std::string> files_in_graphDir = filesInDirectory(graphDir);
+	auto find_file_for_exon = [&](std::string locus, std::string exon) -> std::string
+	{
+		std::string forReturn;
+		for(unsigned int fI = 0; fI < files_in_graphDir.size(); fI++)
+		{
+			std::vector<std::string> split_by_underscore = Utilities::split(files_in_graphDir.at(fI), "_");
+			assert(split_by_underscore.size() >= 3);
+			if(split_by_underscore.size() >= 4)
+			{
+				if(split_by_underscore.at(0).substr(split_by_underscore.at(0).length() - locus.length()) == locus)
+				{
+					if((split_by_underscore.at(2)+"_"+split_by_underscore.at(3)) == (exon + ".txt"))
+					{
+						forReturn = files_in_graphDir.at(fI);
+					}
+				}
+			}
+		}
+		if(! forReturn.length())
+		{
+			std::cerr << "find_file_for_exon -- problem -- " << locus << " -- " << exon << "\n";
+			std::cerr << Utilities::join(files_in_graphDir, " ") << "\n" << std::flush;
+			assert(forReturn.length());
+		}
+		return forReturn;
+	};
+
+	// translate location IDs to graph levels
+	std::vector<std::string> graphLoci = readGraphLoci(graphDir);
+	std::map<std::string, unsigned int> graphLocus_2_levels;
+	for(unsigned int i = 0; i < graphLoci.size(); i++)
+	{
+		std::string locusID = graphLoci.at(i);
+		assert(graphLocus_2_levels.count(locusID) == 0);
+		graphLocus_2_levels[locusID] = i;
+	}
+
+	// load reads
+	std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads.\n" << std::flush;
+	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignments = read_shortReadAlignments_fromFile(alignedReads);
+
+	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
+	{
+		std::string locus = loci.at(locusI);
+
+		std::cout << Utilities::timestamp() << "HLATypeInference(..): Making inference for " << locus << "\n" << std::flush;
+
+		std::vector<int> combined_exon_sequences_graphLevels;
+		std::vector<std::string> combined_exon_sequences_locusIDs;
+		std::map<std::string, std::string> combined_exon_sequences;
+
+		for(unsigned int exonI = 0; exonI < loci_2_exons.at(locus).size(); exonI++)
+		{
+			std::string exonID = loci_2_exons.at(locus).at(exonI);
+			std::cout << Utilities::timestamp() << "\tLocus" << locus << ", exon " << exonID << "\n" << std::flush;
+
+			std::string exonFile = find_file_for_exon(locus, exonID);
+			if(! Utilities::fileReadable(exonFile))
+			{
+				std::cerr << "HLATypeInference(..): Locus " << locus << ", exon " << exonID << ": Can't read file " << exonFile << "\n";
+			}
+			assert(Utilities::fileReadable(exonFile));
+
+			std::ifstream exonInputStream;
+			exonInputStream.open(exonFile.c_str());
+			assert(exonInputStream.is_open());
+			std::vector<std::string> exon_lines;
+			while(exonInputStream.good())
+			{
+				std::string line;
+				std::getline(exonInputStream, line);
+				Utilities::eraseNL(line);
+				exon_lines.push_back(line);
+			}
+			exonInputStream.close();
+
+			std::string firstLine = exon_lines.at(0);
+			std::vector<std::string> firstLine_fields = Utilities::split(firstLine, " ");
+			assert(firstLine_fields.at(0) == "IndividualID");
+
+			std::vector<std::string> exon_level_names(firstLine_fields.begin() + 1, firstLine_fields.end());
+			std::string first_graph_locusID = exon_level_names.front();
+			std::string last_graph_locusID = exon_level_names.back();
+
+			assert(graphLocus_2_levels.count(first_graph_locusID));
+			assert(graphLocus_2_levels.count(last_graph_locusID));
+
+			unsigned int first_graph_level = graphLocus_2_levels.at(first_graph_locusID);
+			unsigned int last_graph_level = graphLocus_2_levels.at(last_graph_locusID);
+			assert(last_graph_level > first_graph_level);
+			unsigned int expected_allele_length = last_graph_level - first_graph_level + 1;
+			assert(graphLocus_2_levels.size() == expected_allele_length);
+
+			combined_exon_sequences_locusIDs.insert(combined_exon_sequences_locusIDs.end(), exon_level_names.begin(), exon_level_names.end());
+			for(unsigned int lI = 0; lI < expected_allele_length; lI++)
+			{
+				unsigned int graphLevel = first_graph_level + lI;
+				assert(graphLocus_2_levels.at(exon_level_names.at(lI)) == graphLevel);
+				combined_exon_sequences_graphLevels.push_back(graphLevel);
+			}
+
+
+			for(unsigned int lI = 1; lI < exon_lines.size(); lI++)
+			{
+				if(exon_lines.at(lI).length())
+				{
+					std::vector<std::string> line_fields = Utilities::split(exon_lines.at(lI), " ");
+					assert(line_fields.size() == firstLine_fields.size());
+					std::string HLA_type = line_fields.at(0);
+					std::vector<std::string> line_alleles(line_fields.begin()+1, line_fields.end());
+
+					std::string HLA_type_sequence = Utilities::join(line_alleles, "");
+
+					if(exonI == 0)
+					{
+						assert(combined_exon_sequences.count(HLA_type) == 0);
+						combined_exon_sequences[HLA_type] = HLA_type_sequence;
+					}
+					else
+					{
+						assert(combined_exon_sequences.count(HLA_type));
+						combined_exon_sequences.at(HLA_type) += HLA_type_sequence;
+					}
+				}
+			}
+		}
+
+		std::cout << Utilities::timestamp() << "Have collected " << combined_exon_sequences.size() << " sequences.\n" << std::flush;
+
+		std::map<std::string, unsigned int> HLAtype_2_clusterID;
+		std::vector<std::set<std::string>> HLAtype_clusters;
+		std::map<std::string, unsigned int> sequence_2_cluster;
+
+		for(std::map<std::string, std::string>::iterator HLAtypeIt = combined_exon_sequences.begin(); HLAtypeIt != combined_exon_sequences.end(); HLAtypeIt++)
+		{
+			std::string HLAtypeID = HLAtypeIt->first;
+			std::string sequence = HLAtypeIt->second;
+			if(sequence_2_cluster.count(sequence))
+			{
+				unsigned int cluster = sequence_2_cluster.at(sequence);
+				HLAtype_clusters.at(cluster).insert(HLAtypeID);
+				HLAtype_2_clusterID[HLAtypeID] = cluster;
+			}
+			else
+			{
+				std::set<std::string> newCluster;
+				newCluster.insert(HLAtypeID);
+				HLAtype_clusters.push_back(newCluster);
+				unsigned int newClusterID = HLAtype_clusters.size() - 1;
+
+				assert(sequence_2_cluster.count(sequence) == 0);
+				sequence_2_cluster[sequence] = newClusterID;
+
+				HLAtype_2_clusterID[HLAtypeID] = newClusterID;
+			}
+		}
+
+		std::cout << Utilities::timestamp() << "Clustered into " << HLAtype_clusters.size() << " identical (over exons considered) clusters." << "\n" << std::flush;
+
+		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
+		{
+			std::cout << "\t\t\tcluster " << clusterI << "\n";
+			for(std::set<std::string>::iterator typeIt = HLAtype_clusters.at(clusterI).begin(); typeIt != HLAtype_clusters.at(clusterI).end(); typeIt++)
+			{
+				std::cout << "\t\t\t\t" << *typeIt << "\n";
+				assert(HLAtype_2_clusterID.at(*typeIt) == clusterI);
+			}
+		}
+
+	}
+
+
+}
 
 void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::string referenceGenomeFile, double insertSize_mean, double insertSize_sd)
 {
@@ -1190,14 +1462,14 @@ void alignContigsToAllChromotypes(std::string chromotypes_file, std::string amen
 		for(unsigned int lI = 0; lI < uncompressed_chromotypes_referencePositions.size(); lI++)
 		{
 			int referencePosition = uncompressed_chromotypes_referencePositions.at(lI);
-			if(!((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < genomeReference.at(chromosomeID).length()))))
+			if(!((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < (int)genomeReference.at(chromosomeID).length()))))
 			{
 				std::cerr << "EARLY CHECK!" << "\n";
 				std::cerr << "referencePosition" << ": " << referencePosition << "\n";
 				std::cerr << "lI" << ": " << lI << "\n";
 				std::cerr << "genomeReference.at(chromosomeID).length()" << ": " << genomeReference.at(chromosomeID).length() << "\n" << std::flush;
 			}			
-			assert((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < genomeReference.at(chromosomeID).length())));
+			assert((referencePosition == -1) || ((referencePosition >= 0) && (referencePosition < (int)genomeReference.at(chromosomeID).length())));
 		}
 
 		assert(uncompressed_chromotypes.size() == uncompressed_chromotypes_referencePositions.size());
@@ -3841,7 +4113,7 @@ std::pair<diploidGenomeString, diploidGenomeString> greedilyResolveDiploidKMerSt
 			
 			if(kMerOK)
 			{
-				int count = kMerIt->second;
+				// int count = kMerIt->second;
 				
 				bool present = graph->kMerinGraph(kMerSeq);
 				
@@ -4967,7 +5239,7 @@ diploidGenomeString readGenomeStringFromChromotypesFile(std::string filename, in
 	// currentBlock.stop = 0;
 	
 	std::vector<genoStringBlock> foundBlocks;
-	for(int i = 0; i < chromotype_1.size(); i++)
+	for(int i = 0; i < (int)chromotype_1.size(); i++)
 	{
 		if(nextKidentical.at(i) >= kMer_size)
 		{
@@ -5031,8 +5303,9 @@ diploidGenomeString readGenomeStringFromChromotypesFile(std::string filename, in
 			std::string s1;
 			std::string s2;
 			
-			for(unsigned int cI = thisBlock.start; cI <= thisBlock.stop; cI++)
+			for(int cI = thisBlock.start; cI <= thisBlock.stop; cI++)
 			{
+				assert(cI >= 0);
 				if(chromotype_1.at(cI).length() != chromotype_2.at(cI).length())
 				{
 					if(chromotype_1.at(cI).length() < chromotype_2.at(cI).length())

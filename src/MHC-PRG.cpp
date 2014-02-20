@@ -341,7 +341,34 @@ int main(int argc, char *argv[])
 		assert(referenceGenome.length());
 
 		alignShortReadsToHLAGraph(input_FASTQ, graph_dir, referenceGenome, 190, 100);
+	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "HLATypeInference"))
+	{
+		bool labelOnly = false;
+		// omp_set_num_threads(40);
+		CONFIG.threads=40;
 
+
+		std::string input_alignedReads;
+		std::string graph_dir;
+
+		for(unsigned int i = 0; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--input_alignedReads")
+			{
+				input_alignedReads = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--graphDir")
+			{
+				graph_dir = arguments.at(i+1);
+			}
+		}
+
+		assert(input_alignedReads.length());
+		assert(graph_dir.length());
+
+		HLATypeInference(input_alignedReads, graph_dir, 190, 100);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))
 	{
