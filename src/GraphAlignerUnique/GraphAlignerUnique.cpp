@@ -2275,6 +2275,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 			possibleBacktrace_forReturn.sequence_aligned = possibleBacktrace.sequence_aligned;
 			possibleBacktrace_forReturn.graph_aligned_levels = possibleBacktrace.graph_aligned_levels;
 			possibleBacktrace_forReturn.reverse = useReverse;
+			possibleBacktrace_forReturn.mapQ = -1;
 
 			allBacktraces.push_back(possibleBacktrace_forReturn);
 		}
@@ -2285,6 +2286,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		selectedBacktrace_forReturn.sequence_aligned = selectedBacktrace.sequence_aligned;
 		selectedBacktrace_forReturn.graph_aligned_levels = selectedBacktrace.graph_aligned_levels;
 		selectedBacktrace_forReturn.reverse = useReverse;
+		selectedBacktrace_forReturn.mapQ = -1;
 
 		for(unsigned int i = 0; i < chains_for_sequence.size(); i++)
 		{
@@ -2302,7 +2304,8 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		selectedBacktrace_forReturn.sequence_aligned = sequence;
 		selectedBacktrace_forReturn.reverse = false;		
 		selectedBacktrace_forReturn.Score = score(selectedBacktrace_forReturn.graph_aligned, selectedBacktrace_forReturn.graph_aligned_levels, selectedBacktrace_forReturn.sequence_aligned);
-				
+		selectedBacktrace_forReturn.mapQ = -1;
+
 		allBacktraces.clear();
 		allBacktraces.push_back(selectedBacktrace_forReturn);
 		
