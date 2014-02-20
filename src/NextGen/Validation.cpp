@@ -42,7 +42,7 @@ void evaluate_dGS(diploidGenomeString& gS, diploidGenomeString& gS_unresolved, c
 template<int m, int k, int colours>
 std::pair<diploidGenomeString, diploidGenomeString> greedilyResolveDiploidKMerString(diploidGenomeString& original_gS, DeBruijnGraph<m, k, colours>* graph);
 
-void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs);
+void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<oneReadPair>& originalReads);
 
 // functions
 
@@ -179,7 +179,7 @@ std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string
 	return forReturn;
 }
 
-void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs)
+void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<oneReadPair>& originalReads)
 {
 	assert(SAMoutputStream.is_open());
 
@@ -196,7 +196,7 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		assert((referencePosition == -1) || ((referencePosition > 0) && (referencePosition <= referenceSequence.length())));
 	}
 
-	auto singleAlignment2SAM = [&](seedAndExtend_return_local& alignment, std::string readID) -> void {
+	auto singleAlignment2SAM = [&](seedAndExtend_return_local& alignment, oneRead& originalRead) -> void {
 		std::string alignment_graph = alignment.graph_aligned;
 		std::string alignment_sequence = alignment.sequence_aligned;
 		std::vector<int> levels_separated = alignment.graph_aligned_levels;
@@ -286,7 +286,7 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		// std::cout << Utilities::join(levels_graphCharacters, " ") << "\n";
 		// std::cout << Utilities::join(levels_contigCharacters, " ") << "\n\n" << std::flush;
 
-		std::string readIDForSAM = readID;
+		std::string readIDForSAM = originalRead.name;
 		readIDForSAM.erase(std::remove_if(readIDForSAM.begin(), readIDForSAM.end(), [&](char c){return (((int)isalnum(c) == 0) || (c == ' '));}), readIDForSAM.end());
 
 		std::string readCharacters_noGaps = alignment_sequence;
@@ -400,7 +400,7 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		std::string PNEXT = "0";
 		std::string TLEN = Utilities::ItoStr(lastReferencePosition - firstReferencePosition + 1);
 		std::string SEQ = readCharacters_noGaps;
-		std::string QUAL = "*";
+		std::string QUAL = originalRead.quality;
 
 		SAMoutputStream <<
 			QNAME << "\t" <<
@@ -420,10 +420,10 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 	{
 
 		std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& thisPair_alignment = alignments.at(alignmentI);
-		std::pair<std::string, std::string>& thisPair_readIDs = alignments_readIDs.at(alignmentI);
-
-		singleAlignment2SAM(thisPair_alignment.first, thisPair_readIDs.first);
-		singleAlignment2SAM(thisPair_alignment.second, thisPair_readIDs.second);
+		// std::pair<std::string, std::string>& thisPair_readIDs = alignments_readIDs.at(alignmentI);
+		
+		singleAlignment2SAM(thisPair_alignment.first, originalReads.at(alignmentI).reads.first);
+		singleAlignment2SAM(thisPair_alignment.second, originalReads.at(alignmentI).reads.second);
 	}
 
 /*
@@ -837,43 +837,47 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 	std::string alignments_output_file = FASTQ + ".aligned";
 	std::cout  << Utilities::timestamp() << "\t\t\t" << "Produce alignments file " << alignments_output_file << ".\n" << std::flush;
 
-	std::vector<std::pair<std::string, std::string> > alignments_readIDs;
+	// std::vector<std::pair<std::string, std::string> > alignments_readIDs;
+	std::vector<oneReadPair> combinedPairs_for_alignment_inAlignmentOrder; 
 	for(unsigned int pairII = 0; pairII < withPairing_alignments_readPairI.size(); pairII++)
 	{
 		int readPairI = withPairing_alignments_readPairI.at(pairII);
-		std::string ID1 = combinedPairs_for_alignment.at(readPairI).reads.first.name;
-		std::string ID2 = combinedPairs_for_alignment.at(readPairI).reads.second.name;
-		alignments_readIDs.push_back(make_pair(ID1, ID2));
+		// std::string ID1 = combinedPairs_for_alignment.at(readPairI).reads.first.name;
+		// std::string ID2 = combinedPairs_for_alignment.at(readPairI).reads.second.name;
+		// alignments_readIDs.push_back(make_pair(ID1, ID2));
+		combinedPairs_for_alignment_inAlignmentOrder.push_back(combinedPairs_for_alignment.at(readPairI));
 	}
 
-	assert(alignments_readIDs.size() == withPairing_alignments.size());
+	assert(combinedPairs_for_alignment_inAlignmentOrder.size() == withPairing_alignments.size());
 
-	auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs) -> void {
+	// auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs) -> void {
+	auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<oneReadPair>& originalReads) -> void {
 		std::ofstream outputStream;
 		outputStream.open(outputFilename.c_str());
 		assert(outputStream.is_open());
 
-		auto printOnePair = [&](seedAndExtend_return_local alignment) -> void {
+		auto printOneRead = [&](seedAndExtend_return_local alignment, oneRead originalRead) -> void {
+			outputStream << "\t" << "Read " << originalRead.name << "\n";
 			outputStream << "\t\t" << alignment.Score << "\n";
 			outputStream << "\t\t" << alignment.reverse << "\n";
 			outputStream << "\t\t" << alignment.mapQ << "\n";
 			outputStream << "\t\t" << alignment.graph_aligned << "\n";
 			outputStream << "\t\t" << alignment.sequence_aligned << "\n";
 			outputStream << "\t\t" << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), " ") << "\n";
+			outputStream << "\t\t" << originalRead.sequence << "\n";
+			outputStream << "\t\t" << originalRead.quality << "\n";
 		};
 
 		for(unsigned int pairI = 0; pairI < alignments.size(); pairI++)
 		{
 			outputStream << "Aligned pair " << pairI << "\n";
-			outputStream << "\t" << "Read " << alignments_readIDs.at(pairI).first << "\n";
-			printOnePair(alignments.at(pairI).first);
-			outputStream << "\t" << "Read " << alignments_readIDs.at(pairI).second << "\n";
-			printOnePair(alignments.at(pairI).second);
+			printOneRead(alignments.at(pairI).first, originalReads.at(pairI).reads.first);
+			printOneRead(alignments.at(pairI).second, originalReads.at(pairI).reads.second);
 		}
 		outputStream.close();
 	};
 
-	printAlignmentsToFile(alignments_output_file, withPairing_alignments, alignments_readIDs);
+	printAlignmentsToFile(alignments_output_file, withPairing_alignments, combinedPairs_for_alignment_inAlignmentOrder);
 
 
 	// Produce SAM
@@ -914,7 +918,7 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 		}
 	}
 
-	alignedShortReads2SAM(SAM_output_stream, uncompressed_graph_referencePositions, referenceChromosomes.at("ref"), withPairing_alignments, alignments_readIDs);
+	alignedShortReads2SAM(SAM_output_stream, uncompressed_graph_referencePositions, referenceChromosomes.at("ref"), withPairing_alignments, combinedPairs_for_alignment_inAlignmentOrder);
 
 	std::cout  << Utilities::timestamp() << "\t\t\t" << "Done. Output in " << SAM_output_file << ".\n" << std::flush;
 
