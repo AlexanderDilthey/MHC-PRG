@@ -389,6 +389,11 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 					  
 					oneReadPair rP(r1, r2, jumpSize);
 
+					if(Utilities::oneBernoulliTrial(0.5, rnd_gen))
+					{
+						rP.invert();
+					}
+
 					forReturn.push_back(rP);
 				}
 			}

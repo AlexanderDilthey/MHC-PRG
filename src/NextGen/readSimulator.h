@@ -15,6 +15,7 @@
 #include <utility>
 #include <ostream>
 #include "../Graph/Graph.h"
+#include "../Utilities.h"
 
 /*
  * This class implements a simple-minded read simulator.
@@ -53,6 +54,14 @@ public:
 	{
 		assert(read_sequence.length() == read_qualities.length());
 	}
+
+	void invert()
+	{
+		sequence = Utilities::seq_reverse_complement(sequence);
+		std::reverse(quality.begin(), quality.end());
+		std::reverse(coordinates_string.begin(), coordinates_string.end());
+		std::reverse(coordinates_edgePath.begin(), coordinates_edgePath.end());
+	}
 };
 
 class oneReadPair {
@@ -63,6 +72,16 @@ public:
 	oneReadPair(oneRead r1, oneRead r2, unsigned int difference_starting_coordinates) : reads(std::pair<oneRead, oneRead>(r1, r2)), diff_starting_coordinates(difference_starting_coordinates)
 	{
 
+	}
+
+	void invert()
+	{
+		oneRead t("", "", "");
+		t = reads.first;
+		reads.first = reads.second;
+		reads.second = t;
+		reads.first.invert();
+		reads.second.invert();
 	}
 };
 
