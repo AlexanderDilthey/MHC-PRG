@@ -1,21 +1,23 @@
-!!!! ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx_25
+Command to build a Cortex graph of reference without HLA graph:
 
-
+From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived: (I don't know how the reference-without-HLA was generated):
+ /home/dilthey/Cortex/CORTEX_release_v1.0.5.20/bin/cortex_var_31_c1 --mem_height 26 --mem_width 120 --kmer_size 25 --dump_binary Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --se_list fileList_Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph &> Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx.output
+ 
 
 ../bin/MHC-PRG domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/hla --noPGFprotection
 
 ../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 31 --noPGFprotection
 
-! ../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 25 --noPGFprotection
+../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 25 --noPGFprotection
 
 ../bin/MHC-PRG domode determineRequiredKMers ../tmp2/GS_nextGen/hla/graph.txt.kmers_31 ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 
-! ../bin/MHC-PRG domode determineRequiredKMers ../tmp2/GS_nextGen/hla/graph.txt.kmers_25 ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25
+../bin/MHC-PRG domode determineRequiredKMers ../tmp2/GS_nextGen/hla/graph.txt.kmers_25 ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25
 
 
 ../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A1.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 --output_FASTQ test.fastQ 
 
 
-! 	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A1.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ test_positiveUnique.fastQ  --positiveUnique --uniqueness_base ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --uniqueness_subtract ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx_25
+! 	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A1.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ test_positiveUnique.fastQ  --positiveUnique --uniqueness_base ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --uniqueness_subtract ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx
 
 
 
@@ -49,6 +51,8 @@
 ## estimate some insert size
 
 dilthey@sequoia:~/picard/picard-tools-1.83$ java -jar CollectInsertSizeMetrics.jar INPUT=/gpfs1/well/gsk_hla/bam_output/AA02O9Q_A1.bam H=HIST_AA02O9Q_A1 O=INSERTSIZE_AA02O9Q_A1
+
+## simulations
 
 ../bin/MHC-PRG domode testGraphAligner_realGraph ../tmp2/GS_nextGen/hla/graph.txt
 
