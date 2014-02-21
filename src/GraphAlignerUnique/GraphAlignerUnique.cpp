@@ -1427,7 +1427,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		assert(likelihoods_read2_alternatives.size() == read2_backtraces.size());
 
 		
-
+		// todo check whether this is correct - might be that distance calculation is wrong for read pairs with read1 reverse.
 		std::vector<double> combinedScores;
 		std::vector<std::pair<unsigned int, unsigned int> > combinedScores_indices;
 		if(verbose) std::cout << "Read combinations alternatives:\n" << std::flush;
