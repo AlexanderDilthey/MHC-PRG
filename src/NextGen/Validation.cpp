@@ -921,8 +921,6 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 	alignedShortReads2SAM(SAM_output_stream, uncompressed_graph_referencePositions, referenceChromosomes.at("ref"), withPairing_alignments, combinedPairs_for_alignment_inAlignmentOrder);
 
 	std::cout  << Utilities::timestamp() << "\t\t\t" << "Done. Output in " << SAM_output_file << ".\n" << std::flush;
-
-
 }
 
 void validateChromotypesVsVCF(std::string chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width)
