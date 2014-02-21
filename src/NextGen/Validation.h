@@ -19,6 +19,7 @@
 using namespace std;
 
 class seedAndExtend_return_local;
+class oneReadPair;
 
 typedef std::vector< std::vector<std::string> > diploidGenomeString;
 
@@ -39,7 +40,7 @@ void validateAmendedChromotypesVsVCF(std::string amended_chromotypes_file, int c
 void validateAllChromotypesVsVCF(std::string chromotypes_file, std::string amended_chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width, std::string outputDirectory, std::string graphDir);
 void alignContigsToAllChromotypes(std::string chromotypes_file, std::string amended_chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width, std::string outputDir_contigs, std::string contigsFile_Fasta, std::string graphDir);
 void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::string referenceGenome, double insertSize_mean, double insertSize_sd);
-void HLATypeInference(std::string alignedReads, std::string graphDir, double insertSize_mean, double insertSize_sd);
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, double insertSize_mean, double insertSize_sd);
 
 
 void vennDiagrams(std::vector<std::string> setNames, std::vector<std::set<std::string>*> kMers, std::vector<std::set<std::string>*> kMers_present, std::vector<std::map<std::string, double>* > kMer_optimalities, std::string outputFile);

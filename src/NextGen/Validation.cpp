@@ -548,7 +548,7 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 	}
 }
 
-void HLATypeInference(std::string alignedReads, std::string graphDir, double insertSize_mean, double insertSize_sd)
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, double insertSize_mean, double insertSize_sd)
 {
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));
@@ -558,14 +558,30 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 	double log_likelihood_deletion = log_likelihood_insertion;
 
 	// define loci
-	std::vector<std::string> loci = {"DQB1"};
+	std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
 
 	// define locus -> exon
 	std::map<std::string, std::vector<std::string> > loci_2_exons;
 
+	std::vector<std::string> exons_A = {"exon_2", "exon_3"};
+	loci_2_exons["A"] = exons_A;	
+	
+	std::vector<std::string> exons_B = {"exon_2", "exon_3"};
+	loci_2_exons["B"] = exons_B;	
+	
+	std::vector<std::string> exons_C = {"exon_2", "exon_3"};
+	loci_2_exons["C"] = exons_C;	
+		
+	std::vector<std::string> exons_DQA1 = {"exon_2"};
+	loci_2_exons["DQA1"] = exons_DQA1;	
+	
 	std::vector<std::string> exons_DQB1 = {"exon_2"};
 	loci_2_exons["DQB1"] = exons_DQB1;
 
+	std::vector<std::string> exons_DRB1 = {"exon_2"};
+	loci_2_exons["DRB1"] = exons_DRB1;
+
+	
 	// function to find right exon file
 	std::vector<std::string> files_in_graphDir = filesInDirectory(graphDir);
 	auto find_file_for_exon = [&](std::string locus, std::string exon) -> std::string
@@ -582,7 +598,7 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 			
 			if(split_by_underscore.size() >= 4)
 			{
-				if(split_by_underscore.at(split_by_underscore.size()-4).substr(split_by_underscore.at(split_by_underscore.size()-4).length() - locus.length()) == locus)
+				if(split_by_underscore.at(split_by_underscore.size()-4).substr(split_by_underscore.at(split_by_underscore.size()-4).length() - (locus.length()+1)) == ("/"+locus))
 				{
 					if((split_by_underscore.at(split_by_underscore.size()-2)+"_"+split_by_underscore.at(split_by_underscore.size()-1)) == (exon + ".txt"))
 					{
@@ -615,7 +631,7 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignments;
 	std::vector<oneReadPair> alignments_originalReads;
 	
-	read_shortReadAlignments_fromFile(alignedReads, alignments, alignments_originalReads);
+	read_shortReadAlignments_fromFile(alignedReads_file, alignments, alignments_originalReads);
 	assert(alignments.size() == alignments_originalReads.size());
 	
 	std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads -- done. Have " << alignments.size() << " read pairs.\n" << std::flush;
@@ -667,8 +683,14 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 			assert(graphLocus_2_levels.count(first_graph_locusID));
 			assert(graphLocus_2_levels.count(last_graph_locusID));
 
+
+						
 			unsigned int first_graph_level = graphLocus_2_levels.at(first_graph_locusID);
 			unsigned int last_graph_level = graphLocus_2_levels.at(last_graph_locusID);
+			
+			std::cout << Utilities::timestamp() << "\tLocus" << locus << ", exon " << exonID << ": from " << first_graph_locusID << " (" << first_graph_level << ") to " << last_graph_locusID << " (" << last_graph_level << ").\n" << std::flush;
+
+			
 			assert(last_graph_level > first_graph_level);
 			unsigned int expected_allele_length = last_graph_level - first_graph_level + 1;
 			if(!(exon_level_names.size() == expected_allele_length))
@@ -722,7 +744,7 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 			graphLevel_2_exonPosition[graphLevel] = pI;
 		}
 
-		std::cout << Utilities::timestamp() << "Have collected " << combined_exon_sequences.size() << " sequences.\n" << std::flush;
+		std::cout << Utilities::timestamp() << "Have collected " << combined_exon_sequences.size() << " sequences -- first level " << combined_exon_sequences_graphLevels.front() << ", last level " << combined_exon_sequences_graphLevels.back() << ".\n" << std::flush;
 
 		std::map<std::string, unsigned int> HLAtype_2_clusterID;
 		std::vector<std::set<std::string>> HLAtype_clusters;
@@ -758,11 +780,11 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 
 		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
 		{
-			std::cout << "\t\t\tcluster " << clusterI << "\n";
+			// std::cout << "\t\t\tcluster " << clusterI << "\n";
 			for(std::set<std::string>::iterator typeIt = HLAtype_clusters.at(clusterI).begin(); typeIt != HLAtype_clusters.at(clusterI).end(); typeIt++)
 			{
 				std::string HLAtype = *typeIt;
-				std::cout << "\t\t\t\t" << HLAtype << "\n";
+				// std::cout << "\t\t\t\t" << HLAtype << "\n";
 				assert(HLAtype_2_clusterID.at(HLAtype) == clusterI);
 
 				if(typeIt == HLAtype_clusters.at(clusterI).begin())
@@ -790,6 +812,9 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 			int alignment_firstLevel = alignment.alignment_firstLevel();
 			int alignment_lastLevel = alignment.alignment_lastLevel();
 
+			// std::cout << "This alignment " << alignment_firstLevel << " - " << alignment_lastLevel << "\n";
+			// std::cout << "\tvs combined exon " << combined_exon_sequences_graphLevels.front() << " - " << combined_exon_sequences_graphLevels.back() << "\n\n" << std::flush;
+			
 			if( ((alignment_firstLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_firstLevel <= combined_exon_sequences_graphLevels.back())) ||
 				((alignment_lastLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_lastLevel <= combined_exon_sequences_graphLevels.back())) )
 			{
@@ -932,27 +957,32 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 
 		};
 
-		for(unsigned int readPairI = 0; readPairI < alignedReads.size(); readPairI++)
+		unsigned int readPairs_OK = 0;
+		unsigned int readPairs_broken = 0;
+		
+		for(unsigned int readPairI = 0; readPairI < alignments.size(); readPairI++)
 		{
 			oneReadPair& originalReadPair = alignments_originalReads.at(readPairI);
 			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments.at(readPairI);
-			if(alignedReadPair_strandsValid(alignedReadPair) && (abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (3 * insertSize_sd)))
+			if(alignedReadPair_strandsValid(alignedReadPair) && (abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)))
 			{
 				// good
 
-				std::cout << "\t\t" << "readPair " << readPairI << ", pairing OK.\n" << std::flush;
+				// std::cout << "\t\t" << "readPair " << readPairI << ", pairing OK.\n" << std::flush;
 
 				std::vector<oneExonPosition> thisRead_exonPositions;
 				oneReadAlignment_2_exonPositions(alignedReadPair.first, originalReadPair.reads.first, thisRead_exonPositions);
 				oneReadAlignment_2_exonPositions(alignedReadPair.second, originalReadPair.reads.second, thisRead_exonPositions);
 				if(thisRead_exonPositions.size() > 0)
 					exonPositions_fromReads.push_back(thisRead_exonPositions);
+					
+				readPairs_OK++;
 			}
 			else
 			{
 				// bad
 
-				std::cout << "\t\t" << "readPair " << readPairI << ", pairing FAILED.\n" << std::flush;
+				// std::cout << "\t\t" << "readPair " << readPairI << "/" < < alignments.size() << ", pairing FAILED.\n" << std::flush;
 
 				std::vector<oneExonPosition> read1_exonPositions;
 				std::vector<oneExonPosition> read2_exonPositions;
@@ -962,12 +992,17 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 					exonPositions_fromReads.push_back(read1_exonPositions);
 				if(read2_exonPositions.size() > 0)
 					exonPositions_fromReads.push_back(read2_exonPositions);
+					
+				readPairs_broken++;
 			}
 		}
+		
+		std::cout << Utilities::timestamp() << "Mapped reads to exons. " << readPairs_OK << " pairs OK, " << readPairs_broken << " pairs broken." << "\n" << std::flush;
+		
 
 		// likelihoods for reads
 
-		std::cout << Utilities::timestamp() << "Compute likelihoods for all read-overlapping reads (" << exonPositions_fromReads.size() << "), conditional on underlying exons.\n" << std::flush;
+		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon-overlapping reads (" << exonPositions_fromReads.size() << "), conditional on underlying exons.\n" << std::flush;
 		std::vector<std::vector<double> > likelihoods_perCluster_perRead;
 		likelihoods_perCluster_perRead.resize(HLAtype_clusters.size());
 		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
@@ -1031,10 +1066,12 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 					}
 				}
 
+				// std::cout << "cluster " << clusterI << ", position sequence " << positionSpecifierI << ": " << log_likelihood << "\n";
+				
 				likelihoods_perCluster_perRead.at(clusterI).push_back(log_likelihood);
 			}
 
-			assert(likelihoods_perCluster_perRead.size() == exonPositions_fromReads.size());
+			assert(likelihoods_perCluster_perRead.at(clusterI).size() == exonPositions_fromReads.size());
 		}
 
 		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon cluster pairs (" << HLAtype_clusters.size() << "**2/2)\n" << std::flush;
@@ -1045,7 +1082,7 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 
 		for(unsigned int clusterI1 = 0; clusterI1 < HLAtype_clusters.size(); clusterI1++)
 		{
-			for(unsigned int clusterI2 = clusterI1; clusterI2 < HLAtype_2_clusterID.size(); clusterI2++)
+			for(unsigned int clusterI2 = clusterI1; clusterI2 < HLAtype_clusters.size(); clusterI2++)
 			{
 				double pair_log_likelihood = 0;
 
@@ -1074,7 +1111,7 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 		});
 		std::reverse(LLs_indices.begin(), LLs_indices.end());
 
-		unsigned int maxPairPrint = (LLs_indices.size() > 100) ? 100 : LLs_indices.size();
+		unsigned int maxPairPrint = (LLs_indices.size() > 10) ? 10 : LLs_indices.size(); 
 		for(unsigned int LLi = 0; LLi < maxPairPrint; LLi++)
 		{
 			unsigned int pairIndex = LLs_indices.at(LLi);
