@@ -1437,20 +1437,20 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			{
 				double combinedScore = likelihoods_read1_alternatives.at(aI1) + likelihoods_read2_alternatives.at(aI2);
 
-				int distance_graph_levels = read2_backtraces.at(aI2).graph_aligned_levels.front() - read1_backtraces.at(aI1).graph_aligned_levels.back();
-				double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
+				// int distance_graph_levels = read2_backtraces.at(aI2).graph_aligned_levels.front() - read1_backtraces.at(aI1).graph_aligned_levels.back();
+				// double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
 
-				assert((distance_graph_levels_P >= 0) && (distance_graph_levels_P <= 1));
+				// assert((distance_graph_levels_P >= 0) && (distance_graph_levels_P <= 1));
 
-				combinedScore += log(distance_graph_levels_P);
+				// combinedScore += log(distance_graph_levels_P);
 
-				if(read1_backtraces.at(aI1).reverse == read2_backtraces.at(aI2).reverse)
-				{
-					combinedScore = minusInfinity;
-				}
+				// if(read1_backtraces.at(aI1).reverse == read2_backtraces.at(aI2).reverse)
+				// {
+					// combinedScore = minusInfinity;
+				// }
 
-				combinedScores.push_back(combinedScore);
-				combinedScores_indices.push_back(std::make_pair(aI1, aI2));
+				// combinedScores.push_back(combinedScore);
+				// combinedScores_indices.push_back(std::make_pair(aI1, aI2));
 				
 				// if(verbose)
 				// {
@@ -1458,28 +1458,28 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					// std::cout << "LL1: " << likelihoods_read1_alternatives.at(aI1) << " LL2: " << likelihoods_read2_alternatives.at(aI2) << " ";
 					// std::cout << "REV1: " << read1_backtraces.at(aI1).reverse << " REV2:" << read2_backtraces.at(aI2).reverse << " ";
 					// std::cout << "Distance: " <<  read1_backtraces.at(aI1).graph_aligned_levels.back() << " to " << read2_backtraces.at(aI2).graph_aligned_levels.front() << ", i.e. " << distance_graph_levels << " (" << log(distance_graph_levels_P) << ")" << "  == > " << combinedScore <<  "\n" << std::flush;
-				// }
+				// }   
 				
-				// std::pair<seedAndExtend_return_local, seedAndExtend_return_local> rP = make_pair(read1_backtraces.at(aI1), read2_backtraces.at(aI2));
-				// if(alignedReadPair_strandsValid(rP))
-				// {
-					// int distance_graph_levels = alignedReadPair_pairsDistanceInGraphLevels(rP);
-					// double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
+				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> rP = make_pair(read1_backtraces.at(aI1), read2_backtraces.at(aI2));
+				if(alignedReadPair_strandsValid(rP))
+				{
+					int distance_graph_levels = alignedReadPair_pairsDistanceInGraphLevels(rP);
+					double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
 
-					// assert((distance_graph_levels_P >= 0) && (distance_graph_levels_P <= 1));
+					assert((distance_graph_levels_P >= 0) && (distance_graph_levels_P <= 1));
 
-					// combinedScore += log(distance_graph_levels_P);
+					combinedScore += log(distance_graph_levels_P);
 					
-				// }
-				// else
-				// {
-					// double penalty = boost::math::pdf(rnd_InsertSize, insertSize_mean + 10 * insertSize_sd);
-					// assert((penalty >= 0) && (penalty <= 1));
-					// combinedScore += log(penalty);
-				// }
+				}
+				else
+				{
+					double penalty = boost::math::pdf(rnd_InsertSize, insertSize_mean + 10 * insertSize_sd);
+					assert((penalty >= 0) && (penalty <= 1));
+					combinedScore += log(penalty);
+				}
 				
-				// combinedScores.push_back(combinedScore);
-				// combinedScores_indices.push_back(std::make_pair(aI1, aI2));			
+				combinedScores.push_back(combinedScore);
+				combinedScores_indices.push_back(std::make_pair(aI1, aI2));			
 			}
 		}
 
