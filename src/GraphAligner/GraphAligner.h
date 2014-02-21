@@ -92,14 +92,27 @@ public:
 	int alignment_lastLevel()
 	{
 		int lastLevel = -1;
-		for(unsigned int i = (graph_aligned_levels.size() - 1); i >= 0; i--)
+		// std::cout << "graph_aligned_levels.size(): " << graph_aligned_levels.size()  << "\n" << std::flush;
+		
+		if(graph_aligned_levels.size() > 0)
 		{
-			int level = graph_aligned_levels.at(i);
-			if(level != -1)
+			for(int i = ((int)graph_aligned_levels.size() - 1); i >= 0; i--)
 			{
-				lastLevel = level;
-				break;
+				// std::cout << "i: " << i << "/" << graph_aligned_levels.size() << "\n" << std::flush;
+				
+				assert(i >= 0);    
+				assert(i < graph_aligned_levels.size());
+				int level = graph_aligned_levels.at(i);
+				if(level != -1)
+				{
+					lastLevel = level;
+					break;
+				}
 			}
+		}
+		else
+		{
+			// std::cerr << "Warning: call alignment_lastLevel() on unmapped (?) read!\n" << std::flush;
 		}
 		return lastLevel;
 	}

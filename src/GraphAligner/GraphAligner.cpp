@@ -453,22 +453,26 @@ bool alignedReadPair_strandsValid(std::pair<seedAndExtend_return_local, seedAndE
 
 int alignedReadPair_pairsDistanceInGraphLevels(std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& p)
 {
+	// std::cerr << "alignedReadPair_pairsDistanceInGraphLevels(..)\n";
+	// std::cerr << "\t" << "first reverse: " << p.first.reverse << "\n";
+	// std::cerr << "\t" << "first coordinates: " << p.first.alignment_firstLevel() << " - " << p.first.alignment_lastLevel() << "\n";
+	// std::cerr << "\t" << "second reverse: " << p.second.reverse << "\n";
+	// std::cerr << "\t" << "second coordinates: " << p.second.alignment_firstLevel() << " - " << p.second.alignment_lastLevel() << "\n";
+	
 	if(p.first.alignment_firstLevel() < p.second.alignment_firstLevel())
 	{
 		int D = (p.second.alignment_firstLevel() - p.first.alignment_lastLevel());
-		std::cerr << "alignedReadPair_pairsDistanceInGraphLevels(..)\n";
-		std::cerr << "\t" << "first in front -- distance " << D << "\n";
-		std::cerr << "\t" << "first reverse: " << p.first.reverse << "\n";
-		std::cerr << "\t" << "second reverse: " << p.second.reverse << "\n";
-		if(alignedReadPair_strandsValid(p) && (! p.first.reverse))
-		{
-			std::cerr << "\t" << "OK" << "\n";
-		}
-		else
-		{
-			std::cerr << "\t" << "WARNING!" << "\n";
-		}
-		std::cerr << std::flush;
+		// std::cerr << "\t" << "first in front -- distance " << D << "\n";
+
+		// if(alignedReadPair_strandsValid(p) && (! p.first.reverse))
+		// {
+			// std::cerr << "\t" << "OK" << "\n";
+		// }
+		// else
+		// {
+			// std::cerr << "\t" << "WARNING!" << "\n";
+		// }
+		// std::cerr << std::flush;
 		return D;
 
 	}
@@ -476,20 +480,17 @@ int alignedReadPair_pairsDistanceInGraphLevels(std::pair<seedAndExtend_return_lo
 	{
 		assert(p.first.alignment_firstLevel() >= p.second.alignment_firstLevel());
 		int D = (p.first.alignment_firstLevel() - p.second.alignment_lastLevel());
+		// std::cerr << "\t" << "second in front -- distance " << D << "\n";
 
-		std::cerr << "alignedReadPair_pairsDistanceInGraphLevels(..)\n";
-		std::cerr << "\t" << "second in front -- distance " << D << "\n";
-		std::cerr << "\t" << "first reverse: " << p.first.reverse << "\n";
-		std::cerr << "\t" << "second reverse: " << p.second.reverse << "\n";
-		if(alignedReadPair_strandsValid(p) && (p.first.reverse))
-		{
-			std::cerr << "\t" << "OK" << "\n";
-		}
-		else
-		{
-			std::cerr << "\t" << "WARNING!" << "\n";
-		}
-		std::cerr << std::flush;
+		// if(alignedRead Pair_strandsValid(p) && (p.first.reverse))
+		// {
+			// std::cerr << "\t" << "OK" << "\n";
+		// }
+		// else
+		// {
+			// std::cerr << "\t" << "WARNING!" << "\n";
+		// }
+		// std::cerr << std::flush;
 		return D;
 	}
 }

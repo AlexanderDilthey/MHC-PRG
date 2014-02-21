@@ -331,7 +331,7 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 				std::string read2; std::string read2_qualities; std::vector<int> read2_coordinates_string; bool read2_success;
 
 				sampleRead(i,            read1, read1_qualities, read1_coordinates_string, read1_success);
-				sampleRead(i + jumpSize, read2, read2_qualities, read2_coordinates_string, read2_success);
+				sampleRead(i + this->read_length + jumpSize, read2, read2_qualities, read2_coordinates_string, read2_success);
 
 				if(read1_success && read2_success)
 				{
@@ -386,7 +386,6 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 					assert(r2.coordinates_string.size() == r2.sequence.size());
 					assert(r1.coordinates_string.size() == r1.coordinates_edgePath.size());
 					assert(r2.coordinates_string.size() == r2.coordinates_edgePath.size());
-					
 					  
 					oneReadPair rP(r1, r2, jumpSize);
 
