@@ -43,6 +43,7 @@ template<int m, int k, int colours>
 std::pair<diploidGenomeString, diploidGenomeString> greedilyResolveDiploidKMerString(diploidGenomeString& original_gS, DeBruijnGraph<m, k, colours>* graph);
 
 void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<oneReadPair>& originalReads);
+void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads);
 
 // functions
 
@@ -390,6 +391,11 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		assert(readCharacters_noGaps.length() == (CIGAR_sum_M + CIGAR_sum_I));
 		double P_mapping_wrong = 0.001;
 
+		std::string QUALforSAM = originalRead.quality;
+		if(alignment.reverse)
+		{
+			std::reverse(QUALforSAM.begin(), QUALforSAM.end());
+		}
 		std::string QNAME = readIDForSAM;
 		std::string FLAG = Utilities::ItoStr(FLAGS_sizeT);
 		std::string RNAME = "ref";
@@ -400,7 +406,7 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		std::string PNEXT = "0";
 		std::string TLEN = Utilities::ItoStr(lastReferencePosition - firstReferencePosition + 1);
 		std::string SEQ = readCharacters_noGaps;
-		std::string QUAL = originalRead.quality;
+		std::string QUAL = QUALforSAM;
 
 		SAMoutputStream <<
 			QNAME << "\t" <<
@@ -442,8 +448,11 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 
 }
 
-std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> read_shortReadAlignments_fromFile (std::string file)
+void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads)
 {
+	ret_alignments.clear();
+	ret_alignments_originalReads.clear();
+	
 	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> forReturn;
 
 	auto getLines = [](std::ifstream& inputStream, unsigned int lines) -> std::vector<std::string> {
@@ -467,11 +476,10 @@ std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> r
 	};
 
 
-	auto getAlignment = [&](std::ifstream& inputStream, bool& fail) -> seedAndExtend_return_local {
+	auto getAlignment = [&](std::ifstream& inputStream, bool& fail, seedAndExtend_return_local& ret_alignment, oneRead& ret_originalRead) -> void {
 		fail = false;
-		seedAndExtend_return_local forReturn;
-		std::vector<std::string> lines = getLines(inputStream, 6);
-		if(lines.size() != 6)
+		std::vector<std::string> lines = getLines(inputStream, 9);
+		if(lines.size() != 9)
 		{
 			fail = true;
 		}
@@ -481,22 +489,29 @@ std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> r
 			{
 				std::cerr << "Line 0 should be TABRead, but is not!\n" << lines.at(0) << "\n" << std::flush;
 			}	
-			assert(lines.at(0).substr(0, 5) == "\tRead");
+			assert(lines.at(0).substr(0, 6) == "\tRead ");
+			std::string str_readID = lines.at(0).substr(6);
 			std::string str_score = lines.at(1).substr(2);
 			std::string str_reverse = lines.at(2).substr(2);
 			std::string str_mapQ = lines.at(3).substr(2);
 			std::string str_graph_aligned = lines.at(4).substr(2);
 			std::string str_sequence_aligned = lines.at(5).substr(2);
 			std::string str_levels = lines.at(6).substr(2);
+			std::string str_originalSequence = lines.at(7).substr(2);
+			std::string str_qualities = lines.at(8).substr(2);
 
-			forReturn.Score = Utilities::StrtoD(str_score);
-			forReturn.reverse = Utilities::StrtoB(str_reverse);
-			forReturn.mapQ = Utilities::StrtoD(str_mapQ);
-			forReturn.graph_aligned = str_graph_aligned;
-			forReturn.sequence_aligned = str_sequence_aligned;
-			forReturn.graph_aligned_levels = Utilities::StrtoI(Utilities::split(str_levels, " "));
+			seedAndExtend_return_local a;
+			a.Score = Utilities::StrtoD(str_score);
+			a.reverse = Utilities::StrtoB(str_reverse);
+			a.mapQ = Utilities::StrtoD(str_mapQ);
+			a.graph_aligned = str_graph_aligned;
+			a.sequence_aligned = str_sequence_aligned;
+			a.graph_aligned_levels = Utilities::StrtoI(Utilities::split(str_levels, " "));			
+			ret_alignment = a;
+			
+			oneRead r(str_readID, str_originalSequence, str_qualities);
+			ret_originalRead = r;			
 		}
-		return forReturn;
 	};
 	std::ifstream inputStream;
 	inputStream.open(file.c_str());
@@ -512,8 +527,13 @@ std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> r
 			assert(line.substr(0, std::string("Aligned pair").length()) == "Aligned pair");
 			bool fail_1; bool fail_2;
 
-			seedAndExtend_return_local a1 = getAlignment(inputStream, fail_1);
-			seedAndExtend_return_local a2 = getAlignment(inputStream, fail_2);
+			seedAndExtend_return_local a1;
+			seedAndExtend_return_local a2;
+			oneRead r1("", "", "");
+			oneRead r2("", "", "");
+			getAlignment(inputStream, fail_1, a1, r1);
+			getAlignment(inputStream, fail_2, a2, r2);
+			oneReadPair rP(r1, r2, 0);			 
 			if(fail_1 || fail_2)
 			{
 				assert(! inputStream.good());
@@ -521,11 +541,11 @@ std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> r
 
 			if((! fail_1) && (! fail_2))
 			{
-				forReturn.push_back(make_pair(a1, a2));
+				ret_alignments.push_back(make_pair(a1, a2));
+				ret_alignments_originalReads.push_back(rP);
 			}
 		}
 	}
-	return forReturn;
 }
 
 void HLATypeInference(std::string alignedReads, std::string graphDir, double insertSize_mean, double insertSize_sd)
@@ -539,7 +559,7 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 	// define locus -> exon
 	std::map<std::string, std::vector<std::string> > loci_2_exons;
 
-	std::vector<std::string> exons_DQB1 = {"exon2"};
+	std::vector<std::string> exons_DQB1 = {"exon_2"};
 	loci_2_exons["DQB1"] = exons_DQB1;
 
 	// function to find right exon file
@@ -550,12 +570,17 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 		for(unsigned int fI = 0; fI < files_in_graphDir.size(); fI++)
 		{
 			std::vector<std::string> split_by_underscore = Utilities::split(files_in_graphDir.at(fI), "_");
-			assert(split_by_underscore.size() >= 3);
+			// if(!(split_by_underscore.size() >= 3))
+			// {
+				// std::cerr << "Can't split according to underscores: " << files_in_graphDir.at(fI) << "\n" << std::flush;
+			// }
+			// assert(split_by_underscore.size() >= 3);
+			
 			if(split_by_underscore.size() >= 4)
 			{
-				if(split_by_underscore.at(0).substr(split_by_underscore.at(0).length() - locus.length()) == locus)
+				if(split_by_underscore.at(split_by_underscore.size()-4).substr(split_by_underscore.at(split_by_underscore.size()-4).length() - locus.length()) == locus)
 				{
-					if((split_by_underscore.at(2)+"_"+split_by_underscore.at(3)) == (exon + ".txt"))
+					if((split_by_underscore.at(split_by_underscore.size()-2)+"_"+split_by_underscore.at(split_by_underscore.size()-1)) == (exon + ".txt"))
 					{
 						forReturn = files_in_graphDir.at(fI);
 					}
@@ -583,8 +608,15 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 
 	// load reads
 	std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads.\n" << std::flush;
-	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignments = read_shortReadAlignments_fromFile(alignedReads);
+	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignments;
+	std::vector<oneReadPair> alignments_originalReads;
+	
+	read_shortReadAlignments_fromFile(alignedReads, alignments, alignments_originalReads);
+	assert(alignments.size() == alignments_originalReads.size());
+	
+	std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads -- done. Have " << alignments.size() << " read pairs.\n" << std::flush;
 
+	
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
 	{
 		std::string locus = loci.at(locusI);
@@ -635,7 +667,14 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 			unsigned int last_graph_level = graphLocus_2_levels.at(last_graph_locusID);
 			assert(last_graph_level > first_graph_level);
 			unsigned int expected_allele_length = last_graph_level - first_graph_level + 1;
-			assert(graphLocus_2_levels.size() == expected_allele_length);
+			if(!(exon_level_names.size() == expected_allele_length))
+			{
+				std::cerr << "For locus " << locus << " exon " << exonID << " (" << exonFile << "), we have a problem with expected graph length.\n";
+				std::cerr << "\t" << "expected_allele_length" << ": " << expected_allele_length << "\n";
+				std::cerr << "\t" << "expected_allele_length" << ": " << expected_allele_length << "\n";				
+				std::cerr << std::flush;
+			}
+			assert(exon_level_names.size() == expected_allele_length);
 
 			combined_exon_sequences_locusIDs.insert(combined_exon_sequences_locusIDs.end(), exon_level_names.begin(), exon_level_names.end());
 			for(unsigned int lI = 0; lI < expected_allele_length; lI++)
