@@ -1006,7 +1006,7 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 					{
 
 						// score from first position match
-						if(readGenotype.substr(0, 1) == '_')
+						if(readGenotype.substr(0, 1) == "_")
 						{
 							log_likelihood += log_likelihood_deletion;
 						}

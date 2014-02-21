@@ -308,6 +308,51 @@ void readFilter::doFilter()
 				}
 			}
 
+			int kMers_1_forward_unique = 0;
+			int kMers_2_forward_unique = 0;
+			int kMers_1_reverse_unique = 0;
+			int kMers_2_reverse_unique = 0;
+			if(negativePreserveUnique)
+			{
+				for(unsigned int kI = 0; kI < kMers_1.size(); kI++)
+				{
+					std::string kMer = kMers_1.at(kI);
+					if(unique_kMers.count(kMer))
+					{
+						kMers_1_forward_unique++;
+					}
+				}
+				for(unsigned int kI = 0; kI < kMers_2.size(); kI++)
+				{
+					std::string kMer = kMers_2.at(kI);
+					if(unique_kMers.count(kMer))
+					{
+						kMers_2_forward_unique++;
+					}
+				}
+
+				for(unsigned int kI = 0; kI < kMers_1.size(); kI++)
+				{
+					std::string kMer = seq_reverse_complement(kMers_1.at(kI));
+					if(unique_kMers.count(kMer))
+					{
+						kMers_1_reverse_unique++;
+					}
+				}
+
+				for(unsigned int kI = 0; kI < kMers_2.size(); kI++)
+				{
+					std::string kMer = seq_reverse_complement(kMers_2.at(kI));
+					if(unique_kMers.count(kMer))
+					{
+						kMers_2_reverse_unique++;
+					}
+				}
+			}
+			int forward_combined_unique = kMers_1_forward_unique + kMers_2_forward_unique;
+			int reverse_combined_unique = kMers_1_reverse_unique + kMers_2_reverse_unique;
+
+
 //			double negativity_1 = (kMers_1_TOTAL == 0) ? 1 : (kMers_1_notOK / kMers_1_TOTAL);
 //			double negativity_2 = (kMers_2_TOTAL == 0) ? 1 : (kMers_2_notOK / kMers_2_TOTAL);
 			double combined_negativity = ((kMers_1_TOTAL + kMers_2_TOTAL) == 0) ? 1 : ((kMers_1_notOK + kMers_2_notOK) / (kMers_1_TOTAL + kMers_2_TOTAL));
@@ -316,6 +361,10 @@ void readFilter::doFilter()
 			
 			pass_negative = (combined_negativity <= negativeThreshold);
 
+			if(negativePreserveUnique)
+			{
+				pass_negative = ( pass_negative || ((forward_combined_unique >= negativePreserveUnique_threshold) || (reverse_combined_unique >= negativePreserveUnique_threshold)) );
+			}
 			return (pass_positive && pass_negative);
 		}
 		else
