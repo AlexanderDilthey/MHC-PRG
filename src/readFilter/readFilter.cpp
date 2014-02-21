@@ -30,6 +30,11 @@ readFilter::readFilter() {
 	positiveThreshold = -1;
 	negativeThreshold = -1;
 	k = -1;
+	positiveUnique = false;
+	negativePreserveUnique = false;
+
+	positiveUnique_threshold = 1;
+	negativePreserveUnique_threshold = 1;
 }
 
 
@@ -53,6 +58,12 @@ void readFilter::doFilter()
 	assert((positiveThreshold >= 0) && (positiveThreshold <= 1));
 	assert((negativeThreshold >= 0) && (negativeThreshold <= 1));
 
+	if(positiveUnique || negativePreserveUnique)
+	{
+		assert(uniqueness_base.length());
+		assert(uniqueness_subtract.length());
+	}
+
 	std::string fn_1 = output_FASTQ + "_1";
 	std::string fn_2 = output_FASTQ + "_2";
 
@@ -75,13 +86,14 @@ void readFilter::doFilter()
 	bool apply_filter_positive = (positiveFilter.length() > 0);
 	bool apply_filter_negative = (negativeFilter.length() > 0);
 
-	if(apply_filter_positive)
-	{
+	auto load_positive_kMers_file = [&](std::string file) -> std::set<std::string> {
+		std::set<std::string> forReturn;
+
 		std::ifstream positive_kMers_stream;
-		positive_kMers_stream.open(positiveFilter.c_str());
+		positive_kMers_stream.open(file.c_str());
 		if(! positive_kMers_stream.is_open())
 		{
-			throw std::runtime_error("readFilter::doFilter(): Cannot open kMers file containing the positive-filter kMers: "+positiveFilter);
+			throw std::runtime_error("readFilter::doFilter(): Cannot open kMers file containing the positive-filter kMers: "+file);
 		}
 		std::string line;
 		size_t line_number = 0;
@@ -102,23 +114,46 @@ void readFilter::doFilter()
 				throw std::runtime_error("readFilter::doFilter(): Expect kMers of length " + Utilities::ItoStr(k) + ", but " + positiveFilter + " contains one of length " + Utilities::ItoStr(kMer.length()) + " (line " + Utilities::ItoStr(line_number) + " ).");
 			}
 
-			positive_kMers.insert(kMer);
+			forReturn.insert(kMer);
 		}
 
 		positive_kMers_stream.close();
+
+		return forReturn;
+	};
+
+	if(apply_filter_positive)
+	{
+		positive_kMers = load_positive_kMers_file(positiveFilter);
 	}
 
-	DeBruijnGraph<1, 31, 1>* negative_kMers;
 
+	int cortex_height = 26;
+	int cortex_width = 50;
+
+	std::set<std::string> unique_kMers;
+	if(positiveUnique || negativePreserveUnique)
+	{
+		unique_kMers = load_positive_kMers_file(uniqueness_base);
+		DeBruijnGraph<1, 25, 1> subtract_kMers_graph(cortex_height, cortex_width);
+		for(std::set<std::string>::iterator kMerIt = unique_kMers.begin(); kMerIt != unique_kMers.end(); kMerIt++)
+		{
+			std::string kMer = *kMerIt;
+			if(subtract_kMers_graph.kMerinGraph(kMer))
+			{
+				unique_kMers.erase(kMer);
+			}
+		}
+	}
+
+	DeBruijnGraph<1, 25, 1>* negative_kMers;
 	if(apply_filter_negative)
 	{
-		int cortex_height = 26;
-		int cortex_width = 50;
 
 		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
 
-		assert(k == 31);
-		negative_kMers = new DeBruijnGraph<1, 31, 1>(cortex_height, cortex_width);
+		assert(k == 25);
+		negative_kMers = new DeBruijnGraph<1, 25, 1>(cortex_height, cortex_width);
 
 		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary...\n" << std::flush;
 
@@ -144,6 +179,9 @@ void readFilter::doFilter()
 			double kMers_1_forward_TOTAL = 0;
 			double kMers_2_forward_TOTAL = 0;
 
+			int kMers_1_forward_unique = 0;
+			int kMers_2_forward_unique = 0;
+
 			kMers_1_forward_TOTAL += kMers_1.size();
 			kMers_2_forward_TOTAL += kMers_2.size();
 
@@ -154,6 +192,11 @@ void readFilter::doFilter()
 				{
 					kMers_1_forward_OK++;
 				}
+
+				if(unique_kMers.count(kMer))
+				{
+					kMers_1_forward_unique++;
+				}
 			}
 
 			for(unsigned int kI = 0; kI < kMers_2.size(); kI++)
@@ -162,6 +205,11 @@ void readFilter::doFilter()
 				if(positive_kMers.count(kMer))
 				{
 					kMers_2_forward_OK++;
+				}
+
+				if(unique_kMers.count(kMer))
+				{
+					kMers_2_forward_unique++;
 				}
 			}
 
@@ -176,8 +224,12 @@ void readFilter::doFilter()
 			double kMers_1_reverse_TOTAL = 0;
 			double kMers_2_reverse_TOTAL = 0;
 
+			int kMers_1_reverse_unique = 0;
+			int kMers_2_reverse_unique = 0;
+
 			kMers_1_reverse_TOTAL += kMers_1.size();
 			kMers_2_reverse_TOTAL += kMers_2.size();
+
 
 			for(unsigned int kI = 0; kI < kMers_1.size(); kI++)
 			{
@@ -185,6 +237,10 @@ void readFilter::doFilter()
 				if(positive_kMers.count(kMer))
 				{
 					kMers_1_reverse_OK++;
+				}
+				if(unique_kMers.count(kMer))
+				{
+					kMers_1_reverse_unique++;
 				}
 			}
 
@@ -195,11 +251,18 @@ void readFilter::doFilter()
 				{
 					kMers_2_reverse_OK++;
 				}
+				if(unique_kMers.count(kMer))
+				{
+					kMers_2_reverse_unique++;
+				}
 			}
 
 //			double reverse_1_optim = (kMers_1_reverse_TOTAL == 0) ? 0 : (kMers_1_reverse_OK / kMers_1_reverse_TOTAL);
 //			double reverse_2_optim = (kMers_2_reverse_TOTAL == 0) ? 0 : (kMers_2_reverse_OK / kMers_2_reverse_TOTAL);
 			double reverse_combined_optim = ((kMers_1_reverse_TOTAL + kMers_2_reverse_TOTAL) == 0) ? 0 : ((kMers_1_reverse_OK + kMers_2_reverse_OK) / (kMers_1_reverse_TOTAL + kMers_2_reverse_TOTAL));
+
+			int forward_combined_unique = kMers_1_forward_unique + kMers_2_forward_unique;
+			int reverse_combined_unique = kMers_1_reverse_unique + kMers_2_reverse_unique;
 
 			// std::cout << read.a1.sequence << " " << read.a2.sequence << "\n";
 			// std::cout << forward_combined_optim << " " << reverse_combined_optim << "\n\n"; 
@@ -207,6 +270,11 @@ void readFilter::doFilter()
 			// std::cout << read.a1.readID << " // " << read.a2.readID << ": " << forward_combined_optim << " / " << reverse_combined_optim << "\n";
 
 			pass_positive = ((forward_combined_optim >= positiveThreshold) || (reverse_combined_optim >= positiveThreshold));
+
+			if(positiveUnique)
+			{
+				pass_positive = ( pass_positive || ((forward_combined_unique >= positiveUnique_threshold) || (reverse_combined_unique >= positiveThreshold)) );
+			}
 		}
 
 		bool pass_negative = false;

@@ -1,10 +1,22 @@
+!!!! ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx_25
+
+
+
 ../bin/MHC-PRG domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/hla --noPGFprotection
 
 ../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 31 --noPGFprotection
 
-../bin/MHC-PRG domode determineRequiredKMers ../tmp2/GS_nextGen/hla/graph.txt.kmers_31 ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 
+! ../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 25 --noPGFprotection
 
-../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A1.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 --output_FASTQ test.fastQ
+../bin/MHC-PRG domode determineRequiredKMers ../tmp2/GS_nextGen/hla/graph.txt.kmers_31 ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 
+! ../bin/MHC-PRG domode determineRequiredKMers ../tmp2/GS_nextGen/hla/graph.txt.kmers_25 ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25
+
+
+../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A1.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 --output_FASTQ test.fastQ 
+
+
+! 	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A1.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ test_positiveUnique.fastQ  --positiveUnique --uniqueness_base ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --uniqueness_subtract ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx_25
+
 
 
 	Positive filtering
@@ -15,10 +27,14 @@
 	
 		../bin/MHC-PRG domode filterReads --input_FASTQ test.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx --output_FASTQ test_round2.fastQ
 
+!	../bin/MHC-PRG domode filterReads --input_FASTQ test_positiveUnique.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx --output_FASTQ test_positiveUnique_negativePreserveUnique.fastQ --negativePreserveUnique --uniqueness_base ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --uniqueness_subtract ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx_25
+		
 	And now align:
 	
 	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ test_round2.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
 		
+! 	More aligning ...
+
 	HLA type inference:
 	
 	../bin/MHC-PRG domode HLATypeInference --input_alignedReads test_round2.fastQ.aligned --graphDir ../tmp2/GS_nextGen/hla

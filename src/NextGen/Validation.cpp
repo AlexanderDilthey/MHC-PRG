@@ -553,6 +553,10 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));
 
+	// constants
+	double log_likelihood_insertion = log(0.0001);
+	double log_likelihood_deletion = log_likelihood_insertion;
+
 	// define loci
 	std::vector<std::string> loci = {"DQB1"};
 
@@ -710,11 +714,20 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 			}
 		}
 
+		std::map<int, unsigned int> graphLevel_2_exonPosition;
+		for(unsigned int pI = 0; pI < combined_exon_sequences_graphLevels.size(); pI++)
+		{
+			int graphLevel = combined_exon_sequences_graphLevels.at(pI);
+			assert(graphLevel >= 0);
+			graphLevel_2_exonPosition[graphLevel] = pI;
+		}
+
 		std::cout << Utilities::timestamp() << "Have collected " << combined_exon_sequences.size() << " sequences.\n" << std::flush;
 
 		std::map<std::string, unsigned int> HLAtype_2_clusterID;
 		std::vector<std::set<std::string>> HLAtype_clusters;
 		std::map<std::string, unsigned int> sequence_2_cluster;
+		std::vector<std::string> cluster_2_sequence;
 
 		for(std::map<std::string, std::string>::iterator HLAtypeIt = combined_exon_sequences.begin(); HLAtypeIt != combined_exon_sequences.end(); HLAtypeIt++)
 		{
@@ -742,21 +755,345 @@ void HLATypeInference(std::string alignedReads, std::string graphDir, double ins
 
 		std::cout << Utilities::timestamp() << "Clustered into " << HLAtype_clusters.size() << " identical (over exons considered) clusters." << "\n" << std::flush;
 
+
 		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
 		{
 			std::cout << "\t\t\tcluster " << clusterI << "\n";
 			for(std::set<std::string>::iterator typeIt = HLAtype_clusters.at(clusterI).begin(); typeIt != HLAtype_clusters.at(clusterI).end(); typeIt++)
 			{
-				std::cout << "\t\t\t\t" << *typeIt << "\n";
-				assert(HLAtype_2_clusterID.at(*typeIt) == clusterI);
+				std::string HLAtype = *typeIt;
+				std::cout << "\t\t\t\t" << HLAtype << "\n";
+				assert(HLAtype_2_clusterID.at(HLAtype) == clusterI);
+
+				if(typeIt == HLAtype_clusters.at(clusterI).begin())
+				{
+					std::string sequence = combined_exon_sequences.at(HLAtype);
+					cluster_2_sequence.push_back(sequence);
+				}
 			}
 		}
 
+		// now transform reads into sequences specifying exon genotype value
 
+		std::cout << Utilities::timestamp() << "Compute exon positions and specified genotypes from reads\n" << std::flush;
 
+		class oneExonPosition {
+		public:
+			unsigned int positionInExon;
+			int graphLevel;
+			std::string genotype;
+			std::string qualities;
+		};
+
+		std::vector< std::vector<oneExonPosition> > exonPositions_fromReads;
+		auto oneReadAlignment_2_exonPositions = [&](seedAndExtend_return_local& alignment, oneRead& read, std::vector<oneExonPosition>& ret_exonPositions) -> void {
+			int alignment_firstLevel = alignment.alignment_firstLevel();
+			int alignment_lastLevel = alignment.alignment_lastLevel();
+
+			if( ((alignment_firstLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_firstLevel <= combined_exon_sequences_graphLevels.back())) ||
+				((alignment_lastLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_lastLevel <= combined_exon_sequences_graphLevels.back())) )
+			{
+				std::vector<oneExonPosition> readAlignment_exonPositions;
+
+				int indexIntoOriginalReadData = -1;
+				for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
+				{
+					std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+					std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
+					int graphLevel = alignment.graph_aligned_levels.at(cI);
+
+					if(graphLevel == -1)
+					{
+						// insertion relative to the graph - we need to extend last character
+
+						assert(graphCharacter == "_");
+						assert(sequenceCharacter != "_");
+
+						indexIntoOriginalReadData++;
+						int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
+						if(alignment.reverse)
+						{
+							indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
+						}
+						assert(indexIntoOriginalReadData_correctlyAligned >= 0);
+						assert(indexIntoOriginalReadData_correctlyAligned < read.sequence.length());;
+
+						std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
+						if(alignment.reverse)
+						{
+							underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+						}
+						assert(underlyingReadCharacter == sequenceCharacter);
+						char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
+
+						if(readAlignment_exonPositions.size() > 0)
+						{
+							readAlignment_exonPositions.back().genotype.append(sequenceCharacter);
+							readAlignment_exonPositions.back().qualities.push_back(qualityCharacter);
+							assert(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length());
+						}
+					}
+					else
+					{
+						if(sequenceCharacter != "_")
+						{
+							indexIntoOriginalReadData++;
+							int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
+							if(alignment.reverse)
+							{
+								indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
+							}
+							assert(indexIntoOriginalReadData_correctlyAligned >= 0);
+							assert(indexIntoOriginalReadData_correctlyAligned < read.sequence.length());
+
+							std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
+							if(alignment.reverse)
+							{
+								underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+							}
+							assert(underlyingReadCharacter == sequenceCharacter);
+
+							if(graphCharacter == "_")
+							{
+
+								assert(graphLevel != -1);
+
+								char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
+
+								oneExonPosition thisPosition;
+								thisPosition.graphLevel = graphLevel;
+								thisPosition.genotype = sequenceCharacter;
+								thisPosition.qualities.push_back(qualityCharacter);
+								readAlignment_exonPositions.push_back(thisPosition);
+							}
+							else
+							{
+								// two well-defined characters
+								char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
+
+								oneExonPosition thisPosition;
+								thisPosition.graphLevel = graphLevel;
+								thisPosition.genotype = sequenceCharacter;
+								thisPosition.qualities.push_back(qualityCharacter);
+								readAlignment_exonPositions.push_back(thisPosition);
+							}
+
+						}
+						else
+						{
+							assert(sequenceCharacter == "_");
+							if(graphCharacter == "_")
+							{
+								assert(graphLevel != -1);
+
+								oneExonPosition thisPosition;
+								thisPosition.graphLevel = graphLevel;
+								thisPosition.genotype = "_";
+								thisPosition.qualities = "";
+								readAlignment_exonPositions.push_back(thisPosition);
+							}
+							else
+							{
+								oneExonPosition thisPosition;
+								thisPosition.graphLevel = graphLevel;
+								thisPosition.genotype = "_";
+								thisPosition.qualities = "";
+								readAlignment_exonPositions.push_back(thisPosition);
+							}
+						}
+					}
+				}
+
+				int alongReadMode = 0;
+				int lastPositionInExon = -1;
+				for(unsigned int posInAlignment = 0; posInAlignment < readAlignment_exonPositions.size(); posInAlignment++)
+				{
+					oneExonPosition& thisPosition = readAlignment_exonPositions.at(posInAlignment);
+					assert(thisPosition.graphLevel != -1);
+					if(graphLevel_2_exonPosition.count(thisPosition.graphLevel))
+					{
+						assert((alongReadMode == 0) || (alongReadMode == 1));
+						thisPosition.positionInExon = graphLevel_2_exonPosition.at(thisPosition.graphLevel);
+						assert((lastPositionInExon == -1) || (thisPosition.positionInExon == ((int)lastPositionInExon + 1)));
+						lastPositionInExon = thisPosition.positionInExon;
+						alongReadMode = 1;
+
+						ret_exonPositions.push_back(thisPosition);
+					}
+					else
+					{
+						if(alongReadMode == 1)
+						{
+							alongReadMode = 2;
+						}
+					}
+				}
+			}
+
+		};
+
+		for(unsigned int readPairI = 0; readPairI < alignedReads.size(); readPairI++)
+		{
+			oneReadPair& originalReadPair = alignments_originalReads.at(readPairI);
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments.at(readPairI);
+			if(alignedReadPair_strandsValid(alignedReadPair) && (abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (3 * insertSize_sd)))
+			{
+				// good
+
+				std::cout << "\t\t" << "readPair " << readPairI << ", pairing OK.\n" << std::flush;
+
+				std::vector<oneExonPosition> thisRead_exonPositions;
+				oneReadAlignment_2_exonPositions(alignedReadPair.first, originalReadPair.reads.first, thisRead_exonPositions);
+				oneReadAlignment_2_exonPositions(alignedReadPair.second, originalReadPair.reads.second, thisRead_exonPositions);
+				if(thisRead_exonPositions.size() > 0)
+					exonPositions_fromReads.push_back(thisRead_exonPositions);
+			}
+			else
+			{
+				// bad
+
+				std::cout << "\t\t" << "readPair " << readPairI << ", pairing FAILED.\n" << std::flush;
+
+				std::vector<oneExonPosition> read1_exonPositions;
+				std::vector<oneExonPosition> read2_exonPositions;
+				oneReadAlignment_2_exonPositions(alignedReadPair.first, originalReadPair.reads.first, read1_exonPositions);
+				oneReadAlignment_2_exonPositions(alignedReadPair.second, originalReadPair.reads.second, read2_exonPositions);
+				if(read1_exonPositions.size() > 0)
+					exonPositions_fromReads.push_back(read1_exonPositions);
+				if(read2_exonPositions.size() > 0)
+					exonPositions_fromReads.push_back(read2_exonPositions);
+			}
+		}
+
+		// likelihoods for reads
+
+		std::cout << Utilities::timestamp() << "Compute likelihoods for all read-overlapping reads (" << exonPositions_fromReads.size() << "), conditional on underlying exons.\n" << std::flush;
+		std::vector<std::vector<double> > likelihoods_perCluster_perRead;
+		likelihoods_perCluster_perRead.resize(HLAtype_clusters.size());
+		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
+		{
+			std::string& clusterSequence = cluster_2_sequence.at(clusterI);
+
+			for(unsigned int positionSpecifierI = 0; positionSpecifierI < exonPositions_fromReads.size(); positionSpecifierI++)
+			{
+				std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(positionSpecifierI);
+				double log_likelihood = 0;
+				for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
+				{
+					oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
+
+					std::string exonGenotype = clusterSequence.substr(onePositionSpecifier.positionInExon, 1);
+					std::string readGenotype = onePositionSpecifier.genotype;
+					std::string readQualities = onePositionSpecifier.qualities;
+
+					assert(exonGenotype.length() == 1);
+					assert(readGenotype.length() >= 1);
+					unsigned int l_diff = readGenotype.length() - exonGenotype.length();
+					if(exonGenotype == "_")
+					{
+						// assert(l_diff == 0);
+						if(readGenotype == "_")
+						{
+							assert(onePositionSpecifier.graphLevel != -1);
+							// likelihood 1 - intrinsic graph gap
+						}
+						else
+						{
+							log_likelihood += (log_likelihood_insertion * (1 + l_diff));
+						}
+					}
+					else
+					{
+
+						// score from first position match
+						if(readGenotype.substr(0, 1) == '_')
+						{
+							log_likelihood += log_likelihood_deletion;
+						}
+						else
+						{
+							assert(readQualities.length());
+							double pCorrect = Utilities::PhredToPCorrect(readQualities.at(0));
+							assert((pCorrect > 0) && (pCorrect <= 1));
+							if(exonGenotype == readGenotype.substr(0, 1))
+							{
+								log_likelihood += log(pCorrect);
+							}
+							else
+							{
+								double pIncorrect = 1 - pCorrect;
+								assert((pIncorrect > 0) && (pIncorrect < 1));
+								log_likelihood += log(pIncorrect);
+							}
+						}
+						// if read allele is longer
+						log_likelihood += (log_likelihood_insertion * l_diff);
+					}
+				}
+
+				likelihoods_perCluster_perRead.at(clusterI).push_back(log_likelihood);
+			}
+
+			assert(likelihoods_perCluster_perRead.size() == exonPositions_fromReads.size());
+		}
+
+		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon cluster pairs (" << HLAtype_clusters.size() << "**2/2)\n" << std::flush;
+
+		std::vector<double> LLs;
+		std::vector<std::pair<unsigned int, unsigned int> > LLs_clusterIs;
+		std::vector<unsigned int> LLs_indices;
+
+		for(unsigned int clusterI1 = 0; clusterI1 < HLAtype_clusters.size(); clusterI1++)
+		{
+			for(unsigned int clusterI2 = clusterI1; clusterI2 < HLAtype_2_clusterID.size(); clusterI2++)
+			{
+				double pair_log_likelihood = 0;
+
+				for(unsigned int positionSpecifierI = 0; positionSpecifierI < exonPositions_fromReads.size(); positionSpecifierI++)
+				{
+					double LL_thisPositionSpecifier_cluster1 = likelihoods_perCluster_perRead.at(clusterI1).at(positionSpecifierI);
+					double LL_thisPositionSpecifier_cluster2 = likelihoods_perCluster_perRead.at(clusterI2).at(positionSpecifierI);
+
+					double LL_average = log( (1 + (exp(LL_thisPositionSpecifier_cluster2+log(0.5)))/exp(LL_thisPositionSpecifier_cluster1+log(0.5)) )) + (LL_thisPositionSpecifier_cluster1+log(0.5));
+
+					pair_log_likelihood += LL_average;
+				}
+
+				LLs.push_back(pair_log_likelihood);
+				LLs_clusterIs.push_back(make_pair(clusterI1, clusterI2));
+
+				LLs_indices.push_back(LLs.size() - 1);
+			}
+		}
+
+		std::pair<double, unsigned int> maxPairI = Utilities::findVectorMax(LLs);
+		std::cout << Utilities::timestamp() << "Done. (One) maximum pair is " << maxPairI.second << " with LL = " << maxPairI.first << "\n" << std::flush;
+
+		std::sort(LLs_indices.begin(), LLs_indices.end(), [&](unsigned int a, unsigned int b) {
+			return (LLs.at(a) < LLs.at(b));
+		});
+		std::reverse(LLs_indices.begin(), LLs_indices.end());
+
+		unsigned int maxPairPrint = (LLs_indices.size() > 100) ? 100 : LLs_indices.size();
+		for(unsigned int LLi = 0; LLi < maxPairPrint; LLi++)
+		{
+			unsigned int pairIndex = LLs_indices.at(LLi);
+			std::pair<unsigned int, unsigned int>& clusters = LLs_clusterIs.at(pairIndex);
+			std::cout << "#" << (LLi+1) << ": " << clusters.first << " / " << clusters.second << ": " << LLs.at(pairIndex) << " absolute and " << exp(LLs.at(pairIndex) - maxPairI.first) << " relative." << "\n" << std::flush;
+
+			std::vector<std::string> cluster1_members(HLAtype_clusters.at(clusters.first).begin(), HLAtype_clusters.at(clusters.first).end());
+			std::vector<std::string> cluster2_members(HLAtype_clusters.at(clusters.second).begin(), HLAtype_clusters.at(clusters.second).end());
+
+			std::cout << "\tcluster " << clusters.first << ": " << Utilities::join(cluster1_members, ", ") << "\n";
+			std::cout << "\tcluster " << clusters.second << ": " << Utilities::join(cluster2_members, ", ") << "\n" << std::flush;
+		}
+
+		assert(LLs.at(LLs_indices.at(0)) == maxPairI.first);
+		if(LLs_indices.size() > 1)
+		{
+			assert(LLs.at(LLs_indices.at(0)) >= LLs.at(LLs_indices.at(1)));
+		}
 	}
-
-
 }
 
 void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::string referenceGenomeFile, double insertSize_mean, double insertSize_sd)
