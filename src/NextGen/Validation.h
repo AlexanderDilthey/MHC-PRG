@@ -52,6 +52,5 @@ std::vector<int> graphLoci_2_PGFpositions(std::vector<std::string> graphLoci);
 
 std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_base_path);
 std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string fastq_2_path);
-std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> read_shortReadAlignments_fromFile (std::string file);
 
 #endif /* VALIDATION_H_ */
