@@ -24,6 +24,14 @@ public:
 	double positiveThreshold;
 	double negativeThreshold;
 
+	bool positiveUnique;
+	bool negativePreserveUnique;
+
+	int positiveUnique_threshold;
+	int negativePreserveUnique_threshold;
+
+	std::string uniqueness_base;
+	std::string uniqueness_subtract;
 
 	std::string input_BAM;
 	std::string input_FASTQ;

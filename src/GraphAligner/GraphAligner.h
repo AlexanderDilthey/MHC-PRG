@@ -73,8 +73,40 @@ public:
 	size_t kMers_unique_utilized;
 	bool reverse;
 	double mapQ;
+
+	int alignment_firstLevel()
+	{
+		int firstLevel = -1;
+		for(unsigned int i = 0; i < graph_aligned_levels.size(); i++)
+		{
+			int level = graph_aligned_levels.at(i);
+			if(level != -1)
+			{
+				firstLevel = level;
+				break;
+			}
+		}
+		return firstLevel;
+	}
+
+	int alignment_lastLevel()
+	{
+		int lastLevel = -1;
+		for(unsigned int i = (graph_aligned_levels.size() - 1); i >= 0; i--)
+		{
+			int level = graph_aligned_levels.at(i);
+			if(level != -1)
+			{
+				lastLevel = level;
+				break;
+			}
+		}
+		return lastLevel;
+	}
 };
 
+bool alignedReadPair_strandsValid(std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& p);
+int alignedReadPair_pairsDistanceInGraphLevels(std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& p);
 
 class graphPointDistance {
 public:

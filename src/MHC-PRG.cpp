@@ -1033,7 +1033,13 @@ int main(int argc, char *argv[])
 
 		std::string output_FASTQ;
 
-		int k = 31;
+		int k = 25;
+
+		bool positiveUnique = false;
+		bool negativePreserveUnique = false;
+
+		std::string uniqueness_base;
+		std::string uniqueness_subtract;
 
 		for(unsigned int i = 2; i < arguments.size(); i++)
 		{
@@ -1069,6 +1075,22 @@ int main(int argc, char *argv[])
 			{
 				k = Utilities::StrtoI(arguments.at(i+1));
 			}
+			if(arguments.at(i) == "--positiveUnique")
+			{
+				positiveUnique = true;
+			}
+			if(arguments.at(i) == "--negativePreserveUnique")
+			{
+				negativePreserveUnique = true;
+			}
+			if(arguments.at(i) == "--uniqueness_base")
+			{
+				uniqueness_base = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--uniqueness_subtract")
+			{
+				uniqueness_subtract = arguments.at(i+1);
+			}
 		}
 
 		readFilter F;
@@ -1080,6 +1102,10 @@ int main(int argc, char *argv[])
 		F.positiveThreshold = positiveThreshold;
 		F.negativeThreshold = negativeThreshold;
 		F.k = k;
+		F.negativePreserveUnique = negativePreserveUnique;
+		F.positiveUnique = positiveUnique;
+		F.uniqueness_base = uniqueness_base;
+		F.uniqueness_subtract = uniqueness_subtract;
 
 		F.doFilter();
 

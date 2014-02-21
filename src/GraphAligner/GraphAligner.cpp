@@ -445,3 +445,52 @@ std::vector<int> GraphAligner::_graph_get_previous_z_values(int x, int z)
 
 	return std::vector<int>(forReturn.begin(), forReturn.end());
 }
+
+bool alignedReadPair_strandsValid(std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& p)
+{
+	return ((p.first.alignment_firstLevel() != -1) && (p.second.alignment_firstLevel() != 0) && (p.first.reverse != p.second.reverse));
+}
+
+int alignedReadPair_pairsDistanceInGraphLevels(std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& p)
+{
+	if(p.first.alignment_firstLevel() < p.second.alignment_firstLevel())
+	{
+		int D = (p.second.alignment_firstLevel() - p.first.alignment_lastLevel());
+		std::cerr << "alignedReadPair_pairsDistanceInGraphLevels(..)\n";
+		std::cerr << "\t" << "first in front -- distance " << D << "\n";
+		std::cerr << "\t" << "first reverse: " << p.first.reverse << "\n";
+		std::cerr << "\t" << "second reverse: " << p.second.reverse << "\n";
+		if(alignedReadPair_strandsValid(p) && (! p.first.reverse))
+		{
+			std::cerr << "\t" << "OK" << "\n";
+		}
+		else
+		{
+			std::cerr << "\t" << "WARNING!" << "\n";
+		}
+		std::cerr << std::flush;
+		return D;
+
+	}
+	else
+	{
+		assert(p.first.alignment_firstLevel() >= p.second.alignment_firstLevel());
+		int D = (p.first.alignment_firstLevel() - p.second.alignment_lastLevel());
+
+		std::cerr << "alignedReadPair_pairsDistanceInGraphLevels(..)\n";
+		std::cerr << "\t" << "second in front -- distance " << D << "\n";
+		std::cerr << "\t" << "first reverse: " << p.first.reverse << "\n";
+		std::cerr << "\t" << "second reverse: " << p.second.reverse << "\n";
+		if(alignedReadPair_strandsValid(p) && (p.first.reverse))
+		{
+			std::cerr << "\t" << "OK" << "\n";
+		}
+		else
+		{
+			std::cerr << "\t" << "WARNING!" << "\n";
+		}
+		std::cerr << std::flush;
+		return D;
+	}
+}
+
