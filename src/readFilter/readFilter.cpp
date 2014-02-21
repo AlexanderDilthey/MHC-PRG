@@ -64,6 +64,16 @@ void readFilter::doFilter()
 		assert(uniqueness_subtract.length());
 	}
 
+	std::cout << Utilities::timestamp() << "readFilter::doFilter(..)\n" << std::flush;
+	std::cout << "\t" << "positiveFilter" << ": " << positiveFilter << "\n";
+	std::cout << "\t" << "negativeFilter" << ": " << negativeFilter << "\n";
+	std::cout << "\t" << "input_BAM" << ": " << input_BAM << "\n";
+	std::cout << "\t" << "input_FASTQ" << ": " << input_FASTQ << "\n";
+	std::cout << "\t" << "positiveUnique" << ": " << positiveUnique << "\n";
+	std::cout << "\t" << "negativePreserveUnique" << ": " << negativePreserveUnique << "\n";
+	std::cout << "\t" << "uniqueness_base" << ": " << uniqueness_base << "\n";
+	std::cout << "\t" << "uniqueness_subtract" << ": " << uniqueness_subtract << "\n";
+	
 	std::string fn_1 = output_FASTQ + "_1";
 	std::string fn_2 = output_FASTQ + "_2";
 
@@ -124,6 +134,7 @@ void readFilter::doFilter()
 
 	if(apply_filter_positive)
 	{
+		std::cout << Utilities::timestamp() << "Load file " << positiveFilter << "\n" << std::flush;	
 		positive_kMers = load_positive_kMers_file(positiveFilter);
 	}
 
@@ -134,8 +145,13 @@ void readFilter::doFilter()
 	std::set<std::string> unique_kMers;
 	if(positiveUnique || negativePreserveUnique)
 	{
+		std::cout << Utilities::timestamp() << "Load file " << uniqueness_base << "\n" << std::flush;	
+	
 		unique_kMers = load_positive_kMers_file(uniqueness_base);
+		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
 		DeBruijnGraph<1, 25, 1> subtract_kMers_graph(cortex_height, cortex_width);
+		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary " << uniqueness_subtract << "..\n" << std::flush;
+		subtract_kMers_graph.loadMultiColourBinary(uniqueness_subtract);
 		for(std::set<std::string>::iterator kMerIt = unique_kMers.begin(); kMerIt != unique_kMers.end(); kMerIt++)
 		{
 			std::string kMer = *kMerIt;
@@ -149,7 +165,6 @@ void readFilter::doFilter()
 	DeBruijnGraph<1, 25, 1>* negative_kMers;
 	if(apply_filter_negative)
 	{
-
 		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
 
 		assert(k == 25);
@@ -388,10 +403,12 @@ void readFilter::doFilter()
 
 	if(input_BAM.length())
 	{
+		std::cout << Utilities::timestamp() << "Filter BAM: " << input_BAM << "\n" << std::flush;
 		filterBAM(input_BAM, output_FASTQ, &decisionFunction, &printFunction);
 	}
 	else
 	{
+		std::cout << Utilities::timestamp() << "Filter FASTQ: " << input_FASTQ << "\n" << std::flush;	
 		filterFastQPairs(input_FASTQ, output_FASTQ, &decisionFunction, &printFunction);
 	}
 
