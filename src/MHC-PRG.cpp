@@ -1023,7 +1023,7 @@ int main(int argc, char *argv[])
 		std::string positiveFilter;
 		std::string negativeFilter;
 
-		double positiveThreshold = 0.5;
+		double positiveThreshold = 0.4;
 		double negativeThreshold = 0.3;
 
 		vector<string> arguments (argv + 1, argv + argc + !argc);
