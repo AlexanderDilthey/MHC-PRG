@@ -40,6 +40,8 @@ public:
 
 	int k;
 
+	int threads;
+
 	readFilter();
 
 	void doFilter();
@@ -59,6 +61,7 @@ public:
 	std::string qualities;
 };
 
+class fastq_readPair;
 class fastq_readPair {
 public:
 	bool have1;
@@ -101,13 +104,35 @@ public:
 	{
 		return (have1 && have2);
 	}
+
+	bool take_another_readPair(fastq_readPair* otherPair)
+	{
+		assert(! otherPair->isComplete());
+		if(isComplete())
+		{
+			return false;
+		}
+		else
+		{
+			if(otherPair->have1)
+			{
+				return takeAlignment(otherPair->a1, 1);
+			}
+			if(otherPair->have2)
+			{
+				return takeAlignment(otherPair->a2, 2);
+			}
+			assert( 1 == 0 );
+			return false;
+		}
+	}
 };
 
 
 std::vector<BAMRegionSpecifier> getBAMregions(std::string BAMfile);
 
-void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
-void filterFastQPairs(std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
-void filterFastQPairs(std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
+void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
+void filterFastQPairs(int threads, std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
+void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
 
 #endif /* READFILTER_H_ */

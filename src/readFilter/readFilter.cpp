@@ -33,8 +33,10 @@ readFilter::readFilter() {
 	positiveUnique = false;
 	negativePreserveUnique = false;
 
-	positiveUnique_threshold = 1;
-	negativePreserveUnique_threshold = 1;
+	positiveUnique_threshold = 10;
+	negativePreserveUnique_threshold = 10;
+
+	threads = 10;
 }
 
 
@@ -395,21 +397,26 @@ void readFilter::doFilter()
 				  << "+"         << "\n"
 				  << read.a1.qualities   << "\n";
 
+		// todo check - reverse complement
+		std::string read_2_sequence_forPrint = seq_reverse_complement(read.a2.sequence);
+		std::string read_2_qualities_forPrint = read.a2.qualities;
+		std::reverse(read_2_qualities_forPrint.begin(), read_2_qualities_forPrint.end());
+
 		fastq_2_output << "@" << read.a2.readID << "\n"
-						  << read.a2.sequence    << "\n"
+						  << read_2_sequence_forPrint    << "\n"
 						  << "+"         << "\n"
-						  << read.a2.qualities   << "\n";
+						  << read_2_qualities_forPrint   << "\n";
 	};
 
 	if(input_BAM.length())
 	{
 		std::cout << Utilities::timestamp() << "Filter BAM: " << input_BAM << "\n" << std::flush;
-		filterBAM(input_BAM, output_FASTQ, &decisionFunction, &printFunction);
+		filterBAM(threads, input_BAM, output_FASTQ, &decisionFunction, &printFunction);
 	}
 	else
 	{
 		std::cout << Utilities::timestamp() << "Filter FASTQ: " << input_FASTQ << "\n" << std::flush;	
-		filterFastQPairs(input_FASTQ, output_FASTQ, &decisionFunction, &printFunction);
+		filterFastQPairs(threads, input_FASTQ, output_FASTQ, &decisionFunction, &printFunction);
 	}
 
 	fastq_1_output.close();
@@ -421,7 +428,7 @@ void readFilter::doFilter()
 	}
 }
 
-void filterFastQPairs(std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
+void filterFastQPairs(int threads, std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
 {
 	std::string file_1 = fastq_basePath + "_1";
 	std::string file_2 = fastq_basePath + "_2";
@@ -435,10 +442,10 @@ void filterFastQPairs(std::string fastq_basePath, std::string outputFile, std::f
 		throw std::runtime_error("Expected file "+file_2+" can't be opened.");
 	}
 
-	filterFastQPairs(file_1, file_2, outputFile, decide, print);
+	filterFastQPairs(threads, file_1, file_2, outputFile, decide, print);
 }
 
-void filterFastQPairs(std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
+void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
 {
 	std::ifstream fastQ_1_stream;
 	fastQ_1_stream.open(fastq_1_path.c_str());
@@ -507,6 +514,10 @@ void filterFastQPairs(std::string fastq_1_path, std::string fastq_2_path, std::s
 		simpleAlignment_1.qualities = read1_qualities;
 		simpleAlignment_1.sequence = read1_sequence;
 
+		// todo check - reverse complement
+		read2_sequence = seq_reverse_complement(read2_sequence);
+		std::reverse(read2_qualities.begin(), read2_qualities.end());
+
 		BAMalignment simpleAlignment_2;
 		simpleAlignment_2.readID = read2_ID;
 		simpleAlignment_2.qualities = read2_qualities;
@@ -535,31 +546,58 @@ void filterFastQPairs(std::string fastq_1_path, std::string fastq_2_path, std::s
 	}
 }
 
-void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
+void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
 {
-	BamTools::BamReader reader;
-	reader.Open(BAMfile);
+	BamTools::BamReader main_reader;
+	main_reader.Open(BAMfile);
 
-	reader.LocateIndex();
-    if ( ! reader.HasIndex() )
+	omp_set_num_threads(threads);
+
+	main_reader.LocateIndex();
+    if ( ! main_reader.HasIndex() )
     {
 		throw std::runtime_error("File "+BAMfile+" does not seem to be indexed - please specify indexed BAM!");
     }
 
-    std::map<std::string, fastq_readPair> reads;
+    std::vector<BamTools::BamReader> thread_readers;
+    thread_readers.resize(threads);
+    for(unsigned int tI = 0; tI < threads; tI++)
+    {
+    	thread_readers.at(tI).Open(BAMfile);
+    	thread_readers.at(tI).LocateIndex();
+    	assert(thread_readers.at(tI).HasIndex());
+    }
+
+    std::map<std::string, fastq_readPair> global_reads;
 
 	std::vector<BAMRegionSpecifier> BAM_regions = getBAMregions(BAMfile);
-	for(unsigned int rI = 0; rI < BAM_regions.size(); rI++)
+	size_t N_regions = BAM_regions.size();
+	#pragma omp parallel for ordered schedule(dynamic)
+	for(unsigned int rI = 0; rI < N_regions; rI++)
 	{
 		const BAMRegionSpecifier& thisStretch = BAM_regions.at(rI);
 
-		int refIDidx = reader.GetReferenceID(thisStretch.ID);
+		int tI = omp_get_thread_num();
+
+		int refIDidx = thread_readers.at(tI).GetReferenceID(thisStretch.ID);
 		assert(refIDidx != -1);
 
-		const BamTools::RefData& stretchSpec_BAMTools = reader.GetReferenceData().at(refIDidx);
+		const BamTools::RefData& stretchSpec_BAMTools = thread_readers.at(tI).GetReferenceData().at(refIDidx);
 		assert(thisStretch.lastPos < stretchSpec_BAMTools.RefLength);
 
 		std::cout << "\t" << Utilities::timestamp() << " read " << thisStretch.ID << " from " << thisStretch.firstPos << " to " << thisStretch.lastPos + 1 << "\n" << std::flush;
+
+		std::map<std::string, fastq_readPair> thread_reads;
+		std::map<std::string, fastq_readPair> thread_reads_forPrint;
+
+		auto print_threaded_reads = [&]() -> void {
+			for(std::map<std::string, fastq_readPair>::iterator rIt = thread_reads_forPrint.begin(); rIt != thread_reads_forPrint.end(); rIt++)
+			{
+				fastq_readPair& thisPair = rIt->second;
+				(*print)(thisPair);
+			}
+			thread_reads_forPrint.clear();
+		};
 
 		BamTools::BamRegion stretch_region_BAMTools;
 		stretch_region_BAMTools.LeftRefID = refIDidx;
@@ -567,23 +605,38 @@ void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(c
 		stretch_region_BAMTools.RightRefID = refIDidx;;
 		stretch_region_BAMTools.RightPosition =  thisStretch.lastPos + 1;
 
-		reader.SetRegion(stretch_region_BAMTools);
+		thread_readers.at(tI).SetRegion(stretch_region_BAMTools);
 
-		BamTools::BamAlignment al;
-		#pragma omp critical
+		size_t alignments_at_once = 10000;
+		size_t print_at_once = 1000;
+
+		std::vector<BamTools::BamAlignment> alignments;
+		alignments.reserve(alignments_at_once);
+		BamTools::BamAlignment al_readout;
+		while(thread_readers.at(tI).GetNextAlignment(al_readout))
 		{
-			while(reader.GetNextAlignment(al))
+			alignments.push_back(al_readout);
+			size_t added_alignments = 1;
+			while((alignments_at_once < 10000) && (thread_readers.at(tI).GetNextAlignment(al_readout)))
 			{
-				std::string name = al.Name;
-			   std::string nameWithPairID = name;
+				alignments.push_back(al_readout);
+				added_alignments++;
+			}
 
-			   int whichMate = 0;
-			   assert(al.IsPaired());
-			   if ( al.IsPaired() )
-			   {
+			for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
+			{
+				BamTools::BamAlignment& al = alignments.at(alignmentI);
+
+				std::string name = al.Name;
+				std::string nameWithPairID = name;
+
+				int whichMate = 0;
+				assert(al.IsPaired());
+				if ( al.IsPaired() )
+				{
 				   nameWithPairID.append( (al.IsFirstMate() ? "/1" : "/2") );
 				   whichMate =  (al.IsFirstMate()) ? 1 : 2;
-			   }
+				}
 
 				// handle reverse strand alignment - bases & qualities
 				std::string qualities = al.Qualities;
@@ -599,21 +652,21 @@ void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(c
 				simpleAlignment.sequence = sequence;
 
 				// std::cout << name << " " << sequence << "\n";
-				
+
 				// std::cout << name << " " << reads.count(name) << "\n";
-				if(reads.count(name) == 0)
+				if(thread_reads.count(name) == 0)
 				{
 					fastq_readPair p;
 					bool success = p.takeAlignment(simpleAlignment, whichMate);
 					assert(success);
-					reads[name] = p;
+					thread_reads[name] = p;
 				}
 				else
 				{
-					fastq_readPair& thisPair = reads.at(name);
+					fastq_readPair& thisPair = thread_reads.at(name);
 					bool success = thisPair.takeAlignment(simpleAlignment, whichMate);
 					if(! success)
-					{					
+					{
 						std::cerr << "There is a problem with the read IDs in this BAM.\n";
 						std::cerr << "Read ID: " << name << " / " << nameWithPairID << "\n";
 						std::cerr << "whichMate: " << whichMate << "\n";
@@ -626,20 +679,65 @@ void filterBAM(std::string BAMfile, std::string outputFile, std::function<bool(c
 						// process
 						if((*decide)(thisPair))
 						{
-							(*print)(thisPair);
+							thread_reads_forPrint[name] = thisPair;
+							if(thread_reads_forPrint.size() > print_at_once)
+							{
+								#pragma omp critical
+								{
+									print_threaded_reads();
+								}
+							}
 						}
 
-						reads.erase(name);
+						thread_reads.erase(name);
 					}
 				}
+			}
 
+			alignments.clear();
+		}
+
+		print_threaded_reads();
+
+		#pragma omp critical
+		{
+			for(std::map<std::string, fastq_readPair>::iterator danglingReadIt = thread_reads.begin(); danglingReadIt != thread_reads.end(); danglingReadIt++)
+			{
+				const std::string& name = danglingReadIt->first;
+				fastq_readPair& incompleteReadPair = danglingReadIt->second;
+				assert(! incompleteReadPair.isComplete());
+
+				if(global_reads.count(name) == 0)
+				{
+					global_reads[name] = incompleteReadPair;
+				}
+				else
+				{
+					fastq_readPair& existingPair = global_reads.at(name);
+					bool success = existingPair.take_another_readPair(&incompleteReadPair);
+					if(! success)
+					{
+						std::cerr << "There is a problem with the read IDs in this BAM (global).\n";
+					}
+					assert(success);
+					if(existingPair.isComplete())
+					{
+						// process
+						if((*decide)(existingPair))
+						{
+							(*print)(existingPair);
+						}
+
+						global_reads.erase(name);
+					}
+				}
 			}
 		}
 	}
 
-	if(reads.size() > 0)
+	if(global_reads.size() > 0)
 	{
-		std::cerr << "\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\nAfter processing " << BAMfile << ", have " << reads.size() << " dangling reads.\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\n";
+		std::cerr << "\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\nAfter processing " << BAMfile << ", have " << global_reads.size() << " dangling reads.\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\n";
 	}
 
 }
