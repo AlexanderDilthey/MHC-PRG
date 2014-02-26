@@ -36,7 +36,7 @@ readFilter::readFilter() {
 	positiveUnique_threshold = 10;
 	negativePreserveUnique_threshold = 10;
 
-	threads = 10;
+	threads = 20;
 }
 
 
@@ -151,7 +151,7 @@ void readFilter::doFilter()
 	
 		unique_kMers = load_positive_kMers_file(uniqueness_base);
 		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
-		DeBruijnGraph<1, 25, 1> subtract_kMers_graph(cortex_height, cortex_width);
+		DeBruijnGraph<1, 31, 1> subtract_kMers_graph(cortex_height, cortex_width);
 		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary " << uniqueness_subtract << "..\n" << std::flush;
 		subtract_kMers_graph.loadMultiColourBinary(uniqueness_subtract);
 		for(std::set<std::string>::iterator kMerIt = unique_kMers.begin(); kMerIt != unique_kMers.end(); kMerIt++)
@@ -164,13 +164,13 @@ void readFilter::doFilter()
 		}
 	}
 
-	DeBruijnGraph<1, 25, 1>* negative_kMers;
+	DeBruijnGraph<1, 31, 1>* negative_kMers;
 	if(apply_filter_negative)
 	{
 		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
 
-		assert(k == 25);
-		negative_kMers = new DeBruijnGraph<1, 25, 1>(cortex_height, cortex_width);
+		assert(k == 31);  
+		negative_kMers = new DeBruijnGraph<1, 31, 1>(cortex_height, cortex_width);
 
 		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary...\n" << std::flush;
 

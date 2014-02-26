@@ -1033,7 +1033,7 @@ int main(int argc, char *argv[])
 
 		std::string output_FASTQ;
 
-		int k = 25;
+		int k = 31;
 
 		bool positiveUnique = false;
 		bool negativePreserveUnique = false;

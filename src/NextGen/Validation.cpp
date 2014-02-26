@@ -557,7 +557,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	double log_likelihood_insertion = log(0.0001);
 	double log_likelihood_deletion = log_likelihood_insertion;
 	int max_mismatches_perRead = 2;
-
+	double min_alignmentFraction_OK = 0.96;
+	
 	// define loci
 	std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
 
@@ -824,6 +825,19 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			return forReturn;
 		};
 
+
+		auto alignmentFractionOK = [](seedAndExtend_return_local& r) -> double {
+			int positions_OK = 0;
+			for(unsigned int i = 0; i < r.graph_aligned.size(); i++)
+			{
+				if(r.graph_aligned.at(i) == r.sequence_aligned.at(i))
+				{
+					positions_OK++;
+				}
+			}
+			return double(positions_OK)/double(r.graph_aligned.size());
+		};
+		
 		auto oneReadAlignment_2_exonPositions = [&](seedAndExtend_return_local& alignment, oneRead& read, std::vector<oneExonPosition>& ret_exonPositions) -> void {
 			int alignment_firstLevel = alignment.alignment_firstLevel();
 			int alignment_lastLevel = alignment.alignment_lastLevel();
@@ -992,11 +1006,28 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			oneReadAlignment_2_exonPositions(alignedReadPair.first, originalReadPair.reads.first, read1_exonPositions);
 			oneReadAlignment_2_exonPositions(alignedReadPair.second, originalReadPair.reads.second, read2_exonPositions);
 
+			// if(originalReadPair.reads.first.name == "@@A819GMABXX:8:2204:2901:85228#GATCAGAT/1")
+			// {	
+				// std::cerr << "!!!!!!!!!!!!!!!!!" << "\n";
+				// std::cerr << "Locus: " << locus << "\n";			
+				// std::cerr << "Read name: " << originalReadPair.reads.first.name << "\n";
+				// std::cerr << "countMismatchesInExon(read1_exonPositions): " << countMismatchesInExon(read1_exonPositions) << "\n" << std::flush;
+				// std::cerr << "Alignment:\n";
+				// std::cerr << "\t" << alignedReadPair.first.graph_aligned << "\n";
+				// std::cerr << "\t" << alignedReadPair.first.sequence_aligned << "\n";				
+				// std::cerr << "!!!!!!!!!!!!!!!!!" << "\n" << std::flush;
+			// }
+			
+			
+			
+			
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
 					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
-					(countMismatchesInExon(read1_exonPositions) < max_mismatches_perRead) &&
-					(countMismatchesInExon(read2_exonPositions) < max_mismatches_perRead)
+					// (countMismatchesInExon(read1_exonPositions) < max_mismatches_perRead) &&
+					// (countMismatchesInExon(read2_exonPositions) < max_mismatches_perRead)
+					(alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK) &&
+					(alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK)					
 			)
 			{
 				// good
@@ -1017,9 +1048,12 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 				// std::cout << "\t\t" << "readPair " << readPairI << "/" < < alignments.size() << ", pairing FAILED.\n" << std::flush;
 
 
-				if((read1_exonPositions.size() > 0) && (countMismatchesInExon(read1_exonPositions) < max_mismatches_perRead))
+				// if((read1_exonPositions.size() > 0) && (countMismatchesInExon(read1_exonPositions) < max_mismatches_perRead))
+				if((read1_exonPositions.size() > 0) && (alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK))
 					exonPositions_fromReads.push_back(read1_exonPositions);
-				if((read2_exonPositions.size() > 0) && (countMismatchesInExon(read2_exonPositions) < max_mismatches_perRead))
+					
+				// if((read2_exonPositions.size() > 0) && (countMismatchesInExon(read2_exonPositions) < max_mismatches_perRead))
+				if((read2_exonPositions.size() > 0) && (alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK))
 					exonPositions_fromReads.push_back(read2_exonPositions);
 					
 				readPairs_broken++;
