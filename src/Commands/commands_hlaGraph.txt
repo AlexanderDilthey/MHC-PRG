@@ -28,14 +28,13 @@ From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived: (I don't know 
 	
 		../bin/MHC-PRG domode filterReads --input_FASTQ test.fastQ --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 --output_FASTQ test_round2.fastQ
 		
-	(this here is to compare new results, with reads inverted & threaded)
 	
-		../bin/MHC-PRG domode filterReads --input_FASTQ anotherTest.fastQ --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 --output_FASTQ anotherTest_round3.fastQ
-		
 	
 	Negative filtering:
 	
 		../bin/MHC-PRG domode filterReads --input_FASTQ test.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx --output_FASTQ test_round2.fastQ
+		
+		../bin/MHC-PRG domode filterReads --input_FASTQ anotherTest.fastQ.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx --output_FASTQ negative_anotherTest.fastQ		
 
 !	../bin/MHC-PRG domode filterReads --input_FASTQ test_positiveUnique.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx --output_FASTQ test_positiveUnique_negativePreserveUnique.fastQ --negativePreserveUnique --uniqueness_base ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --uniqueness_subtract ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx_25
 		

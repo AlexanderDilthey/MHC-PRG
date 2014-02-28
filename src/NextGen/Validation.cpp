@@ -197,11 +197,12 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		assert((referencePosition == -1) || ((referencePosition > 0) && (referencePosition <= referenceSequence.length())));
 	}
 
-	auto singleAlignment2SAM = [&](seedAndExtend_return_local& alignment, oneRead& originalRead) -> void {
+	auto singleAlignment2SAM = [&](seedAndExtend_return_local& alignment, oneRead& originalRead, bool printToStream, int otherReadReferencePosition, bool isFirstRead) -> int {
 		std::string alignment_graph = alignment.graph_aligned;
 		std::string alignment_sequence = alignment.sequence_aligned;
 		std::vector<int> levels_separated = alignment.graph_aligned_levels;
 
+		assert((otherReadReferencePosition == -1) || (otherReadReferencePosition > 0));
 		assert(levels_separated.size() == alignment_sequence.length());
 
 		std::vector<int> levels_separated_2_reference;
@@ -294,10 +295,29 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		readCharacters_noGaps.erase(std::remove_if(readCharacters_noGaps.begin(),readCharacters_noGaps.end(), [&](char c){return ((c == '_') ? true : false);}), readCharacters_noGaps.end());
 
 		size_t FLAGS_sizeT = 0;
+		bool bothReadsProperlyAligned = false;
 		//FLAGS_sizeT = (FLAGS_sizeT || 0x2);
 		if((firstReferencePosition != -1) || (lastReferencePosition != -1))
 		{
+			if(isFirstRead)
+			{
+				FLAGS_sizeT = (FLAGS_sizeT || 0x40);
+			}
+			else
+			{
+				FLAGS_sizeT = (FLAGS_sizeT || 0x80);
+			}
+
+			if(otherReadReferencePosition)
+			{
+				FLAGS_sizeT = (FLAGS_sizeT || 0x2);
+				bothReadsProperlyAligned = true;
+			}
+		}
+		else
+		{
 			FLAGS_sizeT = (FLAGS_sizeT || 0x4);
+			bothReadsProperlyAligned = false;
 		}
 
 		int lastPrintedRealReferencePosition = -1;
@@ -389,37 +409,43 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		}
 
 		assert(readCharacters_noGaps.length() == (CIGAR_sum_M + CIGAR_sum_I));
-		double P_mapping_wrong = 0.001;
 
-		std::string QUALforSAM = originalRead.quality;
-		if(alignment.reverse)
+		if(printToStream)
 		{
-			std::reverse(QUALforSAM.begin(), QUALforSAM.end());
-		}
-		std::string QNAME = readIDForSAM;
-		std::string FLAG = Utilities::ItoStr(FLAGS_sizeT);
-		std::string RNAME = "ref";
-		std::string POS = Utilities::ItoStr(firstReferencePosition);
-		std::string MAPQ = Utilities::ItoStr(-10.0*log10(P_mapping_wrong)+0.5);
-		std::string CIGAR = CIGAR_compressed;
-		std::string RNEXT = "*";
-		std::string PNEXT = "0";
-		std::string TLEN = Utilities::ItoStr(lastReferencePosition - firstReferencePosition + 1);
-		std::string SEQ = readCharacters_noGaps;
-		std::string QUAL = QUALforSAM;
+			double P_mapping_wrong = 1 - alignment.mapQ;
 
-		SAMoutputStream <<
-			QNAME << "\t" <<
-			FLAG << "\t" <<
-			RNAME << "\t" <<
-			POS << "\t" <<
-			MAPQ << "\t" <<
-			CIGAR << "\t" <<
-			RNEXT << "\t" <<
-			PNEXT << "\t" <<
-			TLEN << "\t" <<
-			SEQ << "\t" <<
-			QUAL << "\n" << std::flush;
+			std::string QUALforSAM = originalRead.quality;
+			if(alignment.reverse)
+			{
+				std::reverse(QUALforSAM.begin(), QUALforSAM.end());
+			}
+			std::string QNAME = readIDForSAM;
+			std::string FLAG = Utilities::ItoStr(FLAGS_sizeT);
+			std::string RNAME = "ref";
+			std::string POS = Utilities::ItoStr(firstReferencePosition);
+			std::string MAPQ = Utilities::ItoStr(-10.0*log10(P_mapping_wrong)+0.5);
+			std::string CIGAR = CIGAR_compressed;
+			std::string RNEXT = (bothReadsProperlyAligned) ? "*" : "=";
+			std::string PNEXT = Utilities::ItoStr(otherReadReferencePosition);
+			std::string TLEN = Utilities::ItoStr(lastReferencePosition - firstReferencePosition + 1);
+			std::string SEQ = readCharacters_noGaps;
+			std::string QUAL = QUALforSAM;
+
+			SAMoutputStream <<
+				QNAME << "\t" <<
+				FLAG << "\t" <<
+				RNAME << "\t" <<
+				POS << "\t" <<
+				MAPQ << "\t" <<
+				CIGAR << "\t" <<
+				RNEXT << "\t" <<
+				PNEXT << "\t" <<
+				TLEN << "\t" <<
+				SEQ << "\t" <<
+				QUAL << "\n" << std::flush;
+
+			return firstReferencePosition;
+		}
 	};
 
 	for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
@@ -428,8 +454,11 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& thisPair_alignment = alignments.at(alignmentI);
 		// std::pair<std::string, std::string>& thisPair_readIDs = alignments_readIDs.at(alignmentI);
 		
-		singleAlignment2SAM(thisPair_alignment.first, originalReads.at(alignmentI).reads.first);
-		singleAlignment2SAM(thisPair_alignment.second, originalReads.at(alignmentI).reads.second);
+		int firstRead_firstReferencePosition = singleAlignment2SAM(thisPair_alignment.first, originalReads.at(alignmentI).reads.first, false, -1, 1);
+		int secondRead_firstReferencePosition = singleAlignment2SAM(thisPair_alignment.second, originalReads.at(alignmentI).reads.second, false, -1, 0);
+
+		singleAlignment2SAM(thisPair_alignment.first, originalReads.at(alignmentI).reads.first, true, secondRead_firstReferencePosition, 1);
+		singleAlignment2SAM(thisPair_alignment.second, originalReads.at(alignmentI).reads.second, true, firstRead_firstReferencePosition, 0);
 	}
 
 /*
@@ -638,7 +667,101 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	
 	std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads -- done. Have " << alignments.size() << " read pairs.\n" << std::flush;
 
-	
+	// read alignment statistics
+
+	class oneExonPosition {
+	public:
+		unsigned int positionInExon;
+		int graphLevel;
+		std::string genotype;
+		std::string alignment_edgelabels;
+		std::string qualities;
+	};
+
+	auto countMismatchesInExon = [](std::vector<oneExonPosition>& exonPositions) -> int {
+		int forReturn = 0;
+		for(unsigned int i = 0; i < exonPositions.size(); i++)
+		{
+			if(exonPositions.at(i).genotype != exonPositions.at(i).alignment_edgelabels)
+			{
+				forReturn++;
+			}
+		}
+		return forReturn;
+	};
+
+
+	auto alignmentFractionOK = [](seedAndExtend_return_local& r) -> double {
+		int positions_OK = 0;
+		for(unsigned int i = 0; i < r.graph_aligned.size(); i++)
+		{
+			if(r.graph_aligned.at(i) == r.sequence_aligned.at(i))
+			{
+				positions_OK++;
+			}
+		}
+		return double(positions_OK)/double(r.graph_aligned.size());
+	};
+
+	auto printPerc = [](double v1, double v2) -> std::string {
+		double perc = (v1/v2) * 100;
+		return Utilities::DtoStr(perc);
+	};
+
+	auto meanMedian = [](std::vector<double> L) -> std::pair<double, double> {
+		std::sort(L.begin(), L.end());
+		double S = 0;
+		for(unsigned int i = 0; i < L.size(); i++)
+		{
+			S *= L.at(i);
+		}
+		double mean = 0;
+		double median = 0;
+		if(L.size() > 0)
+		{
+			mean = S / (double)L.size();
+			unsigned int medium_index = L.size() / 2;
+			median = L.at(medium_index);
+		}
+		return make_pair(mean, median);
+	};
+
+	int alignmentStats_strandsValid = 0;
+	int alignmentStats_strandsValid_and_distanceOK = 0;
+	std::vector<double> alignmentStats_strandsValid_distances;
+	double alignmentStats_fractionOK_sum = 0;
+	for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
+	{
+
+		std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments.at(alignmentI);
+
+		if(alignedReadPair_strandsValid(alignedReadPair))
+		{
+			alignmentStats_strandsValid++;
+			double pairsDistance = alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair);
+			alignmentStats_strandsValid_distances.push_back(pairsDistance);
+			if(abs(pairsDistance - insertSize_mean) <= (5 * insertSize_sd))
+			{
+				alignmentStats_strandsValid_and_distanceOK++;
+			}
+		}
+
+		alignmentStats_fractionOK_sum += alignmentFractionOK(alignedReadPair.first);
+		alignmentStats_fractionOK_sum += alignmentFractionOK(alignedReadPair.second);
+	}
+
+	std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
+	double alignmentStats_fractionOK_avg = (alignments.size() > 0) ? (alignmentStats_fractionOK_sum / (double)alignments.size()) : 0;
+
+	std::cout << "\nRead alignment statistics:\n";
+	std::cout << "\t - Total number (paired) alignments:                 " << alignments.size() << "\n";
+	std::cout << "\t - Alignment pairs with strands OK:                  " << alignmentStats_strandsValid << " (" << printPerc(alignmentStats_strandsValid, alignments.size()) << "%)\n";
+	std::cout << "\t - Alignment pairs with strands OK && distance OK:   " << alignmentStats_strandsValid_and_distanceOK << " (" << printPerc(alignmentStats_strandsValid_and_distanceOK, alignments.size()) << "%)\n";
+	std::cout << "\t - Alignment pairs with strands OK, mean distance:   " << alignmentStats_distance_meanMedian.first << "\n";
+	std::cout << "\t - Alignment pairs with strands OK, median distance: " << alignmentStats_distance_meanMedian.second << "\n";
+	std::cout << "\t - Alignment pairs, average fraction alignment OK:   " << alignmentStats_fractionOK_avg << "\n";
+	std::cout << "\n" << std::flush;
+
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
 	{
 		std::string locus = loci.at(locusI);
@@ -801,42 +924,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 
 		std::cout << Utilities::timestamp() << "Compute exon positions and specified genotypes from reads\n" << std::flush;
 
-		class oneExonPosition {
-		public:
-			unsigned int positionInExon;
-			int graphLevel;
-			std::string genotype;
-			std::string alignment_edgelabels;
-			std::string qualities;
-		};
-
 		std::vector< std::vector<oneExonPosition> > exonPositions_fromReads;
-
-
-		auto countMismatchesInExon = [](std::vector<oneExonPosition>& exonPositions) -> int {
-			int forReturn = 0;
-			for(unsigned int i = 0; i < exonPositions.size(); i++)
-			{
-				if(exonPositions.at(i).genotype != exonPositions.at(i).alignment_edgelabels)
-				{
-					forReturn++;
-				}
-			}
-			return forReturn;
-		};
-
-
-		auto alignmentFractionOK = [](seedAndExtend_return_local& r) -> double {
-			int positions_OK = 0;
-			for(unsigned int i = 0; i < r.graph_aligned.size(); i++)
-			{
-				if(r.graph_aligned.at(i) == r.sequence_aligned.at(i))
-				{
-					positions_OK++;
-				}
-			}
-			return double(positions_OK)/double(r.graph_aligned.size());
-		};
 		
 		auto oneReadAlignment_2_exonPositions = [&](seedAndExtend_return_local& alignment, oneRead& read, std::vector<oneExonPosition>& ret_exonPositions) -> void {
 			int alignment_firstLevel = alignment.alignment_firstLevel();

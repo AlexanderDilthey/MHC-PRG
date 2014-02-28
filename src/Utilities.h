@@ -86,6 +86,7 @@ public:
 	static bool oneBernoulliTrial(double p, boost::mt19937& rng);
 
 	static double PhredToPCorrect(char nucleotideQuality);
+	static char PCorrectToPhred(double PCorrect);
 
 
 	static bool fileReadable(std::string file);

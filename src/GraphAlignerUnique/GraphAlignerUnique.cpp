@@ -1379,6 +1379,8 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	// assert(readPair.reads.second.sequence.find("*") == std::string::npos);
 	// assert(readPair.reads.second.sequence.find("N") == std::string::npos);
 
+	seedAndExtend_return_local read1_maxBacktrace;
+	seedAndExtend_return_local read2_maxBacktrace;
 	std::vector<seedAndExtend_return_local> read1_backtraces;
 	std::vector<seedAndExtend_return_local> read2_backtraces;
 
@@ -1387,46 +1389,84 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 	//boost::random::normal_distribution<> rnd_InsertSize (insertSize_mean, insertSize_sd);
 
+
+	if(use_short)
+	{
+		read1_maxBacktrace = seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces);
+		read2_maxBacktrace = seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces);
+	}
+	else
+	{
+		read1_maxBacktrace = seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
+		read2_maxBacktrace = seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
+	}
+
+	auto filterBacktraces = [](std::vector<seedAndExtend_return_local> backtraces) -> std::vector<seedAndExtend_return_local> {
+		std::set<std::string> backtraces_present;
+		std::vector<seedAndExtend_return_local> forReturn;
+		for(unsigned int i = 0; i < backtraces.size(); i++)
+		{
+			seedAndExtend_return_local& thisBacktrace = backtraces.at(i);
+			std::string separator = "///!!!///";
+			std::string serialization = thisBacktrace.graph_aligned + separator +
+										thisBacktrace.sequence_aligned + separator +
+										Utilities::join(Utilities::ItoStr(thisBacktrace.graph_aligned_levels), ";") + separator +
+										Utilities::ItoStr(thisBacktrace.reverse);
+
+			if(! backtraces_present.count(serialization))
+			{
+				backtraces_present.insert(serialization);
+				forReturn.push_back(backtraces.at(i));
+			}
+		}
+		return forReturn;
+	};
+
+	auto findMax_and_normalize_loglikelihoods = [](std::vector<double> v) -> std::pair<double, unsigned int> {
+		std::pair<double, unsigned int> v_max = Utilities::findVectorMax(v);
+		double v_exp_sum = 0;
+		for(unsigned int i = 0; i < v.size(); i++)
+		{
+			v.at(i) = exp(v.at(i) - v_max.first);
+			assert(v.at(i) >= 0);
+			assert(v.at(i) <= 1);
+			v_exp_sum += v.at(i);
+		}
+		double v_normalized_max = v.at(v_max.second) / v_exp_sum;
+		return make_pair(v_normalized_max, v_max.second);
+	};
+
+	read1_backtraces = filterBacktraces(read1_backtraces);
+	read2_backtraces = filterBacktraces(read2_backtraces);
+
+	if(verbose) std::cout << "Read 1 alternatives:\n" << std::flush;
+	std::vector<double> likelihoods_read1_alternatives;
+	for(unsigned int i = 0; i < read1_backtraces.size(); i++)
+	{
+		seedAndExtend_return_local& thisBacktrace = read1_backtraces.at(i);
+		int ignore;
+		double LL = scoreOneAlignment(readPair.reads.first, thisBacktrace, ignore);
+		likelihoods_read1_alternatives.push_back(LL);
+
+		if(verbose) std::cout << "\t" << i << " " << LL << " [" << thisBacktrace.graph_aligned_levels.front() << " - " << thisBacktrace.graph_aligned_levels.back() << "]\n" << std::flush;
+	}
+	assert(likelihoods_read1_alternatives.size() == read1_backtraces.size());
+
+	if(verbose) std::cout << "Read 2 alternatives:\n" << std::flush;
+	std::vector<double> likelihoods_read2_alternatives;
+	for(unsigned int i = 0; i < read2_backtraces.size(); i++)
+	{
+		seedAndExtend_return_local& thisBacktrace = read2_backtraces.at(i);
+		int ignore;
+		double LL = scoreOneAlignment(readPair.reads.second, thisBacktrace, ignore);
+		likelihoods_read2_alternatives.push_back(LL);
+
+		if(verbose) std::cout << "\t" << i << " " << LL << " [" << thisBacktrace.graph_aligned_levels.front() << " - " << thisBacktrace.graph_aligned_levels.back() << "]\n" << std::flush;
+	}
+	assert(likelihoods_read2_alternatives.size() == read2_backtraces.size());
+
 	if(usePairing)
 	{
-		if(use_short)
-		{
-			seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces);
-			seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces);
-		}
-		else
-		{
-			seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
-			seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
-		}
-
-		if(verbose) std::cout << "Read 1 alternatives:\n" << std::flush;
-		std::vector<double> likelihoods_read1_alternatives;
-		for(unsigned int i = 0; i < read1_backtraces.size(); i++)
-		{
-			seedAndExtend_return_local& thisBacktrace = read1_backtraces.at(i);
-			int ignore;
-			double LL = scoreOneAlignment(readPair.reads.first, thisBacktrace, ignore);
-			likelihoods_read1_alternatives.push_back(LL);
-			
-			if(verbose) std::cout << "\t" << i << " " << LL << " [" << thisBacktrace.graph_aligned_levels.front() << " - " << thisBacktrace.graph_aligned_levels.back() << "]\n" << std::flush;
-		}
-		assert(likelihoods_read1_alternatives.size() == read1_backtraces.size());
-
-		if(verbose) std::cout << "Read 2 alternatives:\n" << std::flush;		
-		std::vector<double> likelihoods_read2_alternatives;
-		for(unsigned int i = 0; i < read2_backtraces.size(); i++)
-		{
-			seedAndExtend_return_local& thisBacktrace = read2_backtraces.at(i);
-			int ignore;
-			double LL = scoreOneAlignment(readPair.reads.second, thisBacktrace, ignore);
-			likelihoods_read2_alternatives.push_back(LL);
-			
-			if(verbose) std::cout << "\t" << i << " " << LL << " [" << thisBacktrace.graph_aligned_levels.front() << " - " << thisBacktrace.graph_aligned_levels.back() << "]\n" << std::flush;
-		}
-		assert(likelihoods_read2_alternatives.size() == read2_backtraces.size());
-
-		
 		// todo check whether this is correct - might be that distance calculation is wrong for read pairs with read1 reverse.
 		std::vector<double> combinedScores;
 		std::vector<std::pair<unsigned int, unsigned int> > combinedScores_indices;
@@ -1483,7 +1523,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			}
 		}
 
-		std::pair<double, unsigned int> bestCombination = Utilities::findVectorMax(combinedScores);
+		std::pair<double, unsigned int> bestCombination = findMax_and_normalize_loglikelihoods(combinedScores);
 
 		if(verbose)
 		{
@@ -1492,14 +1532,25 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		
 		std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
 		forReturn.first = read1_backtraces.at(combinedScores_indices.at(bestCombination.second).first);
+		forReturn.first.mapQ = bestCombination.first;
 		forReturn.second = read2_backtraces.at(combinedScores_indices.at(bestCombination.second).second);
+		forReturn.second.mapQ = bestCombination.first;
+
 		return forReturn;
 	}
 	else
 	{
 		std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
-		forReturn.first = (use_short)? seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces) : seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
-		forReturn.second = (use_short) ? seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces) : seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
+
+		std::pair<double, unsigned int> read1_backtraces_max = findMax_and_normalize_loglikelihoods(likelihoods_read1_alternatives);
+		std::pair<double, unsigned int> read2_backtraces_max = findMax_and_normalize_loglikelihoods(likelihoods_read2_alternatives);
+
+		forReturn.first = read1_backtraces.at(read1_backtraces_max.second);
+		forReturn.first.mapQ = read1_backtraces_max.first;
+
+		forReturn.second = read2_backtraces.at(read2_backtraces_max.second);
+		forReturn.second.mapQ = read2_backtraces_max.first;
+
 		return forReturn;
 	}
 }
