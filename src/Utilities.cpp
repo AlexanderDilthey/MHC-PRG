@@ -51,6 +51,16 @@ std::vector<int> Utilities::StrtoI(std::vector<std::string> s)
 	return forReturn;
 }
 
+char Utilities::PCorrectToPhred(double PCorrect)
+{
+	assert(PCorrect > 0);
+	assert(PCorrect <= 1);
+
+	double phred1 = -10.0 * log10(PCorrect);
+
+	return (char)(phred1 + 33);
+}
+
 std::string Utilities::JoinMapUInt2Str(std::map<std::string, unsigned int> M)
 {
 	std::vector<std::string> forReturn_parts;
