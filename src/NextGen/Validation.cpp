@@ -443,9 +443,9 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 				TLEN << "\t" <<
 				SEQ << "\t" <<
 				QUAL << "\n" << std::flush;
-
-			return firstReferencePosition;
 		}
+
+		return firstReferencePosition;
 	};
 
 	for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
