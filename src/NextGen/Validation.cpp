@@ -713,7 +713,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 		double S = 0;
 		for(unsigned int i = 0; i < L.size(); i++)
 		{
-			S *= L.at(i);
+			S += L.at(i);
+			std::cout << L.at(i) << " ";
 		}
 		double mean = 0;
 		double median = 0;
@@ -751,7 +752,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	}
 
 	std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
-	double alignmentStats_fractionOK_avg = (alignments.size() > 0) ? (alignmentStats_fractionOK_sum / (double)alignments.size()) : 0;
+	double alignmentStats_fractionOK_avg = (alignments.size() > 0) ? (alignmentStats_fractionOK_sum / (2.0* (double)alignments.size())) : 0;
 
 	std::cout << "\nRead alignment statistics:\n";
 	std::cout << "\t - Total number (paired) alignments:                 " << alignments.size() << "\n";

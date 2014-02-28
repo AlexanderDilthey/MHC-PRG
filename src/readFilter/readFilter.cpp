@@ -151,7 +151,7 @@ void readFilter::doFilter()
 	
 		unique_kMers = load_positive_kMers_file(uniqueness_base);
 		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
-		DeBruijnGraph<1, 31, 1> subtract_kMers_graph(cortex_height, cortex_width);
+		DeBruijnGraph<1, 25, 1> subtract_kMers_graph(cortex_height, cortex_width);
 		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary " << uniqueness_subtract << "..\n" << std::flush;
 		subtract_kMers_graph.loadMultiColourBinary(uniqueness_subtract);
 		for(std::set<std::string>::iterator kMerIt = unique_kMers.begin(); kMerIt != unique_kMers.end(); kMerIt++)
@@ -164,13 +164,13 @@ void readFilter::doFilter()
 		}
 	}
 
-	DeBruijnGraph<1, 31, 1>* negative_kMers;
+	DeBruijnGraph<1, 25, 1>* negative_kMers;
 	if(apply_filter_negative)
 	{
 		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
 
-		assert(k == 31);  
-		negative_kMers = new DeBruijnGraph<1, 31, 1>(cortex_height, cortex_width);
+		assert(k == 25);  
+		negative_kMers = new DeBruijnGraph<1, 25, 1>(cortex_height, cortex_width);
 
 		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary...\n" << std::flush;
 
@@ -183,9 +183,13 @@ void readFilter::doFilter()
 
 	std::function<bool(const fastq_readPair&)> decisionFunction = [&](const fastq_readPair& read) -> bool {
 
-		std::vector<std::string> kMers_1 = partitionStringIntokMers(read.a1.sequence, k);
-		std::vector<std::string> kMers_2 = partitionStringIntokMers(read.a2.sequence, k);
+		std::vector<std::string> kMers_1_fwd = partitionStringIntokMers(read.a1.sequence, k);
+		std::vector<std::string> kMers_2_fwd = partitionStringIntokMers(seq_reverse_complement(read.a2.sequence), k);
 
+		std::vector<std::string> kMers_1_rev = partitionStringIntokMers(seq_reverse_complement(read.a1.sequence), k);
+		std::vector<std::string> kMers_2_rev = partitionStringIntokMers(read.a2.sequence, k);
+
+		
 		bool pass_positive = true;
 		if(apply_filter_positive)
 		{
@@ -199,12 +203,12 @@ void readFilter::doFilter()
 			int kMers_1_forward_unique = 0;
 			int kMers_2_forward_unique = 0;
 
-			kMers_1_forward_TOTAL += kMers_1.size();
-			kMers_2_forward_TOTAL += kMers_2.size();
+			kMers_1_forward_TOTAL += kMers_1_fwd.size();
+			kMers_2_forward_TOTAL += kMers_2_fwd.size();
 
-			for(unsigned int kI = 0; kI < kMers_1.size(); kI++)
+			for(unsigned int kI = 0; kI < kMers_1_fwd.size(); kI++)
 			{
-				std::string kMer = kMers_1.at(kI);
+				std::string kMer = kMers_1_fwd.at(kI);
 				if(positive_kMers.count(kMer))
 				{
 					kMers_1_forward_OK++;
@@ -216,9 +220,9 @@ void readFilter::doFilter()
 				}
 			}
 
-			for(unsigned int kI = 0; kI < kMers_2.size(); kI++)
+			for(unsigned int kI = 0; kI < kMers_2_fwd.size(); kI++)
 			{
-				std::string kMer = kMers_2.at(kI);
+				std::string kMer = kMers_2_fwd.at(kI);
 				if(positive_kMers.count(kMer))
 				{
 					kMers_2_forward_OK++;
@@ -244,13 +248,13 @@ void readFilter::doFilter()
 			int kMers_1_reverse_unique = 0;
 			int kMers_2_reverse_unique = 0;
 
-			kMers_1_reverse_TOTAL += kMers_1.size();
-			kMers_2_reverse_TOTAL += kMers_2.size();
+			kMers_1_reverse_TOTAL += kMers_1_rev.size();
+			kMers_2_reverse_TOTAL += kMers_2_rev.size();
 
 
-			for(unsigned int kI = 0; kI < kMers_1.size(); kI++)
+			for(unsigned int kI = 0; kI < kMers_1_rev.size(); kI++)
 			{
-				std::string kMer = seq_reverse_complement(kMers_1.at(kI));
+				std::string kMer = kMers_1_rev.at(kI);
 				if(positive_kMers.count(kMer))
 				{
 					kMers_1_reverse_OK++;
@@ -261,9 +265,9 @@ void readFilter::doFilter()
 				}
 			}
 
-			for(unsigned int kI = 0; kI < kMers_2.size(); kI++)
+			for(unsigned int kI = 0; kI < kMers_2_rev.size(); kI++)
 			{
-				std::string kMer = seq_reverse_complement(kMers_2.at(kI));
+				std::string kMer = kMers_2_rev.at(kI);
 				if(positive_kMers.count(kMer))
 				{
 					kMers_2_reverse_OK++;
@@ -274,8 +278,8 @@ void readFilter::doFilter()
 				}
 			}
 
-//			double reverse_1_optim = (kMers_1_reverse_TOTAL == 0) ? 0 : (kMers_1_reverse_OK / kMers_1_reverse_TOTAL);
-//			double reverse_2_optim = (kMers_2_reverse_TOTAL == 0) ? 0 : (kMers_2_reverse_OK / kMers_2_reverse_TOTAL);
+			double reverse_1_optim = (kMers_1_reverse_TOTAL == 0) ? 0 : (kMers_1_reverse_OK / kMers_1_reverse_TOTAL);
+			double reverse_2_optim = (kMers_2_reverse_TOTAL == 0) ? 0 : (kMers_2_reverse_OK / kMers_2_reverse_TOTAL);
 			double reverse_combined_optim = ((kMers_1_reverse_TOTAL + kMers_2_reverse_TOTAL) == 0) ? 0 : ((kMers_1_reverse_OK + kMers_2_reverse_OK) / (kMers_1_reverse_TOTAL + kMers_2_reverse_TOTAL));
 
 			int forward_combined_unique = kMers_1_forward_unique + kMers_2_forward_unique;
@@ -286,7 +290,8 @@ void readFilter::doFilter()
 			
 			// std::cout << read.a1.readID << " // " << read.a2.readID << ": " << forward_combined_optim << " / " << reverse_combined_optim << "\n";
 
-			pass_positive = ((forward_combined_optim >= positiveThreshold) || (reverse_combined_optim >= positiveThreshold));
+			//pass_positive = ((forward_combined_optim >= positiveThreshold) || (reverse_combined_optim >= positiveThreshold));
+			pass_positive = (((forward_1_optim >= positiveThreshold) && (forward_2_optim >= positiveThreshold)) || ((reverse_1_optim >= positiveThreshold) && (reverse_2_optim >= positiveThreshold)));
 
 			if(positiveUnique)
 			{
@@ -304,21 +309,21 @@ void readFilter::doFilter()
 			double kMers_1_TOTAL = 0;
 			double kMers_2_TOTAL = 0;
 
-			kMers_1_TOTAL += kMers_1.size();
-			kMers_2_TOTAL += kMers_2.size();
+			kMers_1_TOTAL += kMers_1_fwd.size();
+			kMers_2_TOTAL += kMers_2_fwd.size();
 
-			for(unsigned int kI = 0; kI < kMers_1.size(); kI++)
+			for(unsigned int kI = 0; kI < kMers_1_fwd.size(); kI++)
 			{
-				std::string kMer = kMers_1.at(kI);
+				std::string kMer = kMers_1_fwd.at(kI);
 				if(negative_kMers->kMerinGraph(kMer))
 				{
 					kMers_1_notOK++;
 				}
 			}
 
-			for(unsigned int kI = 0; kI < kMers_2.size(); kI++)
+			for(unsigned int kI = 0; kI < kMers_2_fwd.size(); kI++)
 			{
-				std::string kMer = kMers_2.at(kI);
+				std::string kMer = kMers_2_fwd.at(kI);
 				if(negative_kMers->kMerinGraph(kMer))
 				{
 					kMers_2_notOK++;
@@ -329,37 +334,38 @@ void readFilter::doFilter()
 			int kMers_2_forward_unique = 0;
 			int kMers_1_reverse_unique = 0;
 			int kMers_2_reverse_unique = 0;
+			
 			if(negativePreserveUnique)
 			{
-				for(unsigned int kI = 0; kI < kMers_1.size(); kI++)
+				for(unsigned int kI = 0; kI < kMers_1_fwd.size(); kI++)
 				{
-					std::string kMer = kMers_1.at(kI);
+					std::string kMer = kMers_1_fwd.at(kI);
 					if(unique_kMers.count(kMer))
 					{
 						kMers_1_forward_unique++;
 					}
 				}
-				for(unsigned int kI = 0; kI < kMers_2.size(); kI++)
+				for(unsigned int kI = 0; kI < kMers_2_fwd.size(); kI++)
 				{
-					std::string kMer = kMers_2.at(kI);
+					std::string kMer = kMers_2_fwd.at(kI);
 					if(unique_kMers.count(kMer))
 					{
 						kMers_2_forward_unique++;
 					}
 				}
 
-				for(unsigned int kI = 0; kI < kMers_1.size(); kI++)
+				for(unsigned int kI = 0; kI < kMers_1_rev.size(); kI++)
 				{
-					std::string kMer = seq_reverse_complement(kMers_1.at(kI));
+					std::string kMer = kMers_1_rev.at(kI);
 					if(unique_kMers.count(kMer))
 					{
 						kMers_1_reverse_unique++;
 					}
 				}
 
-				for(unsigned int kI = 0; kI < kMers_2.size(); kI++)
+				for(unsigned int kI = 0; kI < kMers_2_rev.size(); kI++)
 				{
-					std::string kMer = seq_reverse_complement(kMers_2.at(kI));
+					std::string kMer = kMers_1_rev.at(kI);
 					if(unique_kMers.count(kMer))
 					{
 						kMers_2_reverse_unique++;
@@ -398,10 +404,13 @@ void readFilter::doFilter()
 				  << read.a1.qualities   << "\n";
 
 		// todo check - reverse complement
-		std::string read_2_sequence_forPrint = seq_reverse_complement(read.a2.sequence);
+		// std::string read_2_sequence_forPrint = seq_reverse_complement(read.a2.sequence);
+		// std::string read_2_qualities_forPrint = read.a2.qualities;
+		// std::reverse(read_2_qualities_forPrint.begin(), read_2_qualities_forPrint.end());
+		
+		std::string read_2_sequence_forPrint = read.a2.sequence;
 		std::string read_2_qualities_forPrint = read.a2.qualities;
-		std::reverse(read_2_qualities_forPrint.begin(), read_2_qualities_forPrint.end());
-
+		
 		fastq_2_output << "@" << read.a2.readID << "\n"
 						  << read_2_sequence_forPrint    << "\n"
 						  << "+"         << "\n"
@@ -515,8 +524,8 @@ void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2
 		simpleAlignment_1.sequence = read1_sequence;
 
 		// todo check - reverse complement
-		read2_sequence = seq_reverse_complement(read2_sequence);
-		std::reverse(read2_qualities.begin(), read2_qualities.end());
+		// read2_sequence = seq_reverse_complement(read2_sequence);
+		// std::reverse(read2_qualities.begin(), read2_qualities.end());
 
 		BAMalignment simpleAlignment_2;
 		simpleAlignment_2.readID = read2_ID;

@@ -448,7 +448,7 @@ std::vector<int> GraphAligner::_graph_get_previous_z_values(int x, int z)
 
 bool alignedReadPair_strandsValid(std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& p)
 {
-	return ((p.first.alignment_firstLevel() != -1) && (p.second.alignment_firstLevel() != 0) && (p.first.reverse != p.second.reverse));
+	return ((p.first.alignment_firstLevel() != -1) && (p.second.alignment_firstLevel() != -1) && (p.first.reverse != p.second.reverse));
 }
 
 int alignedReadPair_pairsDistanceInGraphLevels(std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& p)

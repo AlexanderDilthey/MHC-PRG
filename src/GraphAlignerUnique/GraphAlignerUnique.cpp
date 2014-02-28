@@ -1427,7 +1427,13 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		double v_exp_sum = 0;
 		for(unsigned int i = 0; i < v.size(); i++)
 		{
+			assert(v.at(i) <= v_max.first);
 			v.at(i) = exp(v.at(i) - v_max.first);
+			if(!(v.at(i) >= 0))
+			{
+				std::cerr << "! (v.at(i) >= 0)" << "\n" << std::flush;
+				std::cerr << v.at(i) << "\n" << std::flush;
+			}	
 			assert(v.at(i) >= 0);
 			assert(v.at(i) <= 1);
 			v_exp_sum += v.at(i);
@@ -1465,6 +1471,9 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	}
 	assert(likelihoods_read2_alternatives.size() == read2_backtraces.size());
 
+	double max_insertsize_penalty = boost::math::pdf(rnd_InsertSize, insertSize_mean + 8 * insertSize_sd);
+	assert(max_insertsize_penalty > 0);
+	assert(max_insertsize_penalty <= 1);
 	if(usePairing)
 	{
 		// todo check whether this is correct - might be that distance calculation is wrong for read pairs with read1 reverse.
@@ -1506,16 +1515,22 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					int distance_graph_levels = alignedReadPair_pairsDistanceInGraphLevels(rP);
 					double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
 
-					assert((distance_graph_levels_P >= 0) && (distance_graph_levels_P <= 1));
+					if(!(distance_graph_levels_P > 0))
+					{
+						// std::cerr << "!(distance_graph_levels_P > 0)" << "\n";
+						// std::cerr << "distance_graph_levels_P: " << distance_graph_levels_P << "\n";
+						// std::cerr << "distance_graph_levels: " << distance_graph_levels << "\n" << std::flush;
+						distance_graph_levels_P = max_insertsize_penalty;
+						// std::cerr << "penalty: " << distance_graph_levels_P << "\n" << std::flush;
+					}
+					assert((distance_graph_levels_P > 0) && (distance_graph_levels_P <= 1));
 
 					combinedScore += log(distance_graph_levels_P);
 					
 				}
 				else
 				{
-					double penalty = boost::math::pdf(rnd_InsertSize, insertSize_mean + 10 * insertSize_sd);
-					assert((penalty >= 0) && (penalty <= 1));
-					combinedScore += log(penalty);
+					combinedScore += log(max_insertsize_penalty);
 				}
 				
 				combinedScores.push_back(combinedScore);
