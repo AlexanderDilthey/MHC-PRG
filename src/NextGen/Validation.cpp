@@ -297,27 +297,32 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 		size_t FLAGS_sizeT = 0;
 		bool bothReadsProperlyAligned = false;
 		//FLAGS_sizeT = (FLAGS_sizeT || 0x2);
+//		if((firstReferencePosition != -1) || (lastReferencePosition != -1))
+//		{
+//			if(isFirstRead)
+//			{
+//				FLAGS_sizeT = (FLAGS_sizeT || 0x40);
+//			}
+//			else
+//			{
+//				FLAGS_sizeT = (FLAGS_sizeT || 0x80);
+//			}
+//
+//			if(otherReadReferencePosition)
+//			{
+//				FLAGS_sizeT = (FLAGS_sizeT || 0x2);
+//				bothReadsProperlyAligned = true;
+//			}
+//		}
+//		else
+//		{
+//			FLAGS_sizeT = (FLAGS_sizeT || 0x4);
+//			bothReadsProperlyAligned = false;
+//		}
+
 		if((firstReferencePosition != -1) || (lastReferencePosition != -1))
 		{
-			if(isFirstRead)
-			{
-				FLAGS_sizeT = (FLAGS_sizeT || 0x40);
-			}
-			else
-			{
-				FLAGS_sizeT = (FLAGS_sizeT || 0x80);
-			}
-
-			if(otherReadReferencePosition)
-			{
-				FLAGS_sizeT = (FLAGS_sizeT || 0x2);
-				bothReadsProperlyAligned = true;
-			}
-		}
-		else
-		{
 			FLAGS_sizeT = (FLAGS_sizeT || 0x4);
-			bothReadsProperlyAligned = false;
 		}
 
 		int lastPrintedRealReferencePosition = -1;
@@ -412,12 +417,13 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 
 		if(printToStream)
 		{
-			double P_mapping_wrong = 1 - alignment.mapQ;
+			double P_mapping_wrong = 0.001;
 
 			std::string QUALforSAM = originalRead.quality;
 			if(alignment.reverse)
 			{
 				std::reverse(QUALforSAM.begin(), QUALforSAM.end());
+
 			}
 			std::string QNAME = readIDForSAM;
 			std::string FLAG = Utilities::ItoStr(FLAGS_sizeT);
@@ -425,8 +431,8 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 			std::string POS = Utilities::ItoStr(firstReferencePosition);
 			std::string MAPQ = Utilities::ItoStr(-10.0*log10(P_mapping_wrong)+0.5);
 			std::string CIGAR = CIGAR_compressed;
-			std::string RNEXT = (bothReadsProperlyAligned) ? "*" : "=";
-			std::string PNEXT = Utilities::ItoStr(otherReadReferencePosition);
+			std::string RNEXT = "*";
+			std::string PNEXT = "0";
 			std::string TLEN = Utilities::ItoStr(lastReferencePosition - firstReferencePosition + 1);
 			std::string SEQ = readCharacters_noGaps;
 			std::string QUAL = QUALforSAM;
@@ -443,6 +449,38 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 				TLEN << "\t" <<
 				SEQ << "\t" <<
 				QUAL << "\n" << std::flush;
+
+//			double P_mapping_wrong = 1 - alignment.mapQ;
+//
+//			std::string QUALforSAM = originalRead.quality;
+//			if(alignment.reverse)
+//			{
+//				std::reverse(QUALforSAM.begin(), QUALforSAM.end());
+//			}
+//			std::string QNAME = readIDForSAM;
+//			std::string FLAG = Utilities::ItoStr(FLAGS_sizeT);
+//			std::string RNAME = "ref";
+//			std::string POS = Utilities::ItoStr(firstReferencePosition);
+//			std::string MAPQ = Utilities::ItoStr(-10.0*log10(P_mapping_wrong)+0.5);
+//			std::string CIGAR = CIGAR_compressed;
+//			std::string RNEXT = (bothReadsProperlyAligned) ? "*" : "=";
+//			std::string PNEXT = Utilities::ItoStr(otherReadReferencePosition);
+//			std::string TLEN = Utilities::ItoStr(lastReferencePosition - firstReferencePosition + 1);
+//			std::string SEQ = readCharacters_noGaps;
+//			std::string QUAL = QUALforSAM;
+//
+//			SAMoutputStream <<
+//				QNAME << "\t" <<
+//				FLAG << "\t" <<
+//				RNAME << "\t" <<
+//				POS << "\t" <<
+//				MAPQ << "\t" <<
+//				CIGAR << "\t" <<
+//				RNEXT << "\t" <<
+//				PNEXT << "\t" <<
+//				TLEN << "\t" <<
+//				SEQ << "\t" <<
+//				QUAL << "\n" << std::flush;
 		}
 
 		return firstReferencePosition;
