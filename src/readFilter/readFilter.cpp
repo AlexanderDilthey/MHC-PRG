@@ -98,6 +98,26 @@ void readFilter::doFilter()
 	bool apply_filter_positive = (positiveFilter.length() > 0);
 	bool apply_filter_negative = (negativeFilter.length() > 0);
 
+	// load read IDs which should pass!
+	// std::set<std::string> good_read_IDs;
+	// std::string goodread_IDs_file = "goodreadIDs.txt";
+	// std::ifstream goodReadIDs_stream;
+	// goodReadIDs_stream.open(goodread_IDs_file.c_str());
+	// assert(goodReadIDs_stream.is_open());
+	// std::string line;
+	// while(goodReadIDs_stream.good())
+	// {
+		// std::getline(goodReadIDs_stream, line);
+			// Utilities::eraseNL(line);
+
+		// if(line.length() == 0)
+			// continue;
+		
+		// good_read_IDs.insert(line);
+	// }
+	
+	// std::cout << "Have " << good_read_IDs.size() << " good read IDs, e.g. " << *(good_read_IDs.begin()) << "\n";
+	
 	auto load_positive_kMers_file = [&](std::string file) -> std::set<std::string> {
 		std::set<std::string> forReturn;
 
@@ -181,6 +201,10 @@ void readFilter::doFilter()
 		std::cout << "\tTotal coverage: " << negative_kMers->totalCoverage() << "\n";
 	}
 
+	int positive_OK = 0;
+	int positive_tested = 0;
+	int saw_good_read_IDs = 0;
+	
 	std::function<bool(const fastq_readPair&)> decisionFunction = [&](const fastq_readPair& read) -> bool {
 
 		std::vector<std::string> kMers_1_fwd = partitionStringIntokMers(read.a1.sequence, k);
@@ -189,7 +213,9 @@ void readFilter::doFilter()
 		std::vector<std::string> kMers_1_rev = partitionStringIntokMers(seq_reverse_complement(read.a1.sequence), k);
 		std::vector<std::string> kMers_2_rev = partitionStringIntokMers(read.a2.sequence, k);
 
+		// std::string shortReadID = "@" + std::string(read.a1.readID.begin(), read.a1.readID.end() - 2);
 		
+			
 		bool pass_positive = true;
 		if(apply_filter_positive)
 		{
@@ -288,15 +314,39 @@ void readFilter::doFilter()
 			// std::cout << read.a1.sequence << " " << read.a2.sequence << "\n";
 			// std::cout << forward_combined_optim << " " << reverse_combined_optim << "\n\n"; 
 			
-			// std::cout << read.a1.readID << " // " << read.a2.readID << ": " << forward_combined_optim << " / " << reverse_combined_optim << "\n";
 
 			//pass_positive = ((forward_combined_optim >= positiveThreshold) || (reverse_combined_optim >= positiveThreshold));
 			pass_positive = (((forward_1_optim >= positiveThreshold) && (forward_2_optim >= positiveThreshold)) || ((reverse_1_optim >= positiveThreshold) && (reverse_2_optim >= positiveThreshold)));
 
+			// std::cout << read.a1.readID << ": " << pass_positive << " // " << read.a2.readID << ": " << forward_1_optim << " / " << forward_2_optim <<  "    |||     "  << reverse_1_optim << " / " <<  reverse_2_optim << "\n";
+
+			// if(good_read_IDs.count(shortReadID))
+			// {
+				// #pragma omp critical
+				// {
+					// std::cout << shortReadID << "\n";
+					// std::cout << "\t" << "pass: " << pass_positive << "\n";
+					// std::cout << "\t" << "forward optim: " << forward_1_optim << " / " << forward_2_optim << "\n";
+					// std::cout << "\t" << "reverse optim: " << reverse_1_optim << " / " <<  reverse_2_optim << "\n";
+					// std::cout << "\t" << "read 1: " << read.a1.sequence << "\n";
+					// std::cout << "\t" << "read 2: " << read.a2.sequence << "\n";
+					// std::cout << "\n" << std::flush;
+					// saw_good_read_IDs++;
+				// }
+			// }
+						
 			if(positiveUnique)
 			{
 				pass_positive = ( pass_positive || ((forward_combined_unique >= positiveUnique_threshold) || (reverse_combined_unique >= positiveThreshold)) );
 			}
+			
+			// positive_tested++;
+			// if(pass_positive)
+			// {
+				// positive_OK++;
+			// }
+	
+	
 		}
 
 		bool pass_negative = false;
@@ -372,17 +422,19 @@ void readFilter::doFilter()
 					}
 				}
 			}
+			
 			int forward_combined_unique = kMers_1_forward_unique + kMers_2_forward_unique;
 			int reverse_combined_unique = kMers_1_reverse_unique + kMers_2_reverse_unique;
 
 
-//			double negativity_1 = (kMers_1_TOTAL == 0) ? 1 : (kMers_1_notOK / kMers_1_TOTAL);
-//			double negativity_2 = (kMers_2_TOTAL == 0) ? 1 : (kMers_2_notOK / kMers_2_TOTAL);
-			double combined_negativity = ((kMers_1_TOTAL + kMers_2_TOTAL) == 0) ? 1 : ((kMers_1_notOK + kMers_2_notOK) / (kMers_1_TOTAL + kMers_2_TOTAL));
+			double negativity_1 = (kMers_1_TOTAL == 0) ? 1 : (kMers_1_notOK / kMers_1_TOTAL);
+			double negativity_2 = (kMers_2_TOTAL == 0) ? 1 : (kMers_2_notOK / kMers_2_TOTAL);
+			// double combined_negativity = ((kMers_1_TOTAL + kMers_2_TOTAL) == 0) ? 1 : ((kMers_1_notOK + kMers_2_notOK) / (kMers_1_TOTAL + kMers_2_TOTAL));
 
 			// std::cout << read.a1.readID << " // " << read.a2.readID << ": " << combined_negativity << "\n";
 			
-			pass_negative = (combined_negativity <= negativeThreshold);
+			//pass_negative = (combined_negativity <= negativeThreshold);
+			pass_negative = ((negativity_1 <= negativeThreshold) && (negativity_2 <= negativeThreshold));
 
 			if(negativePreserveUnique)
 			{
@@ -431,6 +483,10 @@ void readFilter::doFilter()
 	fastq_1_output.close();
 	fastq_1_output.close();
 
+	std::cout << "Positive tested: " << positive_tested << "\n";
+	std::cout << "Positive passed: " << positive_OK << "\n" << std::flush;
+	// std::cout << "Saw " << saw_good_read_IDs << " / " << good_read_IDs.size() << " good read IDs\n" << std::flush;
+	
 	if(apply_filter_negative)
 	{
 		delete(negative_kMers);
@@ -652,7 +708,7 @@ void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::fu
 				std::string sequence  = al.QueryBases;
 				if ( al.IsReverseStrand() ) {
 					std::reverse(qualities.begin(), qualities.end());
-					Utilities::seq_reverse_complement(sequence);
+					sequence = Utilities::seq_reverse_complement(sequence);
 				}
 
 				BAMalignment simpleAlignment;
@@ -744,11 +800,7 @@ void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::fu
 		}
 	}
 
-	if(global_reads.size() > 0)
-	{
-		std::cerr << "\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\nAfter processing " << BAMfile << ", have " << global_reads.size() << " dangling reads.\n\n!!!!!!!!!!!!!!!!!!!!!!!\n\n";
-	}
-
+	std::cout << "n\nAfter processing " << BAMfile << ", have " << global_reads.size() << " dangling reads.\n\n";
 }
 
 std::vector<BAMRegionSpecifier> getBAMregions(std::string BAMfile)
