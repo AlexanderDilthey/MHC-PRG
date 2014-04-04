@@ -434,7 +434,7 @@ void readFilter::doFilter()
 			// std::cout << read.a1.readID << " // " << read.a2.readID << ": " << combined_negativity << "\n";
 			
 			//pass_negative = (combined_negativity <= negativeThreshold);
-			pass_negative = ((negativity_1 <= negativeThreshold) && (negativity_2 <= negativeThreshold));
+			pass_negative = ((negativity_1 <= negativeThreshold) || (negativity_2 <= negativeThreshold));
 
 			if(negativePreserveUnique)
 			{
@@ -635,43 +635,82 @@ void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::fu
 
     std::map<std::string, fastq_readPair> global_reads;
 
+	// std::cout << "# refs: " << thread_readers.at(0).GetReferenceCount() << "\n\n";
 	std::vector<BAMRegionSpecifier> BAM_regions = getBAMregions(BAMfile);
 	size_t N_regions = BAM_regions.size();
+	
+	// for(unsigned int i = 0; i < BAM_regions.size(); i++)
+	// {
+		// const BAMRegionSpecifier& thisStretch = BAM_regions.at(i);
+	
+		// std::cout << "\t" << Utilities::timestamp() << " read " << thisStretch.ID << " from " << thisStretch.firstPos << " to " << thisStretch.lastPos + 1 << "\n" << std::flush;
+	// }	
+	
+	//std::cout << "Star: " << thread_readers.at(0).GetReferenceID("*") << "\n" << std::flush;
+	// std::cout << "Jump to unmapped: " << thread_readers.at(0).Jump(-1) << "\n" << std::flush;
+	
+	std::map<std::string, size_t> reads_from_regions;
 	#pragma omp parallel for ordered schedule(dynamic)
-	for(unsigned int rI = 0; rI < N_regions; rI++)
+	for(unsigned int rI = 0; rI <= N_regions; rI++)
 	{
-		const BAMRegionSpecifier& thisStretch = BAM_regions.at(rI);
-
 		int tI = omp_get_thread_num();
 
-		int refIDidx = thread_readers.at(tI).GetReferenceID(thisStretch.ID);
-		assert(refIDidx != -1);
+		std::string regionID;
+		
+		if(rI != N_regions)
+		{
+			const BAMRegionSpecifier& thisStretch = BAM_regions.at(rI);
 
-		const BamTools::RefData& stretchSpec_BAMTools = thread_readers.at(tI).GetReferenceData().at(refIDidx);
-		assert(thisStretch.lastPos < stretchSpec_BAMTools.RefLength);
 
-		std::cout << "\t" << Utilities::timestamp() << " read " << thisStretch.ID << " from " << thisStretch.firstPos << " to " << thisStretch.lastPos + 1 << "\n" << std::flush;
+			int refIDidx = thread_readers.at(tI).GetReferenceID(thisStretch.ID);
+			assert(refIDidx != -1);
 
+			const BamTools::RefData& stretchSpec_BAMTools = thread_readers.at(tI).GetReferenceData().at(refIDidx);
+			assert(thisStretch.lastPos < stretchSpec_BAMTools.RefLength);
+
+			std::cout << "\t" << Utilities::timestamp() << " read " << thisStretch.ID << " from " << thisStretch.firstPos << " to " << thisStretch.lastPos + 1 << "\n" << std::flush;
+
+			BamTools::BamRegion stretch_region_BAMTools;
+			stretch_region_BAMTools.LeftRefID = refIDidx;
+			stretch_region_BAMTools.LeftPosition = thisStretch.firstPos;
+			stretch_region_BAMTools.RightRefID = refIDidx;;
+			stretch_region_BAMTools.RightPosition =  thisStretch.lastPos + 1;
+
+			thread_readers.at(tI).SetRegion(stretch_region_BAMTools);
+			
+			regionID = thisStretch.ID;
+		}
+		else
+		{
+			std::cout << "\t" << Utilities::timestamp() << " read unmapped reads. " << "\n" << std::flush;
+
+			BamTools::BamRegion stretch_region_BAMTools;
+			stretch_region_BAMTools.LeftRefID = -1;
+			stretch_region_BAMTools.LeftPosition = 0;
+			stretch_region_BAMTools.RightRefID = -1;;
+			stretch_region_BAMTools.RightPosition = 1;
+
+			thread_readers.at(tI).SetRegion(stretch_region_BAMTools);	
+			
+			regionID = "Unmapped";
+		}
+		
 		std::map<std::string, fastq_readPair> thread_reads;
 		std::map<std::string, fastq_readPair> thread_reads_forPrint;
 
+		size_t printed_reads_thisRegion = 0;
+		
 		auto print_threaded_reads = [&]() -> void {
 			for(std::map<std::string, fastq_readPair>::iterator rIt = thread_reads_forPrint.begin(); rIt != thread_reads_forPrint.end(); rIt++)
 			{
 				fastq_readPair& thisPair = rIt->second;
 				(*print)(thisPair);
+				printed_reads_thisRegion++;
 			}
 			thread_reads_forPrint.clear();
 		};
 
-		BamTools::BamRegion stretch_region_BAMTools;
-		stretch_region_BAMTools.LeftRefID = refIDidx;
-		stretch_region_BAMTools.LeftPosition = thisStretch.firstPos;
-		stretch_region_BAMTools.RightRefID = refIDidx;;
-		stretch_region_BAMTools.RightPosition =  thisStretch.lastPos + 1;
-
-		thread_readers.at(tI).SetRegion(stretch_region_BAMTools);
-
+		
 		size_t alignments_at_once = 10000;
 		size_t print_at_once = 1000;
 
@@ -797,10 +836,20 @@ void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::fu
 					}
 				}
 			}
+			
+			assert(reads_from_regions.count(regionID) == 0);
+			reads_from_regions[regionID] = printed_reads_thisRegion;
 		}
 	}
 
 	std::cout << "n\nAfter processing " << BAMfile << ", have " << global_reads.size() << " dangling reads.\n\n";
+	
+	std::cout << "Printed reads from:\n";
+	for(std::map<std::string, size_t>::iterator readOriginIt = reads_from_regions.begin(); readOriginIt != reads_from_regions.end(); readOriginIt++)
+	{
+		std::cout << " - " << readOriginIt->first << ": " << readOriginIt->second << "\n";
+	}
+	std::cout << std::flush;
 }
 
 std::vector<BAMRegionSpecifier> getBAMregions(std::string BAMfile)
