@@ -733,14 +733,14 @@ void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::fu
 			{
 				BamTools::BamAlignment& al = alignments.at(alignmentI);
 
-				if(al.IsMapped)
+				if(al.IsMapped())
 				{
 					sawAlignment_aligned = true;
 				}
 
 				if(rI == N_regions)
 				{
-					if(al.IsMapped)
+					if(al.IsMapped())
 					{
 						continue;
 					}

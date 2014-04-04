@@ -23,6 +23,9 @@ From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived: (I don't know 
 
 	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A2.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ round4_positive_25_separateOptim.fastQ 
 
+	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A2.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ round5_positive_25_separateOptim.fastQ 
+
+	
 ! 	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A2.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ A2_positiveUnique.fastQ  --positiveUnique --uniqueness_base ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --uniqueness_subtract ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx
 
 
@@ -47,6 +50,9 @@ From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived: (I don't know 
 
 		../bin/MHC-PRG domode filterReads --input_FASTQ round4_positive_25_separateOptim.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --output_FASTQ round4_positiveANDnegative_25_separateOptim.fastQ
 		
+		../bin/MHC-PRG domode filterReads --input_FASTQ round5_positive_25_separateOptim.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --output_FASTQ round5_positiveANDnegative_25_separateOptim.fastQ
+
+		
 				
 			
 		../bin/MHC-PRG domode filterReads --input_FASTQ test_round2.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --output_FASTQ ignore25.fastQ
@@ -60,8 +66,6 @@ From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived: (I don't know 
 	And now align:
 	
 	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ test_round2.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
-	
-	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ round3_positiveANDnegative_25_separateOptim.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
 	
 	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ round3_positiveANDnegative_25_separateOptim.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
 
@@ -86,10 +90,13 @@ From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived: (I don't know 
 	
 	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ round4_positiveANDnegative_25_separateOptim.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
 
+	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ round5_positiveANDnegative_25_separateOptim.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
+	
 		../bin/MHC-PRG domode HLATypeInference --input_alignedReads round3_positiveANDnegative_25_separateOptim.fastQ.aligned --graphDir ../tmp2/GS_nextGen/hla &> HLAtypes_round3_positiveANDnegative_25_separateOptim.txt
 
 		../bin/MHC-PRG domode HLATypeInference --input_alignedReads round4_positiveANDnegative_25_separateOptim.fastQ.aligned --graphDir ../tmp2/GS_nextGen/hla &> HLAtypes_round4_positiveANDnegative_25_separateOptim.txt
 		
+		../bin/MHC-PRG domode HLATypeInference --input_alignedReads round5_positiveANDnegative_25_separateOptim.fastQ.aligned --graphDir ../tmp2/GS_nextGen/hla &> HLAtypes_round5_positiveANDnegative_25_separateOptim.txt
 		
 	
 ../bin/MHC-PRG domode describekMerGraph ../tmp2/GS_nextGen/hla/graph.txt.kmers_31 ../tmp2/GS_nextGen/hla/derived/ HLAGRAPH_31 --output_kMer_levels --referenceGenomeCortexGraph ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx
