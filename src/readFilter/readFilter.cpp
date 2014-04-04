@@ -727,9 +727,24 @@ void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::fu
 				added_alignments++;
 			}
 
+			bool sawAlignment_aligned = false;
+
 			for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
 			{
 				BamTools::BamAlignment& al = alignments.at(alignmentI);
+
+				if(al.IsMapped)
+				{
+					sawAlignment_aligned = true;
+				}
+
+				if(rI == N_regions)
+				{
+					if(al.IsMapped)
+					{
+						continue;
+					}
+				}
 
 				std::string name = al.Name;
 				std::string nameWithPairID = name;
@@ -799,6 +814,14 @@ void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::fu
 			}
 
 			alignments.clear();
+
+			if(rI == N_regions)
+			{
+				if(sawAlignment_aligned)
+				{
+					break;
+				}
+			}
 		}
 
 		print_threaded_reads();
