@@ -1176,11 +1176,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 
 
 				// if((read1_exonPositions.size() > 0) && (countMismatchesInExon(read1_exonPositions) < max_mismatches_perRead))
-				if((read1_exonPositions.size() > 0) && (alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK))
+				if((read1_exonPositions.size() > 0) && (alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK) && (alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK))
 					exonPositions_fromReads.push_back(read1_exonPositions);
 					
 				// if((read2_exonPositions.size() > 0) && (countMismatchesInExon(read2_exonPositions) < max_mismatches_perRead))
-				if((read2_exonPositions.size() > 0) && (alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK))
+				if((read2_exonPositions.size() > 0) && (alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK) && (alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK))
 					exonPositions_fromReads.push_back(read2_exonPositions);
 					
 				readPairs_broken++;
