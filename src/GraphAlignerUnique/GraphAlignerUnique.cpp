@@ -116,6 +116,7 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 				else
 				{
 					double pIncorrect = 1 - pCorrect;
+					pIncorrect *= (1.0/3.0);
 					assert((pIncorrect > 0) && (pIncorrect < 1));
 					combined_log_likelihood += log(pIncorrect);
 					totalMismatches++;
