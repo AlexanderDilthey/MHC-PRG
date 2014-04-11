@@ -450,7 +450,7 @@ void readFilter::doFilter()
 
 	std::function<void(const fastq_readPair&)> printFunction = [&](const fastq_readPair& read) -> void {
 
-		fastq_1_output << "@" << read.a1.readID << "\n"
+		fastq_1_output << "@" << read.a1.readID << ":FROM:" << read.a1.fromString << "\n"
 				  << read.a1.sequence    << "\n"
 				  << "+"         << "\n"
 				  << read.a1.qualities   << "\n";
@@ -463,7 +463,7 @@ void readFilter::doFilter()
 		std::string read_2_sequence_forPrint = read.a2.sequence;
 		std::string read_2_qualities_forPrint = read.a2.qualities;
 		
-		fastq_2_output << "@" << read.a2.readID << "\n"
+		fastq_2_output << "@" << read.a2.readID << ":FROM:" << read.a2.fromString << "\n"
 						  << read_2_sequence_forPrint    << "\n"
 						  << "+"         << "\n"
 						  << read_2_qualities_forPrint   << "\n";
@@ -733,9 +733,11 @@ void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::fu
 			{
 				BamTools::BamAlignment& al = alignments.at(alignmentI);
 
+				int alignmentMappedPosition = -1;
 				if(al.IsMapped())
 				{
 					sawAlignment_aligned = true;
+					alignmentMappedPosition = al.Position;
 				}
 
 				if(rI == N_regions)
@@ -769,7 +771,8 @@ void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::fu
 				simpleAlignment.readID = nameWithPairID;
 				simpleAlignment.qualities = qualities;
 				simpleAlignment.sequence = sequence;
-
+				simpleAlignment.fromString = regionID+":"+Utilities::ItoStr(alignmentMappedPosition);
+				
 				// std::cout << name << " " << sequence << "\n";
 
 				// std::cout << name << " " << reads.count(name) << "\n";
