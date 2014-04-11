@@ -775,6 +775,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	};
 
 	int alignmentStats_strandsValid = 0;
+	int alignments_perfect = 0;
+	int alignments_oneReadPerfect = 0;
 	int alignmentStats_strandsValid_and_distanceOK = 0;
 	std::vector<double> alignmentStats_strandsValid_distances;
 	double alignmentStats_fractionOK_sum = 0;
@@ -794,8 +796,24 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			}
 		}
 
-		alignmentStats_fractionOK_sum += alignmentFractionOK(alignedReadPair.first);
-		alignmentStats_fractionOK_sum += alignmentFractionOK(alignedReadPair.second);
+		double fractionOK_1 = alignmentFractionOK(alignedReadPair.first);
+		double fractionOK_2 = alignmentFractionOK(alignedReadPair.second);
+		
+		if(fractionOK_1 == 1)
+		{
+			alignments_perfect++;
+		}
+		if(fractionOK_2 == 1)
+		{
+			alignments_perfect++;
+		}
+		if((fractionOK_1 == 1) || (fractionOK_2 == 1))
+		{
+			alignments_oneReadPerfect++;
+		}
+		
+		alignmentStats_fractionOK_sum += fractionOK_1;
+		alignmentStats_fractionOK_sum += fractionOK_2;
 	}
 
 	std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
@@ -808,6 +826,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	std::cout << "\t - Alignment pairs with strands OK, mean distance:   " << alignmentStats_distance_meanMedian.first << "\n";
 	std::cout << "\t - Alignment pairs with strands OK, median distance: " << alignmentStats_distance_meanMedian.second << "\n";
 	std::cout << "\t - Alignment pairs, average fraction alignment OK:   " << alignmentStats_fractionOK_avg << "\n";
+	std::cout << "\t - Alignment pairs, at least one alignment perfect:   " << alignments_oneReadPerfect << "\n";	
+	std::cout << "\t - Single alignments, perfect (total):   " << alignments_perfect << " (" << alignments.size()*2 << ")\n";	
+	
 	std::cout << "\n" << std::flush;
 
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)

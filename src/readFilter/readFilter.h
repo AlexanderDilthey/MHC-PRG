@@ -59,6 +59,7 @@ public:
 	std::string readID;
 	std::string sequence;
 	std::string qualities;
+	std::string fromString;
 };
 
 class fastq_readPair;

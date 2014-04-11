@@ -1373,6 +1373,13 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 	// bool verbose = true;
 	   
+	bool verbose = ((readPair.reads.first.name == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2") || (readPair.reads.second.name  == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2"));
+	
+	if(verbose)
+	{
+		std::cout << "Alignment of " << readPair.reads.first.name << " / " << readPair.reads.second.name << "\n";
+	}
+	
 	// assert(readPair.reads.first.sequence.find("_") == std::string::npos);
 	// assert(readPair.reads.first.sequence.find("*") == std::string::npos);
 	// assert(readPair.reads.first.sequence.find("N") == std::string::npos);
@@ -1502,20 +1509,26 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 				// combinedScores.push_back(combinedScore);
 				// combinedScores_indices.push_back(std::make_pair(aI1, aI2));
 				
-				// if(verbose)
-				// {
-					// std::cout << "\t" << aI1 << "/" << aI2 << ": ";
-					// std::cout << "LL1: " << likelihoods_read1_alternatives.at(aI1) << " LL2: " << likelihoods_read2_alternatives.at(aI2) << " ";
+				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> rP = make_pair(read1_backtraces.at(aI1), read2_backtraces.at(aI2));
+				
+				if(verbose)
+				{
+					std::cout << "\t" << aI1 << "/" << aI2 << ": ";
+					std::cout << "\t\tLL1: " << likelihoods_read1_alternatives.at(aI1) << " LL2: " << likelihoods_read2_alternatives.at(aI2) << " ";
+					std::cout << "\t\tStrands valid: " << alignedReadPair_strandsValid(rP) << "\n";
+					
 					// std::cout << "REV1: " << read1_backtraces.at(aI1).reverse << " REV2:" << read2_backtraces.at(aI2).reverse << " ";
 					// std::cout << "Distance: " <<  read1_backtraces.at(aI1).graph_aligned_levels.back() << " to " << read2_backtraces.at(aI2).graph_aligned_levels.front() << ", i.e. " << distance_graph_levels << " (" << log(distance_graph_levels_P) << ")" << "  == > " << combinedScore <<  "\n" << std::flush;
-				// }   
+				}   
 				
-				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> rP = make_pair(read1_backtraces.at(aI1), read2_backtraces.at(aI2));
 				if(alignedReadPair_strandsValid(rP))
 				{
 					int distance_graph_levels = alignedReadPair_pairsDistanceInGraphLevels(rP);
 					double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
 
+					std::cout << "\t\tDistance graph levels (and likelihood): " <<  distance_graph_levels << " " << distance_graph_levels_P << "\n";
+
+					
 					if(!(distance_graph_levels_P > 0))
 					{
 						// std::cerr << "!(distance_graph_levels_P > 0)" << "\n";
@@ -1531,9 +1544,13 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 				}
 				else
 				{
+					std::cout << "\t\tPenalty: " <<  max_insertsize_penalty << "\n";
+				
 					combinedScore += log(max_insertsize_penalty);
 				}
 				
+				std::cout << "\t\tCombined log likelihood: " <<  combinedScore << "\n";
+									
 				combinedScores.push_back(combinedScore);
 				combinedScores_indices.push_back(std::make_pair(aI1, aI2));			
 			}
