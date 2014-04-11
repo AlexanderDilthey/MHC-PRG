@@ -192,6 +192,7 @@ double Utilities::PhredToPCorrect(char nucleotideQuality)
 	double pRight = 1 - pWrong;
 	assert(pRight >= 0);
 	assert(pRight <= 1);
+	
 	return pRight;
 }
 
