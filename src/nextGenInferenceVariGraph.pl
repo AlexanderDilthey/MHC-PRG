@@ -1693,6 +1693,8 @@ if($collect eq '3')
 }
 elsif($collect eq '2')
 {
+	die "Legacy code. Use --collect 2viterbi instead.";
+	
 	my $expected_output_filename = $kMer_count_sample.'.viterbiHaplotypes';
 	
 	# read loci from graph specification
@@ -3032,7 +3034,8 @@ sub haplotypesToVCF
 	my %identifier_to_position;   
 	my %identifier_to_refalleles;
 	
-	die "Please suppy parameter --vcfPos" unless ((defined $vcfPos) and (-e $vcfPos));
+	die "Please suppy parameter --vcfPos" unless ((defined $vcfPos));
+	die "Specified --vcfPos ($vcfPos) not existing" unless(-e $vcfPos);
 
 	open(VCFSNPS, '<', $vcfPos) or die "Cannot open $vcfPos";
 	my $header_line = <VCFSNPS>;
@@ -3416,6 +3419,12 @@ sub haplotypesToVCF
 				$last_pgfPos_with_IGV_H2 = $pgfPos;
 				$preDeletion_IGV_positions[1] = '';
 			}			
+		}
+		else
+		{		
+			@positions_in_string_haplotypes = ('', '');
+			@positions_in_IGV_haplotypes = ('', '');
+			@preDeletion_IGV_positions = ('', '');
 		}
 		
 		my @positions_in_alignments = (join('-', @{$taken_alignment_positions{$pgfPos}[0]}), join('-', @{$taken_alignment_positions{$pgfPos}[1]}));
