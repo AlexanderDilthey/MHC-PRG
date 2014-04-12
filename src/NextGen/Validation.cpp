@@ -624,11 +624,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	double log_likelihood_insertion = log(0.0001);
 	double log_likelihood_deletion = log_likelihood_insertion;
 	int max_mismatches_perRead = 2;
-	double min_alignmentFraction_OK = 0.96;
+	double min_alignmentFraction_OK = 0.96; // measures all alignment positions but graph AND sequence gaps
+	double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downweighted by quality
+	double min_bothReads_weightedCharactersOK = 0.985; // both reads, mismatches downweighted by quality
 	
 	// define loci
 	std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
-	//std::vector<std::string> loci = {"B"};
+	// std::vector<std::string> loci = {"A"};
 
 	// define locus -> exon
 	std::map<std::string, std::vector<std::string> > loci_2_exons;
@@ -718,8 +720,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 		
 		std::string thisRead_ID;
 		double thisRead_fractionOK;
+		double thisRead_WeightedCharactersOK;
+		
 		std::string pairedRead_ID;
 		double pairedRead_fractionOK;
+		double pairedRead_WeightedCharactersOK;
 		
 		bool pairs_strands_OK;
 		double pairs_strands_distance;
@@ -740,14 +745,22 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 
 	auto alignmentFractionOK = [](seedAndExtend_return_local& r) -> double {
 		int positions_OK = 0;
+		int positions_checked = 0;
+		
 		for(unsigned int i = 0; i < r.graph_aligned.size(); i++)
 		{
+			if((r.graph_aligned.at(i) == '_') && (r.sequence_aligned.at(i) == '_'))
+			{
+				continue;
+			}
+			
+			positions_checked++;
 			if(r.graph_aligned.at(i) == r.sequence_aligned.at(i))
 			{
 				positions_OK++;
 			}
 		}
-		return double(positions_OK)/double(r.graph_aligned.size());
+		return double(positions_OK)/double(positions_checked);
 	};
 
 	auto printPerc = [](double v1, double v2) -> std::string {
@@ -1001,6 +1014,83 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 
 		// now transform reads into sequences specifying exon genotype value
 
+		
+		auto alignmentWeightedOKFraction = [&](oneRead& underlyingRead, seedAndExtend_return_local& alignment) -> double {
+			int indexIntoOriginalReadData = -1;
+
+			int totalMismatches = 0;
+			double weightedMismatches = 0;
+			
+			for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
+			{
+				std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+				std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
+				int graphLevel = alignment.graph_aligned_levels.at(cI);
+
+				if(sequenceCharacter != "_")
+				{
+					indexIntoOriginalReadData++;
+					int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
+					if(alignment.reverse)
+					{
+						indexIntoOriginalReadData_correctlyAligned = underlyingRead.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
+					}
+					assert(indexIntoOriginalReadData_correctlyAligned >= 0);
+					assert(indexIntoOriginalReadData_correctlyAligned < underlyingRead.sequence.length());;
+
+					std::string underlyingReadCharacter = underlyingRead.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
+					if(alignment.reverse)
+					{
+						underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+					}
+					assert(underlyingReadCharacter == sequenceCharacter);
+
+					if(graphCharacter == "_")
+					{
+						totalMismatches++;
+						weightedMismatches++;
+					}
+					else
+					{
+						// two well-defined characters
+						char qualityCharacter = underlyingRead.quality.at(indexIntoOriginalReadData_correctlyAligned);
+						double pCorrect = Utilities::PhredToPCorrect(qualityCharacter);
+						assert((pCorrect > 0) && (pCorrect <= 1));
+						if(sequenceCharacter == graphCharacter)
+						{
+							// match!
+						}
+						else
+						{
+							weightedMismatches += pCorrect;
+							totalMismatches++;
+						}
+					}
+
+				}
+				else
+				{
+					assert(sequenceCharacter == "_");
+					if(graphCharacter == "_")
+					{
+						// sequence gap, graph gap - likelihood 1
+						assert(graphLevel != -1);
+					}
+					else
+					{
+						// sequence gap, graph non gap - deletion in sequence
+						totalMismatches++;
+						weightedMismatches++;
+					}
+				}
+			}
+			
+			double readLength = underlyingRead.sequence.length();
+			assert(totalMismatches >= weightedMismatches);
+			
+			return  (1 - (weightedMismatches / readLength));
+		};
+
 		std::cout << Utilities::timestamp() << "Compute exon positions and specified genotypes from reads\n" << std::flush;
 
 		std::vector< std::vector<oneExonPosition> > exonPositions_fromReads;
@@ -1009,9 +1099,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			int alignment_firstLevel = alignment.alignment_firstLevel();
 			int alignment_lastLevel = alignment.alignment_lastLevel();
 
-			
 			double thisRead_fractionOK = alignmentFractionOK(alignment);
 			double pairedRead_fractionOK = alignmentFractionOK(paired_alignment);
+
+			double thisRead_WeightedCharactersOK = alignmentWeightedOKFraction(read, alignment);
+			double pairedRead_WeightedCharactersOK = alignmentWeightedOKFraction(paired_read, paired_alignment);
 			
 			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignedReadPair = make_pair(alignment, paired_alignment);
 			double pairs_strands_OK = alignedReadPair_strandsValid(alignedReadPair);
@@ -1103,7 +1195,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 								thisPosition.thisRead_fractionOK = thisRead_fractionOK;
 								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
 								thisPosition.pairs_strands_OK = pairs_strands_OK;
-								thisPosition.pairs_strands_distance = pairs_strands_distance;
+								thisPosition.pairs_strands_distance = pairs_strands_distance;								
+								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
 								
 								readAlignment_exonPositions.push_back(thisPosition);
 								
@@ -1125,6 +1219,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
 								thisPosition.pairs_strands_OK = pairs_strands_OK;
 								thisPosition.pairs_strands_distance = pairs_strands_distance;
+								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
 								
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
@@ -1149,7 +1245,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
 								thisPosition.pairs_strands_OK = pairs_strands_OK;
 								thisPosition.pairs_strands_distance = pairs_strands_distance;
-								
+								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+																
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
 							else
@@ -1166,7 +1264,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
 								thisPosition.pairs_strands_OK = pairs_strands_OK;
 								thisPosition.pairs_strands_distance = pairs_strands_distance;
-																
+								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+								
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
 						}
@@ -1232,7 +1332,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 					// (countMismatchesInExon(read1_exonPositions) < max_mismatches_perRead) &&
 					// (countMismatchesInExon(read2_exonPositions) < max_mismatches_perRead)
 					(alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK) &&
-					(alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK)					
+					(alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK) &&
+					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_oneRead_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_oneRead_weightedCharactersOK))
 			)
 			{
 				// good
@@ -1309,7 +1410,19 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 				{
 					oneExonPosition piledPosition = pileUp.at(pI);
 					
-					std::string pileUpString = piledPosition.genotype + " ["
+					std::vector<std::string> qualities_as_strings;
+					for(unsigned int qI = 0; qI < piledPosition.qualities.size(); qI++)
+					{
+						char qC = piledPosition.qualities.at(qI);
+						int qC_i = qC;
+						qualities_as_strings.push_back(Utilities::ItoStr(qC_i));
+					}
+					
+					std::string pileUpString = piledPosition.genotype
+						+ " (" + Utilities::join(qualities_as_strings, ", ") + ")" 
+						+ " ["
+						+ Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
+						+ Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "						
 						+ Utilities::DtoStr(piledPosition.thisRead_fractionOK) + " "
 						+ Utilities::DtoStr(piledPosition.pairedRead_fractionOK) + " | "
 						+ Utilities::ItoStr(piledPosition.pairs_strands_OK) + " "
@@ -1351,6 +1464,19 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 				double log_likelihood = 0;
 				int mismatches = 0;
 				
+				std::string readID;
+				if(individualPositions.size() > 0)
+				{
+					readID = individualPositions.at(0).thisRead_ID;	
+				}
+				
+				bool verbose = ((clusterI == 1127) && (readID == "@@B81EP5ABXX:8:2208:11879:23374#GATCAGAT/2") && 0);
+				
+				if(verbose)
+					std::cout << "Likelihood calculation for read " << readID << " / cluster " << clusterI << "\n";
+				
+				
+				
 				for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
 				{
 					oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
@@ -1359,6 +1485,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 					std::string readGenotype = onePositionSpecifier.genotype;
 					std::string readQualities = onePositionSpecifier.qualities;
 
+					if(verbose)
+					{
+						std::cout << "\t" << positionI << " " << exonGenotype << " " << readGenotype << "\n" << std::flush;						
+					}
+					
 					assert(exonGenotype.length() == 1);
 					assert(readGenotype.length() >= 1);
 					unsigned int l_diff = readGenotype.length() - exonGenotype.length();
@@ -1372,6 +1503,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 						}
 						else
 						{
+							if(verbose)
+							{
+								std::cout << "\t\t" << "Insertion " << (1 + l_diff) << "\n";						
+							}
+												
 							log_likelihood += (log_likelihood_insertion * (1 + l_diff));
 						}
 					}
@@ -1382,34 +1518,78 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 						if(readGenotype.substr(0, 1) == "_")
 						{
 							log_likelihood += log_likelihood_deletion;
+							
+							if(verbose)
+							{
+								std::cout << "\t\t" << "Deletion" << "\n";						
+							}							
 						}
 						else
 						{
 							assert(readQualities.length());
 							double pCorrect = Utilities::PhredToPCorrect(readQualities.at(0));
 							assert((pCorrect > 0) && (pCorrect <= 1));
+							
+							if(!(pCorrect >= 0.25))
+							{
+								std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
+							}
+							assert(pCorrect >= 0.25);
+							
 							if(exonGenotype == readGenotype.substr(0, 1))
 							{
+								if(verbose)
+								{
+									std::cout << "\t\t" << "Match " << pCorrect << "\n";						
+								}						
+								
 								log_likelihood += log(pCorrect);
 							}
 							else
 							{
 								double pIncorrect = (1 - pCorrect)*(1.0/3.0);
+								assert(pIncorrect <= 0.75);
 								assert((pIncorrect > 0) && (pIncorrect < 1));
 								log_likelihood += log(pIncorrect);
+								
+								if(verbose)
+								{
+									std::cout << "\t\t" << "Mismatch " << pIncorrect << "\n";						
+								}								
 							}
 						}
 						// if read allele is longer
 						log_likelihood += (log_likelihood_insertion * l_diff);
+						
+						if(l_diff > 0)
+						{
+							if(verbose)
+							{
+								std::cout << "\t\t" << "Insertion " << l_diff << "\n";						
+							}						
+						}
 					}
 					
-						if(readGenotype != "_")
+					if(readGenotype != "_")
+					{
+						if(readGenotype != exonGenotype)
 						{
-							if(readGenotype != exonGenotype)
-							{
-								mismatches++;
-							}	
-						}					
+							mismatches++;
+						}	
+					}		
+
+					if(verbose)
+					{
+						std::cout << "\t\t" << "Running log likelihood: " << log_likelihood << "\n";						
+					}
+				}
+				
+				if(individualPositions.size() > 0)
+				{
+					if((clusterI == 1160) || (clusterI == 1127))
+					{
+						// std::cout << locus << " " << readID << " cluster " << clusterI << ": " << log_likelihood << "\n" << std::flush;
+					}
 				}
 
 				// std::cout << "cluster " << clusterI << ", position sequence " << positionSpecifierI << ": " << log_likelihood << "\n";
@@ -1444,11 +1624,19 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 				
 				for(unsigned int positionSpecifierI = 0; positionSpecifierI < exonPositions_fromReads.size(); positionSpecifierI++)
 				{
+					std::string readID;					
+					if(exonPositions_fromReads.at(positionSpecifierI).size() > 0)
+					{
+						readID = exonPositions_fromReads.at(positionSpecifierI).at(0).thisRead_ID;
+					}
+				
+					
 					double LL_thisPositionSpecifier_cluster1 = likelihoods_perCluster_perRead.at(clusterI1).at(positionSpecifierI);
 					double LL_thisPositionSpecifier_cluster2 = likelihoods_perCluster_perRead.at(clusterI2).at(positionSpecifierI);
 
 					double LL_average = log( (1 + (exp(LL_thisPositionSpecifier_cluster2+log(0.5)))/exp(LL_thisPositionSpecifier_cluster1+log(0.5)) )) + (LL_thisPositionSpecifier_cluster1+log(0.5));
 
+					double LL_average_2 = log(0.5 * exp(LL_thisPositionSpecifier_cluster1) + 0.5 * exp(LL_thisPositionSpecifier_cluster2));
 					
 					int mismatches_cluster1 = mismatches_perCluster_perRead.at(clusterI1).at(positionSpecifierI);
 					int mismatches_cluster2 = mismatches_perCluster_perRead.at(clusterI2).at(positionSpecifierI);
@@ -1456,7 +1644,12 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 					mismatches_sum_averages += ((double)(mismatches_cluster1 + mismatches_cluster2) / 2.0);
 					mismatches_sum_min += ((mismatches_cluster1 < mismatches_cluster2) ? mismatches_cluster1 : mismatches_cluster2);
 					
-					pair_log_likelihood += LL_average;
+					pair_log_likelihood += LL_average_2;
+					
+					// if ( ((clusterI1 == 1160) && (clusterI2 == 1640)) || ((clusterI1 == 1127) && (clusterI2 == 1640)))
+					// {
+						// std::cout << "Cluster pair " << clusterI1 << " / " << clusterI2 << " read " << readID << ": " << LL_thisPositionSpecifier_cluster1 << " and " << LL_thisPositionSpecifier_cluster2 << ": " << LL_average_2 << "\n" << std::flush;
+					// }
 				}
 
 				LLs.push_back(pair_log_likelihood);
@@ -1473,7 +1666,14 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 		std::cout << Utilities::timestamp() << "Done. (One) maximum pair is " << maxPairI.second << " with LL = " << maxPairI.first << "\n" << std::flush;
 
 		std::sort(LLs_indices.begin(), LLs_indices.end(), [&](unsigned int a, unsigned int b) {
-			return (LLs.at(a) < LLs.at(b));
+			if(LLs.at(a) == LLs.at(b))
+			{
+				return (Mismatches_avg.at(b) < Mismatches_avg.at(a));
+			}
+			else
+			{
+				return (LLs.at(a) < LLs.at(b));
+			}
 		});
 		std::reverse(LLs_indices.begin(), LLs_indices.end());
 
@@ -1491,6 +1691,10 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			std::cout << "\tcluster " << clusters.second << ": " << Utilities::join(cluster2_members, ", ") << "\n" << std::flush;
 			
 			std::cout << "\tMismatches " << Mismatches_avg.at(pairIndex) << " avg / " << Mismatches_min.at(pairIndex) << " min\n" << std::flush;
+			
+			// bool equal = (LLs.at(pairIndex) == LLs.at(LLs_indices.at(0)));
+			// std::cout << "\tEqual: " << equal << "\n" << std::flush;
+			
 			
 		}
 
