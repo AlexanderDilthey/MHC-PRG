@@ -24,6 +24,11 @@ From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived: (I don't know 
 	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A2.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ round4_positive_25_separateOptim.fastQ 
 
 	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A2.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ round5_positive_25_separateOptim.fastQ 
+	
+	# round 6 has origin information for individual reads
+	
+	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A2.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ round6_positive_25_separateOptim.fastQ 
+	
 
 	
 ! 	../bin/MHC-PRG domode filterReads --input_BAM /gpfs1/well/gsk_hla/bam_output/AA02O9Q_A2.bam --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ A2_positiveUnique.fastQ  --positiveUnique --uniqueness_base ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --uniqueness_subtract ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx

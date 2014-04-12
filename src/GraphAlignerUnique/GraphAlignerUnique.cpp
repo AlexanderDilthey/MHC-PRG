@@ -1373,7 +1373,8 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 	// bool verbose = true;
 	   
-	bool verbose = ((readPair.reads.first.name == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2") || (readPair.reads.second.name  == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2"));
+	// bool verbose = ((readPair.reads.first.name == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2") || (readPair.reads.second.name  == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2"));
+	bool verbose = false;
 	
 	if(verbose)
 	{
@@ -1526,7 +1527,8 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					int distance_graph_levels = alignedReadPair_pairsDistanceInGraphLevels(rP);
 					double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
 
-					std::cout << "\t\tDistance graph levels (and likelihood): " <<  distance_graph_levels << " " << distance_graph_levels_P << "\n";
+					if(verbose)					
+						std::cout << "\t\tDistance graph levels (and likelihood): " <<  distance_graph_levels << " " << distance_graph_levels_P << "\n";
 
 					
 					if(!(distance_graph_levels_P > 0))
@@ -1544,12 +1546,14 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 				}
 				else
 				{
-					std::cout << "\t\tPenalty: " <<  max_insertsize_penalty << "\n";
+					if(verbose)									
+						std::cout << "\t\tPenalty: " <<  max_insertsize_penalty << "\n";
 				
 					combinedScore += log(max_insertsize_penalty);
 				}
 				
-				std::cout << "\t\tCombined log likelihood: " <<  combinedScore << "\n";
+				if(verbose)									
+					std::cout << "\t\tCombined log likelihood: " <<  combinedScore << "\n";
 									
 				combinedScores.push_back(combinedScore);
 				combinedScores_indices.push_back(std::make_pair(aI1, aI2));			
