@@ -32,6 +32,40 @@ Utilities::Utilities() {
 Utilities::~Utilities() {
 }
 
+
+bool Utilities::directoryExists(std::string dir)
+{
+	path p(dir);
+	return (exists(p) && is_directory(p));
+}
+
+void Utilities::makeDir(std::string dir)
+{
+	if(! directoryExists(dir))
+	{
+		path p(dir);
+		bool success = create_directory(p);
+		if(! success)
+		{
+			throw std::runtime_error("Cannot create directory "+dir);
+		}
+	}
+}
+
+bool Utilities::fileExists(std::string filepath)
+{
+	std::ifstream ifile(filepath);
+	if(ifile.good())
+	{
+		ifile.close();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 bool Utilities::fileReadable(std::string file)
 {
 	std::ifstream fS;
