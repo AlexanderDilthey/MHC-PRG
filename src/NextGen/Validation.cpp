@@ -615,7 +615,7 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 	}
 }
 
-void HLATypeInference(std::string alignedReads_file, std::string graphDir, double insertSize_mean, double insertSize_sd)
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, double insertSize_mean, double insertSize_sd, std::string sampleName)
 {
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));
@@ -832,21 +832,38 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
 	double alignmentStats_fractionOK_avg = (alignments.size() > 0) ? (alignmentStats_fractionOK_sum / (2.0* (double)alignments.size())) : 0;
 
-	std::cout << "\nRead alignment statistics:\n";
-	std::cout << "\t - Total number (paired) alignments:                 " << alignments.size() << "\n";
-	std::cout << "\t - Alignment pairs with strands OK:                  " << alignmentStats_strandsValid << " (" << printPerc(alignmentStats_strandsValid, alignments.size()) << "%)\n";
-	std::cout << "\t - Alignment pairs with strands OK && distance OK:   " << alignmentStats_strandsValid_and_distanceOK << " (" << printPerc(alignmentStats_strandsValid_and_distanceOK, alignments.size()) << "%)\n";
-	std::cout << "\t - Alignment pairs with strands OK, mean distance:   " << alignmentStats_distance_meanMedian.first << "\n";
-	std::cout << "\t - Alignment pairs with strands OK, median distance: " << alignmentStats_distance_meanMedian.second << "\n";
-	std::cout << "\t - Alignment pairs, average fraction alignment OK:   " << alignmentStats_fractionOK_avg << "\n";
-	std::cout << "\t - Alignment pairs, at least one alignment perfect:   " << alignments_oneReadPerfect << "\n";	
-	std::cout << "\t - Single alignments, perfect (total):   " << alignments_perfect << " (" << alignments.size()*2 << ")\n";	
-	
-	std::cout << "\n" << std::flush;
+	if(! Utilities::directoryExists("../tmp2/HLA"))
+	{
+		Utilities::makeDir("../tmp2/HLA");
+	}
 
+	std::string outputDirectory = "../tmp2/HLA"+sampleName;
+	std::ofstream summaryStatisticsStream;
+	std::string summaryStatisticsFilename = outputDirectory + "/" + "summaryStatistics.txt";
+	summaryStatisticsStream.open(summaryStatisticsFilename.c_str());
+	assert(summaryStatisticsStream.is_open());
+	summaryStatisticsStream << "\nRead alignment statistics:\n";
+	summaryStatisticsStream << "\t - Total number (paired) alignments:                 " << alignments.size() << "\n";
+	summaryStatisticsStream << "\t - Alignment pairs with strands OK:                  " << alignmentStats_strandsValid << " (" << printPerc(alignmentStats_strandsValid, alignments.size()) << "%)\n";
+	summaryStatisticsStream << "\t - Alignment pairs with strands OK && distance OK:   " << alignmentStats_strandsValid_and_distanceOK << " (" << printPerc(alignmentStats_strandsValid_and_distanceOK, alignments.size()) << "%)\n";
+	summaryStatisticsStream << "\t - Alignment pairs with strands OK, mean distance:   " << alignmentStats_distance_meanMedian.first << "\n";
+	summaryStatisticsStream << "\t - Alignment pairs with strands OK, median distance: " << alignmentStats_distance_meanMedian.second << "\n";
+	summaryStatisticsStream << "\t - Alignment pairs, average fraction alignment OK:   " << alignmentStats_fractionOK_avg << "\n";
+	summaryStatisticsStream << "\t - Alignment pairs, at least one alignment perfect:   " << alignments_oneReadPerfect << "\n";
+	summaryStatisticsStream << "\t - Single alignments, perfect (total):   " << alignments_perfect << " (" << alignments.size()*2 << ")\n";
+
+	summaryStatisticsStream.close();
+	
+	std::string outputFN_bestGuess = outputDirectory + "/R1_bestguess.txt";
+	std::ofstream bestGuess_outputStream;
+	bestGuess_outputStream.open(outputFN_bestGuess.c_str());
+	assert(bestGuess_outputStream.is_open());
+	bestGuess_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\n";
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
 	{
 		std::string locus = loci.at(locusI);
+
+		std::string outputFN_allPairs = outputDirectory + "/R1_PP_"+locus+"_pairs.txt";
 
 		std::cout << Utilities::timestamp() << "HLATypeInference(..): Making inference for " << locus << "\n" << std::flush;
 
@@ -1442,8 +1459,6 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 		}
 		pileUpStream.close();
 
-			
-		
 		// likelihoods for reads
 		
 		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon-overlapping reads (" << exonPositions_fromReads.size() << "), conditional on underlying exons.\n" << std::flush;
@@ -1601,7 +1616,6 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 
 			assert(likelihoods_perCluster_perRead.at(clusterI).size() == exonPositions_fromReads.size());
 			assert(mismatches_perCluster_perRead.at(clusterI).size() == exonPositions_fromReads.size());
-			
 		}
 
 		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon cluster pairs (" << HLAtype_clusters.size() << "**2/2)\n" << std::flush;
@@ -1662,8 +1676,100 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			}
 		}
 
+
 		std::pair<double, unsigned int> maxPairI = Utilities::findVectorMax(LLs);
 		std::cout << Utilities::timestamp() << "Done. (One) maximum pair is " << maxPairI.second << " with LL = " << maxPairI.first << "\n" << std::flush;
+
+		std::vector<double> LLs_normalized;
+		double LL_max = maxPairI.first;
+		double P_sum = 0;
+		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
+		{
+			double LL = LLs.at(cI);
+			double P = exp(LL - LL_max);
+			P_sum += P;
+		}
+		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
+		{
+			double LL = LLs.at(cI);
+			double P = exp(LL - LL_max);
+			double P_normalized = P / P_sum;
+			assert(P_normalized >= 0);
+			assert(P_normalized <= 1);
+			LLs_normalized.push_back(P_normalized);
+
+
+		}
+
+		std::ofstream allPairsStream;
+		allPairsStream.open(outputFN_allPairs.c_str());
+		assert(allPairsStream.is_open());
+		allPairsStream << "ClusterID" << "\t" << "P" << "LL" << "\t" << "Mismatches_avg" << "\n";
+
+		std::vector<std::string> LLs_identifiers;
+		std::map<int, double> clusterI_overAllPairs;
+		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
+		{
+			std::pair<unsigned int, unsigned int>& clusters = LLs_clusterIs.at(cI);
+			std::vector<std::string> cluster1_members(HLAtype_clusters.at(clusters.first).begin(), HLAtype_clusters.at(clusters.first).end());
+			std::vector<std::string> cluster2_members(HLAtype_clusters.at(clusters.second).begin(), HLAtype_clusters.at(clusters.second).end());
+
+			std::string id =  + "/" + Utilities::join(cluster2_members, ";");
+
+			LLs_identifiers.push_back(id);
+
+			allPairsStream << id << "\t" << LLs_normalized.at(cI) << "\t" << LLs.at(cI) << "\t" << Mismatches_avg << "\n";
+
+			if(clusterI_overAllPairs.count(clusters.first) == 0)
+			{
+				clusterI_overAllPairs[cluster.first] = 0;
+			}
+			clusterI_overAllPairs[cluster.first] += LLs_normalized.at(cI);
+
+			if(cluster.second != cluster.first)
+			{
+				if(clusterI_overAllPairs.count(clusters.second) == 0)
+				{
+					clusterI_overAllPairs[cluster.second] = 0;
+				}
+				clusterI_overAllPairs[cluster.second] += LLs_normalized.at(cI);
+			}
+		}
+
+		allPairsStream.close();
+
+		std::pair<double, int> bestGuess_firstAllele = Utilities::findIntMapMax(clusterI_overAllPairs);
+		std::string bestGuess_firstAllele_ID = Utilities::join(std::vector<std::string>(HLAtype_clusters.at(bestGuess_firstAllele.second).begin(), HLAtype_clusters.at(bestGuess_firstAllele.second).end()), ";");
+		assert(bestGuess_firstAllele.first >= 0);
+		assert(bestGuess_firstAllele.second >= 0);
+
+		std::map<int, double> bestGuess_secondAllele_alternatives;
+		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
+		{
+			std::pair<unsigned int, unsigned int>& clusters = LLs_clusterIs.at(cI);
+
+			if((int)clusters.first == bestGuess_firstAllele.second)
+			{
+				assert(bestGuess_secondAllele_alternatives.count(clusters.second) == 0);
+				bestGuess_secondAllele_alternatives[clusters.second] = LLs_normalized.at(cI);
+			}
+			else
+			{
+				if((int)clusters.second == bestGuess_firstAllele.second)
+				{
+					assert(bestGuess_secondAllele_alternatives.count(clusters.first) == 0);
+					bestGuess_secondAllele_alternatives[clusters.first] = LLs_normalized.at(cI);
+				}
+			}
+		}
+
+		std::pair<double, int> bestGuess_secondAllele = Utilities::findIntMapMax(bestGuess_secondAllele_alternatives);
+		std::string bestGuess_secondAllele_ID = Utilities::join(std::vector<std::string>(HLAtype_clusters.at(bestGuess_secondAllele.second).begin(), HLAtype_clusters.at(bestGuess_secondAllele.second).end()), ";");
+		assert(bestGuess_secondAllele.first >= 0);
+		assert(bestGuess_secondAllele.second >= 0);
+
+		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\n";
+		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << bestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\n";
 
 		std::sort(LLs_indices.begin(), LLs_indices.end(), [&](unsigned int a, unsigned int b) {
 			if(LLs.at(a) == LLs.at(b))
@@ -1675,6 +1781,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 				return (LLs.at(a) < LLs.at(b));
 			}
 		});
+
 		std::reverse(LLs_indices.begin(), LLs_indices.end());
 
 		unsigned int maxPairPrint = (LLs_indices.size() > 10) ? 10 : LLs_indices.size(); 
@@ -1704,6 +1811,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			assert(LLs.at(LLs_indices.at(0)) >= LLs.at(LLs_indices.at(1)));
 		}
 	}
+
+	bestGuess_outputStream.close();
 }
 
 void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::string referenceGenomeFile, double insertSize_mean, double insertSize_sd)

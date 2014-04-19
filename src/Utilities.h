@@ -91,8 +91,13 @@ public:
 
 	static bool fileReadable(std::string file);
 
+	bool directoryExists(std::string dir);
+	void makeDir(std::string dir);
+	bool fileExists(std::string filepath);
+
 };
 
 extern unsigned int globalRandRSeed;
 #endif /* UTILITIES_H_ */
+
 
