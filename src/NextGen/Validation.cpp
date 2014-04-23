@@ -832,12 +832,17 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
 	double alignmentStats_fractionOK_avg = (alignments.size() > 0) ? (alignmentStats_fractionOK_sum / (2.0* (double)alignments.size())) : 0;
 
-	if(! Utilities::directoryExists("../tmp2/HLA"))
+	if(! Utilities::directoryExists("../tmp/hla"))
 	{
-		Utilities::makeDir("../tmp2/HLA");
+		Utilities::makeDir("../tmp/hla");
 	}
 
-	std::string outputDirectory = "../tmp2/HLA"+sampleName;
+	std::string outputDirectory = "../tmp/hla/"+sampleName;
+	if(! Utilities::directoryExists(outputDirectory)
+	{
+		Utilities::makeDir(outputDirectory);
+	}
+
 	std::ofstream summaryStatisticsStream;
 	std::string summaryStatisticsFilename = outputDirectory + "/" + "summaryStatistics.txt";
 	summaryStatisticsStream.open(summaryStatisticsFilename.c_str());

@@ -78,10 +78,10 @@ if($actions =~ /p/)
 			die "Specified BAM $BAM (in --BAMs) does not exist!\n";
 		}
 		
-		my $output_file = '../tmp2/hla/'.$sampleID.'/reads.p';
-		unless(-e '../tmp2/hla/'.$sampleID)
+		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p';
+		unless(-e '../tmp/hla/'.$sampleID)
 		{
-			mkdir('../tmp2/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp2/hla/'.$sampleID;
+			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
 		}
 		
 		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file);
@@ -103,7 +103,7 @@ if($actions =~ /n/)
 	my @output_files;
 	foreach my $sampleID (@sampleIDs)
 	{
-		my $fastQ_file = '../tmp2/hla/'.$sampleID.'/reads.p';
+		my $fastQ_file = '../tmp/hla/'.$sampleID.'/reads.p';
 		my $fastQ_file_1 = $fastQ_file.'_1';
 		my $fastQ_file_2 = $fastQ_file.'_2';
 		unless(-e $fastQ_file_1)
@@ -114,7 +114,7 @@ if($actions =~ /n/)
 		{
 			die "Expected file $fastQ_file_2 not found";
 		}		
-		my $output_file = '../tmp2/hla/'.$sampleID.'/reads.p.n';
+		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p.n';
 		
 		push(@fastQ_files, $fastQ_file);
 		push(@output_files, $output_file);
@@ -141,7 +141,7 @@ if($actions =~ /a/)
 	my @fastQ_files;
 	foreach my $sampleID (@sampleIDs)
 	{
-		my $fastQ_file = '../tmp2/hla/'.$sampleID.'/reads.p.n';
+		my $fastQ_file = '../tmp/hla/'.$sampleID.'/reads.p.n';
 		my $fastQ_file_1 = $fastQ_file.'_1';
 		my $fastQ_file_2 = $fastQ_file.'_2';
 		unless(-e $fastQ_file_1)
@@ -152,7 +152,7 @@ if($actions =~ /a/)
 		{
 			die "Expected file $fastQ_file_2 not found";
 		}		
-		my $output_file = '../tmp2/hla/'.$sampleID.'/reads.p.n';
+		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p.n';
 		
 		push(@fastQ_files, $fastQ_file);
 	}
@@ -183,7 +183,7 @@ if($actions =~ /i/)
 	my @stdout_files;
 	foreach my $sampleID (@sampleIDs)
 	{
-		my $aligned_file = '../tmp2/hla/'.$sampleID.'/reads.p.n.aligned';
+		my $aligned_file = '../tmp/hla/'.$sampleID.'/reads.p.n.aligned';
 		unless(-e $aligned_file)
 		{
 			die "Expected file $aligned_file not found";
@@ -191,7 +191,7 @@ if($actions =~ /i/)
 	
 		push(@aligned_files, $aligned_file);
 		
-		my $stdout_file = '../tmp2/hla/'.$sampleID.'/inference.stdout';
+		my $stdout_file = '../tmp/hla/'.$sampleID.'/inference.stdout';
 		push(@stdout_files, $stdout_file);
 	}
 		
