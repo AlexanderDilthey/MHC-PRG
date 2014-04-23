@@ -351,6 +351,7 @@ int main(int argc, char *argv[])
 
 		std::string input_alignedReads;
 		std::string graph_dir;
+		std::string sampleID;
 
 		for(unsigned int i = 0; i < arguments.size(); i++)
 		{
@@ -363,12 +364,17 @@ int main(int argc, char *argv[])
 			{
 				graph_dir = arguments.at(i+1);
 			}
+
+			if(arguments.at(i) == "--sampleID")
+			{
+				sampleID = arguments.at(i+1);
+			}
 		}
 
 		assert(input_alignedReads.length());
 		assert(graph_dir.length());
 
-		HLATypeInference(input_alignedReads, graph_dir, 190, 100);
+		HLATypeInference(input_alignedReads, graph_dir, 190, 100, sampleID);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))
 	{

@@ -24,6 +24,12 @@ GetOptions ('graph:s' => \$graph,
  'actions:s' => \$actions, 
 );         
 
+
+my $genome_graph_file = qq(../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx);
+unless(-e $genome_graph_file)
+{
+	die "Please set variable \$genome_graph_file to an existing file - the current value $genome_graph_file is not accessible.";
+}
 my $expected_kMer_file = qq(../tmp2/GS_nextGen/${graph}/requiredkMers_graph.txt.kmers_25);
 unless(-e $expected_kMer_file)
 {
@@ -51,11 +57,11 @@ if(@sampleIDs)
 	}
 }	
 
-if($actions =~ /n/)
+if($actions =~ /p/)
 {
 	unless(@BAMs)
 	{
-		die "Please provide --BAMs for negative filtering";
+		die "Please provide --BAMs for positive filtering";
 	}
 	unless($#BAMs == $#sampleIDs)
 	{
@@ -72,12 +78,136 @@ if($actions =~ /n/)
 			die "Specified BAM $BAM (in --BAMs) does not exist!\n";
 		}
 		
-		my $output_file = '../tmp2/hla/'.$sampleI.'/reads.p';
-		unless(-e '../tmp2/hla/'.$sampleI)
+		my $output_file = '../tmp2/hla/'.$sampleID.'/reads.p';
+		unless(-e '../tmp2/hla/'.$sampleID)
 		{
-			mkdir('../tmp2/hla/'.$sampleI) or die "Cannot mkdir ".'../tmp2/hla/'.$sampleI;
+			mkdir('../tmp2/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp2/hla/'.$sampleID;
 		}
 		
 		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file);
+		
+		print "Now executing command:\n$command\n\n";
+		
+		system($command);
 	}
 }
+
+if($actions =~ /n/)
+{
+	unless(scalar(@sampleIDs))
+	{
+		die "Please provide some --sampleIDs for negative filtering.";
+	}
+		
+	my @fastQ_files;
+	my @output_files;
+	foreach my $sampleID (@sampleIDs)
+	{
+		my $fastQ_file = '../tmp2/hla/'.$sampleID.'/reads.p';
+		my $fastQ_file_1 = $fastQ_file.'_1';
+		my $fastQ_file_2 = $fastQ_file.'_2';
+		unless(-e $fastQ_file_1)
+		{
+			die "Expected file $fastQ_file_1 not found";
+		}
+		unless(-e $fastQ_file_2)
+		{
+			die "Expected file $fastQ_file_2 not found";
+		}		
+		my $output_file = '../tmp2/hla/'.$sampleID.'/reads.p.n';
+		
+		push(@fastQ_files, $fastQ_file);
+		push(@output_files, $output_file);
+	}
+	
+	my $fastQ_files = join(',', @fastQ_files);
+	my $output_files = join(',', @output_files);
+	
+	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files);
+	
+	print "Now executing command:\n$command\n\n";
+	
+	system($command);
+}
+
+
+if($actions =~ /a/)
+{
+	unless(scalar(@sampleIDs))
+	{
+		die "Please provide some --sampleIDs for alignment.";
+	}
+		
+	my @fastQ_files;
+	foreach my $sampleID (@sampleIDs)
+	{
+		my $fastQ_file = '../tmp2/hla/'.$sampleID.'/reads.p.n';
+		my $fastQ_file_1 = $fastQ_file.'_1';
+		my $fastQ_file_2 = $fastQ_file.'_2';
+		unless(-e $fastQ_file_1)
+		{
+			die "Expected file $fastQ_file_1 not found";
+		}
+		unless(-e $fastQ_file_2)
+		{
+			die "Expected file $fastQ_file_2 not found";
+		}		
+		my $output_file = '../tmp2/hla/'.$sampleID.'/reads.p.n';
+		
+		push(@fastQ_files, $fastQ_file);
+	}
+	
+	my $fastQ_files = join(',', @fastQ_files);
+	
+	my $pseudoReferenceGenome = qq(../tmp2/GS_nextGen/${graph}/pseudoReferenceGenome.txt);
+	unless(-e $pseudoReferenceGenome)
+	{
+		die "Pseudo-reference file $pseudoReferenceGenome not existing.";
+	}
+	my $command = qq($use_bin domode alignShortReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ../tmp2/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
+	
+	print "Now executing command:\n$command\n\n";
+	
+	system($command);
+}
+
+
+if($actions =~ /i/)
+{
+	unless(scalar(@sampleIDs))
+	{
+		die "Please provide some --sampleIDs for HLA type inference.";
+	}
+		
+	my @aligned_files;
+	my @stdout_files;
+	foreach my $sampleID (@sampleIDs)
+	{
+		my $aligned_file = '../tmp2/hla/'.$sampleID.'/reads.p.n.aligned';
+		unless(-e $aligned_file)
+		{
+			die "Expected file $aligned_file not found";
+		}
+	
+		push(@aligned_files, $aligned_file);
+		
+		my $stdout_file = '../tmp2/hla/'.$sampleID.'/inference.stdout';
+		push(@stdout_files, $stdout_file);
+	}
+		
+	for(my $sI = 0; $sI <= $#aligned_files; $sI++)
+	{
+		my $sampleID = $sampleIDs[$sI];
+		my $aligned_file = $aligned_files[$sI];
+		my $stdout_file = $stdout_files[$sI];
+		
+		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ../tmp2/GS_nextGen/${graph} --sampleID $sampleID &> $stdout_file);
+	
+		print "Now executing command:\n$command\n\n";
+		
+		system($command);		
+	}
+}
+
+
+
