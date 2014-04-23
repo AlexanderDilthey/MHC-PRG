@@ -476,15 +476,21 @@ void readFilter::doFilter()
 	}
 	else
 	{
-		std::cout << Utilities::timestamp() << "Filter FASTQ: " << input_FASTQ << "\n" << std::flush;	
-		filterFastQPairs(threads, input_FASTQ, output_FASTQ, &decisionFunction, &printFunction);
+		std::vector<std::string> fastQ_inputs = Utilities::split(input_FASTQ, ",");
+		std::vector<std::string> fastQ_output = Utilities::split(output_FASTQ, ",");
+		assert(fastQ_inputs.size() == fastQ_output.size());
+		for(unsigned int fI = 0; fI < fastQ_inputs.size(); fI++)
+		{
+			std::cout << Utilities::timestamp() << "Filter FASTQ: " << fastQ_inputs.at(fI) << "\n" << std::flush;
+			filterFastQPairs(threads, fastQ_inputs.at(fI), fastQ_output.at(fI), &decisionFunction, &printFunction);
+		}
 	}
 
 	fastq_1_output.close();
 	fastq_1_output.close();
 
-	std::cout << "Positive tested: " << positive_tested << "\n";
-	std::cout << "Positive passed: " << positive_OK << "\n" << std::flush;
+	std::cout << "Positive tested (cumulative): " << positive_tested << "\n";
+	std::cout << "Positive passed (cumulative): " << positive_OK << "\n" << std::flush;
 	// std::cout << "Saw " << saw_good_read_IDs << " / " << good_read_IDs.size() << " good read IDs\n" << std::flush;
 	
 	if(apply_filter_negative)

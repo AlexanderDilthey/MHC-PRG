@@ -1744,6 +1744,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 		assert(bestGuess_firstAllele.second >= 0);
 
 		std::map<int, double> bestGuess_secondAllele_alternatives;
+		std::map<int, double> bestGuess_secondAllele_alternatives_mismatches;
+
 		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
 		{
 			std::pair<unsigned int, unsigned int>& clusters = LLs_clusterIs.at(cI);
@@ -1752,6 +1754,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			{
 				assert(bestGuess_secondAllele_alternatives.count(clusters.second) == 0);
 				bestGuess_secondAllele_alternatives[clusters.second] = LLs_normalized.at(cI);
+				bestGuess_secondAllele_alternatives_mismatches[clusters.second] = Mismatches_min.at(cI);
 			}
 			else
 			{
@@ -1759,11 +1762,25 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 				{
 					assert(bestGuess_secondAllele_alternatives.count(clusters.first) == 0);
 					bestGuess_secondAllele_alternatives[clusters.first] = LLs_normalized.at(cI);
+					bestGuess_secondAllele_alternatives_mismatches[clusters.first] = Mismatches_min.at(cI);
 				}
 			}
 		}
 
-		std::pair<double, int> bestGuess_secondAllele = Utilities::findIntMapMax(bestGuess_secondAllele_alternatives);
+		std::pair<double, int> oneBestGuess_secondAllele = Utilities::findIntMapMax(bestGuess_secondAllele_alternatives);
+		std::map<int, double> mismatches_allBestGuessPairs;
+		for(std::map<int, double>::iterator secondAlleleIt = bestGuess_secondAllele_alternatives.begin(); secondAlleleIt != bestGuess_secondAllele_alternatives.end(); secondAlleleIt++)
+		{
+			int cluster = secondAlleleIt->first;
+			double LL_normalized = secondAlleleIt->second;
+			if(LL_normalized == oneBestGuess_secondAllele.first)
+			{
+				mismatches_allBestGuessPairs[cluster] =  -1 * bestGuess_secondAllele_alternatives_mismatches.at(cluster);
+			}
+		}
+
+		std::pair<double, int> bestGuess_secondAllele = Utilities::findIntMapMax(mismatches_allBestGuessPairs);
+
 		std::string bestGuess_secondAllele_ID = Utilities::join(std::vector<std::string>(HLAtype_clusters.at(bestGuess_secondAllele.second).begin(), HLAtype_clusters.at(bestGuess_secondAllele.second).end()), ";");
 		assert(bestGuess_secondAllele.first >= 0);
 		assert(bestGuess_secondAllele.second >= 0);
@@ -1815,7 +1832,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	bestGuess_outputStream.close();
 }
 
-void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::string referenceGenomeFile, double insertSize_mean, double insertSize_sd)
+void alignShortReadsToHLAGraph(std::string FASTQs, std::string graphDir, std::string referenceGenomeFile, double insertSize_mean, double insertSize_sd)
 {
 	int aligner_kMerSize = 25;
 	int outerThreads = 8;
@@ -1825,24 +1842,9 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));
 
-	std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading reads.\n" << std::flush;
 
-	std::vector<oneReadPair> combinedPairs_for_alignment = getReadsFromFastQ(FASTQ);
 	std::map<std::string, std::string> referenceChromosomes = Utilities::readFASTA(referenceGenomeFile);
 	assert(referenceChromosomes.count("ref"));
-
-	if(skipPairs_MOD != 1)
-	{
-		std::vector<oneReadPair> pairs_after_filtering;
-		for(unsigned int pairI = 0; pairI < combinedPairs_for_alignment.size(); pairI++)
-		{
-			if((pairI % skipPairs_MOD) == 0)
-			{
-				pairs_after_filtering.push_back(combinedPairs_for_alignment.at(pairI));
-			}
-		}
-		combinedPairs_for_alignment = pairs_after_filtering;
-	}
 
 	std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading graph.\n" << std::flush;
 
@@ -1870,7 +1872,6 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 		graphs.at(tI) = g;
 	}
 
-	std::cout << "\t" << "Now align " << combinedPairs_for_alignment.size() << " read pairs." << "\n" << std::flush;
 
 	auto alignReadPairs = [&](std::vector<oneReadPair>& readPairs, std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> >& alignments_perThread, std::vector< std::vector<int> >& alignments_readPairI_perThread, bool usePairing) -> void
 	{
@@ -1901,49 +1902,6 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 	};
 
 
-	std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> > withPairing_alignments_perThread;
-	std::vector< std::vector<int> > withPairing_alignments_readPairI_perThread;
-
-	withPairing_alignments_perThread.resize(outerThreads);
-	withPairing_alignments_readPairI_perThread.resize(outerThreads);
-
-	alignReadPairs(combinedPairs_for_alignment, withPairing_alignments_perThread, withPairing_alignments_readPairI_perThread, true);
-
-	// merge
-
-	std::cout  << Utilities::timestamp() << "\t\t" << "All pairs aligned - merge.\n" << std::flush;
-
-	std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > withPairing_alignments;
-	std::vector< int > withPairing_alignments_readPairI;
-	for(unsigned int tI = 0; tI < outerThreads; tI++)
-	{
-		withPairing_alignments.insert(withPairing_alignments.end(), withPairing_alignments_perThread.at(tI).begin(), withPairing_alignments_perThread.at(tI).end());
-		withPairing_alignments_readPairI.insert(withPairing_alignments_readPairI.end(), withPairing_alignments_readPairI_perThread.at(tI).begin(), withPairing_alignments_readPairI_perThread.at(tI).end());
-	}
-
-	std::cout  << Utilities::timestamp() << "\t\t\t" << "Merging done, delete.\n" << std::flush;
-	for(int tI = 0; tI < outerThreads; tI++)
-	{
-		delete(graphAligners.at(tI));
-		delete(graphs.at(tI));
-	}
-
-	// Produce normal output file
-	std::string alignments_output_file = FASTQ + ".aligned";
-	std::cout  << Utilities::timestamp() << "\t\t\t" << "Produce alignments file " << alignments_output_file << ".\n" << std::flush;
-
-	// std::vector<std::pair<std::string, std::string> > alignments_readIDs;
-	std::vector<oneReadPair> combinedPairs_for_alignment_inAlignmentOrder; 
-	for(unsigned int pairII = 0; pairII < withPairing_alignments_readPairI.size(); pairII++)
-	{
-		int readPairI = withPairing_alignments_readPairI.at(pairII);
-		// std::string ID1 = combinedPairs_for_alignment.at(readPairI).reads.first.name;
-		// std::string ID2 = combinedPairs_for_alignment.at(readPairI).reads.second.name;
-		// alignments_readIDs.push_back(make_pair(ID1, ID2));
-		combinedPairs_for_alignment_inAlignmentOrder.push_back(combinedPairs_for_alignment.at(readPairI));
-	}
-
-	assert(combinedPairs_for_alignment_inAlignmentOrder.size() == withPairing_alignments.size());
 
 	// auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs) -> void {
 	auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<oneReadPair>& originalReads) -> void {
@@ -1972,50 +1930,120 @@ void alignShortReadsToHLAGraph(std::string FASTQ, std::string graphDir, std::str
 		outputStream.close();
 	};
 
-	printAlignmentsToFile(alignments_output_file, withPairing_alignments, combinedPairs_for_alignment_inAlignmentOrder);
 
-
-	// Produce SAM
-	std::string SAM_output_file = FASTQ + ".sam";
-	std::cout  << Utilities::timestamp() << "\t\t\t" << "Produce SAM " << SAM_output_file << ".\n" << std::flush;
-
-
-	// Get graph loci and reference positions
-	std::ofstream SAM_output_stream;
-	SAM_output_stream.open(SAM_output_file.c_str());
-	assert(SAM_output_stream.is_open());
-
-	std::vector<int> uncompressed_graph_referencePositions;
-	std::vector<std::string> graphLoci = readGraphLoci(graphDir);
-
-	int lastReferencePosition = -1;
-	for(unsigned int i = 0; i < graphLoci.size(); i++)
+	std::vector<std::string> FASTQ_files = Utilities::split(FASTQs, ",");
+	for(unsigned int fI = 0; fI < FASTQ_files.size(); fI++)
 	{
-		std::string locusID = graphLoci.at(i);
-		std::vector<std::string> locusParts = Utilities::split(locusID, "_");
-		if(locusParts.size() != 3)
+		std::string FASTQ = FASTQ_files.at(fI);
+
+		std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading reads from " << FASTQ << ".\n" << std::flush;
+		std::vector<oneReadPair> combinedPairs_for_alignment = getReadsFromFastQ(FASTQ);
+
+		if(skipPairs_MOD != 1)
 		{
-			throw std::runtime_error("alignShortReadsToHLAGraph(..): Cannot decompose locus ID " +locusID);
+			std::vector<oneReadPair> pairs_after_filtering;
+			for(unsigned int pairI = 0; pairI < combinedPairs_for_alignment.size(); pairI++)
+			{
+				if((pairI % skipPairs_MOD) == 0)
+				{
+					pairs_after_filtering.push_back(combinedPairs_for_alignment.at(pairI));
+				}
+			}
+			combinedPairs_for_alignment = pairs_after_filtering;
 		}
-		int thisLocus_refPos = Utilities::StrtoI(locusParts.at(2));
-		if(thisLocus_refPos != -1)
+
+		std::cout << "\t" << "Now align " << combinedPairs_for_alignment.size() << " read pairs." << "\n" << std::flush;
+
+		std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> > withPairing_alignments_perThread;
+		std::vector< std::vector<int> > withPairing_alignments_readPairI_perThread;
+
+		withPairing_alignments_perThread.resize(outerThreads);
+		withPairing_alignments_readPairI_perThread.resize(outerThreads);
+
+		alignReadPairs(combinedPairs_for_alignment, withPairing_alignments_perThread, withPairing_alignments_readPairI_perThread, true);
+
+		// merge
+
+		std::cout  << Utilities::timestamp() << "\t\t" << "All pairs aligned - merge.\n" << std::flush;
+
+		std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > withPairing_alignments;
+		std::vector< int > withPairing_alignments_readPairI;
+		for(unsigned int tI = 0; tI < outerThreads; tI++)
 		{
-			thisLocus_refPos = thisLocus_refPos + 1;
+			withPairing_alignments.insert(withPairing_alignments.end(), withPairing_alignments_perThread.at(tI).begin(), withPairing_alignments_perThread.at(tI).end());
+			withPairing_alignments_readPairI.insert(withPairing_alignments_readPairI.end(), withPairing_alignments_readPairI_perThread.at(tI).begin(), withPairing_alignments_readPairI_perThread.at(tI).end());
 		}
-		if((i == 0) || (lastReferencePosition != thisLocus_refPos))
+
+		// Produce normal output file
+		std::string alignments_output_file = FASTQ + ".aligned";
+		std::cout  << Utilities::timestamp() << "\t\t\t" << "Produce alignments file " << alignments_output_file << ".\n" << std::flush;
+
+		// std::vector<std::pair<std::string, std::string> > alignments_readIDs;
+		std::vector<oneReadPair> combinedPairs_for_alignment_inAlignmentOrder;
+		for(unsigned int pairII = 0; pairII < withPairing_alignments_readPairI.size(); pairII++)
 		{
-			uncompressed_graph_referencePositions.push_back(thisLocus_refPos);
-			lastReferencePosition = thisLocus_refPos;
+			int readPairI = withPairing_alignments_readPairI.at(pairII);
+			// std::string ID1 = combinedPairs_for_alignment.at(readPairI).reads.first.name;
+			// std::string ID2 = combinedPairs_for_alignment.at(readPairI).reads.second.name;
+			// alignments_readIDs.push_back(make_pair(ID1, ID2));
+			combinedPairs_for_alignment_inAlignmentOrder.push_back(combinedPairs_for_alignment.at(readPairI));
 		}
-		else
+
+		assert(combinedPairs_for_alignment_inAlignmentOrder.size() == withPairing_alignments.size());
+
+
+		printAlignmentsToFile(alignments_output_file, withPairing_alignments, combinedPairs_for_alignment_inAlignmentOrder);
+
+
+		// Produce SAM
+		std::string SAM_output_file = FASTQ + ".sam";
+		std::cout  << Utilities::timestamp() << "\t\t\t" << "Produce SAM " << SAM_output_file << ".\n" << std::flush;
+
+
+		// Get graph loci and reference positions
+		std::ofstream SAM_output_stream;
+		SAM_output_stream.open(SAM_output_file.c_str());
+		assert(SAM_output_stream.is_open());
+
+		std::vector<int> uncompressed_graph_referencePositions;
+		std::vector<std::string> graphLoci = readGraphLoci(graphDir);
+
+		int lastReferencePosition = -1;
+		for(unsigned int i = 0; i < graphLoci.size(); i++)
 		{
-			uncompressed_graph_referencePositions.push_back(-1);
+			std::string locusID = graphLoci.at(i);
+			std::vector<std::string> locusParts = Utilities::split(locusID, "_");
+			if(locusParts.size() != 3)
+			{
+				throw std::runtime_error("alignShortReadsToHLAGraph(..): Cannot decompose locus ID " +locusID);
+			}
+			int thisLocus_refPos = Utilities::StrtoI(locusParts.at(2));
+			if(thisLocus_refPos != -1)
+			{
+				thisLocus_refPos = thisLocus_refPos + 1;
+			}
+			if((i == 0) || (lastReferencePosition != thisLocus_refPos))
+			{
+				uncompressed_graph_referencePositions.push_back(thisLocus_refPos);
+				lastReferencePosition = thisLocus_refPos;
+			}
+			else
+			{
+				uncompressed_graph_referencePositions.push_back(-1);
+			}
 		}
+
+		alignedShortReads2SAM(SAM_output_stream, uncompressed_graph_referencePositions, referenceChromosomes.at("ref"), withPairing_alignments, combinedPairs_for_alignment_inAlignmentOrder);
+
+		std::cout  << Utilities::timestamp() << "\t\t\t" << "Done. Output in " << SAM_output_file << ".\n" << std::flush;
 	}
 
-	alignedShortReads2SAM(SAM_output_stream, uncompressed_graph_referencePositions, referenceChromosomes.at("ref"), withPairing_alignments, combinedPairs_for_alignment_inAlignmentOrder);
-
-	std::cout  << Utilities::timestamp() << "\t\t\t" << "Done. Output in " << SAM_output_file << ".\n" << std::flush;
+	std::cout  << Utilities::timestamp() << "\t\t\t" << "All alignments done, free memory.\n" << std::flush;
+	for(int tI = 0; tI < outerThreads; tI++)
+	{
+		delete(graphAligners.at(tI));
+		delete(graphs.at(tI));
+	}
 }
 
 void validateChromotypesVsVCF(std::string chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width)
