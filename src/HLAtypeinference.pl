@@ -14,8 +14,8 @@ my $kMer_size = 55;
 # input parameters
 
 my $graph = 'hla';   
-my $sampleIDs;
-my $BAMs;
+my $sampleIDs = '';
+my $BAMs = '';
 my $actions;
 
 GetOptions ('graph:s' => \$graph,
@@ -25,7 +25,7 @@ GetOptions ('graph:s' => \$graph,
 );         
 
 
-my $genome_graph_file = qq(../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx);
+my $genome_graph_file = qq(../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx);
 unless(-e $genome_graph_file)
 {
 	die "Please set variable \$genome_graph_file to an existing file - the current value $genome_graph_file is not accessible.";
