@@ -45,6 +45,18 @@ std::pair<diploidGenomeString, diploidGenomeString> greedilyResolveDiploidKMerSt
 void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<oneReadPair>& originalReads);
 void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads);
 
+std::string removeFROM(std::string readID)
+{
+	if(readID.find(":FROM:") != std::string::npos)
+	{
+		size_t cutFrom = readID.find(":FROM:");
+		return readID.substr(0, cutFrom);
+	}
+	else
+	{
+		return readID;
+	}
+}
 // functions
 
 std::vector<std::string> filesInDirectory(std::string path)
@@ -163,13 +175,15 @@ std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string
 			break;
 		}
 
-		assert((read1_ID.substr(read1_ID.length() - 2, 2) == "/1") || (read1_ID.substr(read1_ID.length() - 2, 2) == "/2"));
-		assert((read2_ID.substr(read2_ID.length() - 2, 2) == "/1") || (read2_ID.substr(read2_ID.length() - 2, 2) == "/2"));
-		if(!(read1_ID.substr(0, read1_ID.length() - 2) == read2_ID.substr(0, read2_ID.length() - 2)))
+		std::string read1_ID_noFrom = removeFROM(read1_ID);
+		std::string read2_ID_noFrom = removeFROM(read2_ID);
+		assert((read1_ID_noFrom.substr(read1_ID_noFrom.length() - 2, 2) == "/1") || (read1_ID_noFrom.substr(read1_ID_noFrom.length() - 2, 2) == "/2"));
+		assert((read2_ID_noFrom.substr(read2_ID_noFrom.length() - 2, 2) == "/1") || (read2_ID_noFrom.substr(read2_ID_noFrom.length() - 2, 2) == "/2"));
+		if(!(read1_ID_noFrom.substr(0, read1_ID_noFrom.length() - 2) == read2_ID_noFrom.substr(0, read2_ID_noFrom.length() - 2)))
 		{
-			std::cerr << "Warning: read IDs don't match! " << read1_ID << " vs " << read2_ID << "\n";
+			std::cerr << "Warning: read IDs don't match! " << read1_ID_noFrom << " vs " << read2_ID_noFrom << "\n";
 		}
-		assert(read1_ID.substr(0, read1_ID.length() - 2) == read2_ID.substr(0, read2_ID.length() - 2));
+		assert(read1_ID_noFrom.substr(0, read1_ID_noFrom.length() - 2) == read2_ID_noFrom.substr(0, read2_ID_noFrom.length() - 2));
 
 		oneRead r1(read1_ID, read1_sequence, read1_qualities);
 		oneRead r2(read2_ID, read2_sequence, read2_qualities);
@@ -838,7 +852,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	}
 
 	std::string outputDirectory = "../tmp/hla/"+sampleName;
-	if(! Utilities::directoryExists(outputDirectory)
+	if(! Utilities::directoryExists(outputDirectory))
 	{
 		Utilities::makeDir(outputDirectory);
 	}
@@ -1408,12 +1422,12 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			}
 		}
 		
-		std::string fileName_pileUp = "../tmp/HLAPileUp_"+locus+".txt";
+		std::string fileName_pileUp = outputDirectory + "/R1_pileup_"+locus+".txt";
 		std::ofstream pileUpStream;
 		pileUpStream.open(fileName_pileUp.c_str());
 		assert(pileUpStream.is_open());
 		
-		
+
 		for(std::map<int, std::map<int, std::vector<oneExonPosition> > >::iterator exonIt = pileUpPerPosition.begin(); exonIt != pileUpPerPosition.end(); exonIt++)
 		{
 			int exon = exonIt->first;
@@ -1680,6 +1694,19 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 				LLs_indices.push_back(LLs.size() - 1);
 			}
 		}
+		
+		std::sort(LLs_indices.begin(), LLs_indices.end(), [&](unsigned int a, unsigned int b) {
+			if(LLs.at(a) == LLs.at(b))
+			{
+				return (Mismatches_avg.at(b) < Mismatches_avg.at(a));
+			}
+			else
+			{
+				return (LLs.at(a) < LLs.at(b));
+			}
+		});
+
+		std::reverse(LLs_indices.begin(), LLs_indices.end());
 
 
 		std::pair<double, unsigned int> maxPairI = Utilities::findVectorMax(LLs);
@@ -1702,42 +1729,42 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 			assert(P_normalized >= 0);
 			assert(P_normalized <= 1);
 			LLs_normalized.push_back(P_normalized);
-
-
 		}
 
 		std::ofstream allPairsStream;
 		allPairsStream.open(outputFN_allPairs.c_str());
 		assert(allPairsStream.is_open());
-		allPairsStream << "ClusterID" << "\t" << "P" << "LL" << "\t" << "Mismatches_avg" << "\n";
+		allPairsStream << "ClusterID" << "\t" << "P" << "\t" << "LL" << "\t" << "Mismatches_avg" << "\n";
 
 		std::vector<std::string> LLs_identifiers;
 		std::map<int, double> clusterI_overAllPairs;
-		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
+		for(unsigned int cII = 0; cII < LLs_indices.size(); cII++)
 		{
+			unsigned int cI = LLs_indices.at(cII);
 			std::pair<unsigned int, unsigned int>& clusters = LLs_clusterIs.at(cI);
+			
 			std::vector<std::string> cluster1_members(HLAtype_clusters.at(clusters.first).begin(), HLAtype_clusters.at(clusters.first).end());
 			std::vector<std::string> cluster2_members(HLAtype_clusters.at(clusters.second).begin(), HLAtype_clusters.at(clusters.second).end());
 
-			std::string id =  + "/" + Utilities::join(cluster2_members, ";");
+			std::string id = Utilities::join(cluster1_members, ";") + "/" + Utilities::join(cluster2_members, ";");
 
 			LLs_identifiers.push_back(id);
 
-			allPairsStream << id << "\t" << LLs_normalized.at(cI) << "\t" << LLs.at(cI) << "\t" << Mismatches_avg << "\n";
+			allPairsStream << id << "\t" << LLs_normalized.at(cI) << "\t" << LLs.at(cI) << "\t" << Mismatches_avg.at(cI) << "\n";
 
 			if(clusterI_overAllPairs.count(clusters.first) == 0)
 			{
-				clusterI_overAllPairs[cluster.first] = 0;
+				clusterI_overAllPairs[clusters.first] = 0;
 			}
-			clusterI_overAllPairs[cluster.first] += LLs_normalized.at(cI);
+			clusterI_overAllPairs[clusters.first] += LLs_normalized.at(cI);
 
-			if(cluster.second != cluster.first)
+			if(clusters.second != clusters.first)
 			{
 				if(clusterI_overAllPairs.count(clusters.second) == 0)
 				{
-					clusterI_overAllPairs[cluster.second] = 0;
+					clusterI_overAllPairs[clusters.second] = 0;
 				}
-				clusterI_overAllPairs[cluster.second] += LLs_normalized.at(cI);
+				clusterI_overAllPairs[clusters.second] += LLs_normalized.at(cI);
 			}
 		}
 
@@ -1773,6 +1800,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 		}
 
 		std::pair<double, int> oneBestGuess_secondAllele = Utilities::findIntMapMax(bestGuess_secondAllele_alternatives);
+		assert(oneBestGuess_secondAllele.first >= 0);
+		assert(oneBestGuess_secondAllele.first <= 1);
+		
 		std::map<int, double> mismatches_allBestGuessPairs;
 		for(std::map<int, double>::iterator secondAlleleIt = bestGuess_secondAllele_alternatives.begin(); secondAlleleIt != bestGuess_secondAllele_alternatives.end(); secondAlleleIt++)
 		{
@@ -1787,24 +1817,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 		std::pair<double, int> bestGuess_secondAllele = Utilities::findIntMapMax(mismatches_allBestGuessPairs);
 
 		std::string bestGuess_secondAllele_ID = Utilities::join(std::vector<std::string>(HLAtype_clusters.at(bestGuess_secondAllele.second).begin(), HLAtype_clusters.at(bestGuess_secondAllele.second).end()), ";");
-		assert(bestGuess_secondAllele.first >= 0);
-		assert(bestGuess_secondAllele.second >= 0);
 
 		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\n";
-		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << bestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\n";
-
-		std::sort(LLs_indices.begin(), LLs_indices.end(), [&](unsigned int a, unsigned int b) {
-			if(LLs.at(a) == LLs.at(b))
-			{
-				return (Mismatches_avg.at(b) < Mismatches_avg.at(a));
-			}
-			else
-			{
-				return (LLs.at(a) < LLs.at(b));
-			}
-		});
-
-		std::reverse(LLs_indices.begin(), LLs_indices.end());
+		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\n";
 
 		unsigned int maxPairPrint = (LLs_indices.size() > 10) ? 10 : LLs_indices.size(); 
 		for(unsigned int LLi = 0; LLi < maxPairPrint; LLi++)

@@ -118,3 +118,8 @@ dilthey@sequoia:~/picard/picard-tools-1.83$ java -jar CollectInsertSizeMetrics.j
 
 ../bin/MHC-PRG domode testGraphAligner_realGraph ../tmp2/GS_nextGen/hla/graph.txt
 
+
+
+## script
+
+./HLAtypeinference.pl --sampleIDs AA02O9Q_A2 --actions n

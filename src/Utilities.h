@@ -91,9 +91,9 @@ public:
 
 	static bool fileReadable(std::string file);
 
-	bool directoryExists(std::string dir);
-	void makeDir(std::string dir);
-	bool fileExists(std::string filepath);
+	static bool directoryExists(std::string dir);
+	static void makeDir(std::string dir);
+	static bool fileExists(std::string filepath);
 
 };
 

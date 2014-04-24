@@ -26,6 +26,9 @@
 // unsigned int globalRandRSeed = time(NULL);
 unsigned int globalRandRSeed = 0;
 
+using namespace boost::filesystem;
+
+
 Utilities::Utilities() {
 }
 
