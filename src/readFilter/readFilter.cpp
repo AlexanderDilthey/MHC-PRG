@@ -75,23 +75,6 @@ void readFilter::doFilter()
 	std::cout << "\t" << "negativePreserveUnique" << ": " << negativePreserveUnique << "\n";
 	std::cout << "\t" << "uniqueness_base" << ": " << uniqueness_base << "\n";
 	std::cout << "\t" << "uniqueness_subtract" << ": " << uniqueness_subtract << "\n";
-	
-	std::string fn_1 = output_FASTQ + "_1";
-	std::string fn_2 = output_FASTQ + "_2";
-
-	std::ofstream fastq_1_output;
-	fastq_1_output.open(fn_1.c_str());
-	if(! fastq_1_output.is_open())
-	{
-		throw std::runtime_error("readFilter::doFilter(): Cannot open file "+fn_1);
-	}
-
-	std::ofstream fastq_2_output;
-	fastq_2_output.open(fn_2.c_str());
-	if(! fastq_2_output.is_open())
-	{
-		throw std::runtime_error("readFilter::doFilter(): Cannot open file "+fn_2);
-	}
 
 	std::set<std::string> positive_kMers;
 
@@ -448,46 +431,108 @@ void readFilter::doFilter()
 		}
 	};
 
-	std::function<void(const fastq_readPair&)> printFunction = [&](const fastq_readPair& read) -> void {
-
-		fastq_1_output << "@" << read.a1.readID << ":FROM:" << read.a1.fromString << "\n"
-				  << read.a1.sequence    << "\n"
-				  << "+"         << "\n"
-				  << read.a1.qualities   << "\n";
-
-		// todo check - reverse complement
-		// std::string read_2_sequence_forPrint = seq_reverse_complement(read.a2.sequence);
-		// std::string read_2_qualities_forPrint = read.a2.qualities;
-		// std::reverse(read_2_qualities_forPrint.begin(), read_2_qualities_forPrint.end());
-		
-		std::string read_2_sequence_forPrint = read.a2.sequence;
-		std::string read_2_qualities_forPrint = read.a2.qualities;
-		
-		fastq_2_output << "@" << read.a2.readID << ":FROM:" << read.a2.fromString << "\n"
-						  << read_2_sequence_forPrint    << "\n"
-						  << "+"         << "\n"
-						  << read_2_qualities_forPrint   << "\n";
-	};
-
 	if(input_BAM.length())
-	{
+	{	
+		std::string fn_1 = output_FASTQ + "_1";
+		std::string fn_2 = output_FASTQ + "_2";
+
+		std::ofstream fastq_1_output;
+		fastq_1_output.open(fn_1.c_str());
+		if(! fastq_1_output.is_open())
+		{
+			throw std::runtime_error("readFilter::doFilter(): Cannot open file "+fn_1);
+		}
+
+		std::ofstream fastq_2_output;
+		fastq_2_output.open(fn_2.c_str());
+		if(! fastq_2_output.is_open())
+		{
+			throw std::runtime_error("readFilter::doFilter(): Cannot open file "+fn_2);
+		}
+	
+		std::function<void(const fastq_readPair&)> printFunction = [&](const fastq_readPair& read) -> void {
+
+				fastq_1_output << "@" << read.a1.readID << ":FROM:" << read.a1.fromString << "\n"
+						  << read.a1.sequence    << "\n"
+						  << "+"         << "\n"
+						  << read.a1.qualities   << "\n";
+
+				// todo check - reverse complement
+				// std::string read_2_sequence_forPrint = seq_reverse_complement(read.a2.sequence);
+				// std::string read_2_qualities_forPrint = read.a2.qualities;
+				// std::reverse(read_2_qualities_forPrint.begin(), read_2_qualities_forPrint.end());
+				
+				std::string read_2_sequence_forPrint = read.a2.sequence;
+				std::string read_2_qualities_forPrint = read.a2.qualities;
+				
+				fastq_2_output << "@" << read.a2.readID << ":FROM:" << read.a2.fromString << "\n"
+								  << read_2_sequence_forPrint    << "\n"
+								  << "+"         << "\n"
+								  << read_2_qualities_forPrint   << "\n";
+		};
+
 		std::cout << Utilities::timestamp() << "Filter BAM: " << input_BAM << "\n" << std::flush;
 		filterBAM(threads, input_BAM, output_FASTQ, &decisionFunction, &printFunction);
+		
+		fastq_1_output.close();
+		fastq_2_output.close();
+				
 	}
 	else
 	{
 		std::vector<std::string> fastQ_inputs = Utilities::split(input_FASTQ, ",");
 		std::vector<std::string> fastQ_output = Utilities::split(output_FASTQ, ",");
+		
 		assert(fastQ_inputs.size() == fastQ_output.size());
 		for(unsigned int fI = 0; fI < fastQ_inputs.size(); fI++)
 		{
+			
+			std::string fn_1 = fastQ_output.at(fI) + "_1";
+			std::string fn_2 = fastQ_output.at(fI) + "_2";
+
+			std::ofstream fastq_1_output;
+			fastq_1_output.open(fn_1.c_str());
+			if(! fastq_1_output.is_open())
+			{
+				throw std::runtime_error("readFilter::doFilter(): Cannot open file "+fn_1);
+			}
+
+			std::ofstream fastq_2_output;
+			fastq_2_output.open(fn_2.c_str());
+			if(! fastq_2_output.is_open())
+			{
+				throw std::runtime_error("readFilter::doFilter(): Cannot open file "+fn_2);
+			}
+			
+			std::function<void(const fastq_readPair&)> printFunction = [&](const fastq_readPair& read) -> void {
+
+					fastq_1_output << "@" << read.a1.readID << ":FROM:" << read.a1.fromString << "\n"
+							  << read.a1.sequence    << "\n"
+							  << "+"         << "\n"
+							  << read.a1.qualities   << "\n";
+
+					// todo check - reverse complement
+					// std::string read_2_sequence_forPrint = seq_reverse_complement(read.a2.sequence);
+					// std::string read_2_qualities_forPrint = read.a2.qualities;
+					// std::reverse(read_2_qualities_forPrint.begin(), read_2_qualities_forPrint.end());
+					
+					std::string read_2_sequence_forPrint = read.a2.sequence;
+					std::string read_2_qualities_forPrint = read.a2.qualities;
+					
+					fastq_2_output << "@" << read.a2.readID << ":FROM:" << read.a2.fromString << "\n"
+									  << read_2_sequence_forPrint    << "\n"
+									  << "+"         << "\n"
+									  << read_2_qualities_forPrint   << "\n";
+			};
+	
 			std::cout << Utilities::timestamp() << "Filter FASTQ: " << fastQ_inputs.at(fI) << "\n" << std::flush;
 			filterFastQPairs(threads, fastQ_inputs.at(fI), fastQ_output.at(fI), &decisionFunction, &printFunction);
+			
+			fastq_1_output.close();
+			fastq_2_output.close();
 		}
 	}
 
-	fastq_1_output.close();
-	fastq_1_output.close();
 
 	std::cout << "Positive tested (cumulative): " << positive_tested << "\n";
 	std::cout << "Positive passed (cumulative): " << positive_OK << "\n" << std::flush;
@@ -574,6 +619,14 @@ void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2
 		std::string read2_ID; std::string read2_sequence; std::string read2_qualities;
 		getReadFromFastQ(fastQ_2_stream, read2_ID, read2_sequence, read2_qualities);
 
+		if(!(((read1_ID.length() && read2_ID.length()) || ((!read1_ID.length()) && (!read2_ID.length())))))
+		{
+			std::cerr << "Assertion fail!\n";
+			std::cerr << "read1_ID.length(): " << read1_ID.length() << "\n";
+			std::cerr << "read2_ID.length(): " << read2_ID.length() << "\n";
+			std::cerr << "read1_ID: " << read1_ID << "\n";
+			std::cerr << "read2_ID: " << read2_ID << "\n" << std::flush;
+		}
 		assert((read1_ID.length() && read2_ID.length()) || ((!read1_ID.length()) && (!read2_ID.length())));
 		if((!read1_ID.length()) && (!read2_ID.length()))
 		{
@@ -601,14 +654,17 @@ void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2
 		assert(success_2);
 		assert(thisPair.isComplete());
 
-		assert((read1_ID.substr(read1_ID.length() - 2, 2) == "/1") || (read1_ID.substr(read1_ID.length() - 2, 2) == "/2"));
-		assert((read2_ID.substr(read2_ID.length() - 2, 2) == "/1") || (read2_ID.substr(read2_ID.length() - 2, 2) == "/2"));
+		std::string read1_ID_noFrom = Utilities::removeFROM(read1_ID);
+		std::string read2_ID_noFrom = Utilities::removeFROM(read2_ID);
 		
-		if(!(read1_ID.substr(0, read1_ID.length() - 2) == read2_ID.substr(0, read2_ID.length() - 2)))
+		assert((read1_ID_noFrom.substr(read1_ID_noFrom.length() - 2, 2) == "/1") || (read1_ID_noFrom.substr(read1_ID_noFrom.length() - 2, 2) == "/2"));
+		assert((read2_ID_noFrom.substr(read2_ID_noFrom.length() - 2, 2) == "/1") || (read2_ID_noFrom.substr(read2_ID_noFrom.length() - 2, 2) == "/2"));
+		
+		if(!(read1_ID_noFrom.substr(0, read1_ID_noFrom.length() - 2) == read2_ID_noFrom.substr(0, read2_ID_noFrom.length() - 2)))
 		{
-			std::cerr << "Warning: read IDs don't match! " << read1_ID << " vs " << read2_ID << "\n";
+			std::cerr << "Warning: read IDs don't match! " << read1_ID_noFrom << " vs " << read2_ID_noFrom << "\n";
 		}
-		assert(read1_ID.substr(0, read1_ID.length() - 2) == read2_ID.substr(0, read2_ID.length() - 2));		
+		assert(read1_ID_noFrom.substr(0, read1_ID_noFrom.length() - 2) == read2_ID_noFrom.substr(0, read2_ID_noFrom.length() - 2));		
 		
 		if((*decide)(thisPair))
 		{

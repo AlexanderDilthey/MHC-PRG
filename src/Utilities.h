@@ -95,6 +95,8 @@ public:
 	static void makeDir(std::string dir);
 	static bool fileExists(std::string filepath);
 
+	static std::string removeFROM(std::string readID);
+		
 };
 
 extern unsigned int globalRandRSeed;

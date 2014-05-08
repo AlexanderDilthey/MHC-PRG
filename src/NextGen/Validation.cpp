@@ -45,18 +45,6 @@ std::pair<diploidGenomeString, diploidGenomeString> greedilyResolveDiploidKMerSt
 void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<oneReadPair>& originalReads);
 void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads);
 
-std::string removeFROM(std::string readID)
-{
-	if(readID.find(":FROM:") != std::string::npos)
-	{
-		size_t cutFrom = readID.find(":FROM:");
-		return readID.substr(0, cutFrom);
-	}
-	else
-	{
-		return readID;
-	}
-}
 // functions
 
 std::vector<std::string> filesInDirectory(std::string path)
@@ -175,8 +163,8 @@ std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string
 			break;
 		}
 
-		std::string read1_ID_noFrom = removeFROM(read1_ID);
-		std::string read2_ID_noFrom = removeFROM(read2_ID);
+		std::string read1_ID_noFrom = Utilities::removeFROM(read1_ID);
+		std::string read2_ID_noFrom = Utilities::removeFROM(read2_ID);
 		assert((read1_ID_noFrom.substr(read1_ID_noFrom.length() - 2, 2) == "/1") || (read1_ID_noFrom.substr(read1_ID_noFrom.length() - 2, 2) == "/2"));
 		assert((read2_ID_noFrom.substr(read2_ID_noFrom.length() - 2, 2) == "/1") || (read2_ID_noFrom.substr(read2_ID_noFrom.length() - 2, 2) == "/2"));
 		if(!(read1_ID_noFrom.substr(0, read1_ID_noFrom.length() - 2) == read2_ID_noFrom.substr(0, read2_ID_noFrom.length() - 2)))
