@@ -883,6 +883,19 @@ char Utilities::randomNucleotide(boost::mt19937& rng)
 
 
 
+std::string Utilities::removeFROM(std::string readID)
+{
+	if(readID.find(":FROM:") != std::string::npos)
+	{
+		size_t cutFrom = readID.find(":FROM:");
+		return readID.substr(0, cutFrom);
+	}
+	else
+	{
+		return readID;
+	}
+}
+
 
 
 
