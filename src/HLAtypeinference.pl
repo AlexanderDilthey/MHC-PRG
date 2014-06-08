@@ -584,7 +584,7 @@ if($actions =~ /v/)
 			my $thisIndiv_comparions = $comparisons - $comparisons_before;
 			my $thisIndiv_OK = $thisIndiv_comparions - $thisIndiv_problems;
 			
-			if($thisIndiv_problems > 0)
+			if(1 or ($thisIndiv_problems > 0))
 			{
 				my $indivID_withI = $sample_noI_toI{$indivID};
 				die unless(defined $indivID_withI);
