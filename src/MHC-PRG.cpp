@@ -340,6 +340,12 @@ int main(int argc, char *argv[])
 		assert(graph_dir.length());
 		assert(referenceGenome.length());
 
+		double IS_mean = 0;
+		double IS_sd = 0;
+
+		estimateInsertSizeFromGraph(input_FASTQ, graph_dir, IS_mean, IS_sd);
+
+		assert(1 == 0);
 		alignShortReadsToHLAGraph(input_FASTQ, graph_dir, referenceGenome, 190, 100);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "HLATypeInference"))

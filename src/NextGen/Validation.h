@@ -35,6 +35,8 @@ void validateGenomeString(diploidGenomeString& gS, std::string deBruijnGraph_fil
 void testValidation(std::string viterbi_diploid_gS,std::string deBruijnGraph, int k, std::string VCFfile, std::string referenceGenomeFile);
 diploidGenomeString compressGenomeString(diploidGenomeString gS);
 
+void estimateInsertSizeFromGraph(std::string FASTQs, std::string graphDir, double& insertSize_mean_ret, double& insertSize_sd_ret);
+
 void validateChromotypesVsVCF(std::string chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width);
 void validateAmendedChromotypesVsVCF(std::string amended_chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width);
 void validateAllChromotypesVsVCF(std::string chromotypes_file, std::string amended_chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width, std::string outputDirectory, std::string graphDir);

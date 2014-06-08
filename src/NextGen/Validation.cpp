@@ -1864,6 +1864,135 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, doubl
 	bestGuess_outputStream.close();
 }
 
+
+
+void estimateInsertSizeFromGraph(std::string FASTQs, std::string graphDir, double& insertSize_mean_ret, double& insertSize_sd_ret)
+{
+	int aligner_kMerSize = 25;
+	int outerThreads = 8;
+	int skipPairs_MOD = 1;
+	bool useShort = true;
+
+	std::string graph = graphDir + "/graph.txt";
+	assert(Utilities::fileReadable(graph));
+
+	std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading graph.\n" << std::flush;
+	Graph* g = new Graph();
+	g->readFromFile(graph);
+
+	std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Create GraphAlignerUnique(s).\n" << std::flush;
+	GraphAlignerUnique::GraphAlignerUnique* gA = new GraphAlignerUnique::GraphAlignerUnique(g, aligner_kMerSize);
+	gA->setIterationsMainRandomizationLoop(4);
+	gA->setThreads(1);
+
+	omp_set_num_threads(1);
+
+	std::vector<std::string> FASTQ_files = Utilities::split(FASTQs, ",");
+	std::vector<oneReadPair> combinedPairs_for_alignment;
+	for(unsigned int fI = 0; fI < FASTQ_files.size(); fI++)
+	{
+		std::string FASTQ = FASTQ_files.at(fI);
+
+		std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading reads from " << FASTQ << ".\n" << std::flush;
+		std::vector<oneReadPair> thisFile_combinedPairs_for_alignment = getReadsFromFastQ(FASTQ);
+
+		combinedPairs_for_alignment.insert(combinedPairs_for_alignment.end(), combinedPairs_for_alignment.begin(), combinedPairs_for_alignment.end());
+	}
+
+	double targetReadPairs = 1000;
+	int MOD_for_filtering = 0;
+
+	if(combinedPairs_for_alignment.size() > targetReadPairs)
+	{
+		MOD_for_filtering = combinedPairs_for_alignment.size() / targetReadPairs;
+	}
+
+	if(MOD_for_filtering != 0)
+	{
+		std::vector<oneReadPair> combinedPairs_for_alignment_F;
+		for(unsigned int i = 0; i < combinedPairs_for_alignment.size(); i++)
+		{
+			if((i % MOD_for_filtering) == 0)
+			{
+				combinedPairs_for_alignment_F.push_back(combinedPairs_for_alignment.at(i));
+			}
+		}
+
+		assert(combinedPairs_for_alignment_F.size() >= targetReadPairs);
+
+		combinedPairs_for_alignment = combinedPairs_for_alignment_F;
+	}
+
+	double IS_total_size = 0;
+	std::map<int, double> IS_combined_counts;
+	std::set<int> IS_keys;
+
+	for(unsigned int pI = 0; pI < combinedPairs_for_alignment.size(); pI++)
+	{
+		std::map<int, double> IS_p;
+		std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = gA->seedAndExtend_local_paired_or_short(combinedPairs_for_alignment.at(pI), true, useShort, 1, 1, true, IS_p);
+
+		for(std::map<int, double>::iterator ISit = IS_p.begin(); ISit != IS_p.end(); ISit++)
+		{
+			int d = ISit->first;
+			double p = ISit->second;
+
+			if(IS_combined_counts.count(d) == 0)
+			{
+				IS_combined_counts[d] = 0;
+				IS_keys.insert(d);
+			}
+
+			IS_combined_counts.at(d) += p;
+			IS_total_size += p;
+		}
+
+	}
+
+	double cumulative_sum = 0;
+	double weighted_median = 0;
+	double weighted_20 = 0;
+	double weighted_80 = 0;
+	bool set_median = false;
+	bool set_weighted_20 = false;
+	bool set_weighted_80 = false;
+
+	std::cout << "\n\nIS histogram over " << IS_total_size << " read pairs:\n";
+	for(std::set<int>::iterator ISit = IS_keys.begin(); ISit != IS_keys.end(); ISit++)
+	{
+		int d = *ISit;
+		double c = IS_combined_counts.at(d);
+		std::cout << "\t" << d << ": " << c << "\n";
+		cumulative_sum += IS_combined_counts.at(d);
+		if((set_median == false) && (cumulative_sum >= (IS_total_size * 0.5)))
+		{
+			weighted_median = d;
+			set_median = true;
+		}
+		if((set_weighted_20 == false) && (cumulative_sum >= (IS_total_size * 0.2)))
+		{
+			weighted_20 = d;
+			set_weighted_20 = true;
+		}
+		if((set_weighted_80 == false) && (cumulative_sum >= (IS_total_size * 0.8)))
+		{
+			weighted_80 = d;
+			set_weighted_80 = true;
+		}
+	}
+	std::cout << "\n" << std::flush;
+
+	std::cout << "Summary statistics:\n";
+	std::cout << "\t" << "Median: " << weighted_median << "\n";
+	std::cout << "\t" << "20%: " << weighted_20 << "\n";
+	std::cout << "\t" << "80%: " << weighted_80 << "\n";
+
+	std::cout << "\n" << std::flush;
+
+	delete(gA);
+	delete(g);
+}
+
 void alignShortReadsToHLAGraph(std::string FASTQs, std::string graphDir, std::string referenceGenomeFile, double insertSize_mean, double insertSize_sd)
 {
 	int aligner_kMerSize = 25;
@@ -1921,7 +2050,8 @@ void alignShortReadsToHLAGraph(std::string FASTQs, std::string graphDir, std::st
 
 			assert((tI >= 0) && (tI < graphAligners.size()));
 
-			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = graphAligners.at(tI)->seedAndExtend_local_paired_or_short(rP, usePairing, useShort, insertSize_mean, insertSize_sd);
+			std::map<int, double> _IS_ignore;
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = graphAligners.at(tI)->seedAndExtend_local_paired_or_short(rP, usePairing, useShort, insertSize_mean, insertSize_sd, false, _IS_ignore);
 
 			alignments_perThread.at(tI).push_back(alignment_pair);
 			alignments_readPairI_perThread.at(tI).push_back(pairI);
