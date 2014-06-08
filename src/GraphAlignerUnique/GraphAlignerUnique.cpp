@@ -1368,8 +1368,13 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 }   
 
 
-std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired_or_short(oneReadPair readPair, bool usePairing, bool use_short, double insertSize_mean, double insertSize_sd)
+std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired_or_short(oneReadPair readPair, bool usePairing, bool use_short, double insertSize_mean, double insertSize_sd, bool estimateInsertSize, std::map<int, double>& insertSize_posterior_ret)
 {
+
+	if(estimateInsertSize)
+	{
+		assert(usePairing);
+	}
 
 	// bool verbose = true;
 	   
@@ -1483,6 +1488,9 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	double max_insertsize_penalty = boost::math::pdf(rnd_InsertSize, insertSize_mean + 8 * insertSize_sd);
 	assert(max_insertsize_penalty > 0);
 	assert(max_insertsize_penalty <= 1);
+
+	std::vector<std::pair<int, double> > pairDistances_and_logLikelihood;
+
 	if(usePairing)
 	{
 		// todo check whether this is correct - might be that distance calculation is wrong for read pairs with read1 reverse.
@@ -1494,6 +1502,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			for(unsigned int aI2 = 0; aI2 < read2_backtraces.size(); aI2++)
 			{
 				double combinedScore = likelihoods_read1_alternatives.at(aI1) + likelihoods_read2_alternatives.at(aI2);
+				double combinedScore_noTermForPairDistance = combinedScore;
 
 				// int distance_graph_levels = read2_backtraces.at(aI2).graph_aligned_levels.front() - read1_backtraces.at(aI1).graph_aligned_levels.back();
 				// double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
@@ -1543,6 +1552,11 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 					combinedScore += log(distance_graph_levels_P);
 					
+					if(estimateInsertSize)
+					{
+						pairDistances_and_logLikelihood.push_back(make_pair(distance_graph_levels, combinedScore_noTermForPairDistance));
+					}
+
 				}
 				else
 				{
@@ -1560,20 +1574,65 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			}
 		}
 
-		std::pair<double, unsigned int> bestCombination = findMax_and_normalize_loglikelihoods(combinedScores);
-
-		if(verbose)
+		if(estimateInsertSize)
 		{
-			std::cout << "CHOOSE alternative " << combinedScores_indices.at(bestCombination.second).first << " / " << combinedScores_indices.at(bestCombination.second).second << "\n" << std::flush;
-		}
-		
-		std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
-		forReturn.first = read1_backtraces.at(combinedScores_indices.at(bestCombination.second).first);
-		forReturn.first.mapQ = bestCombination.first;
-		forReturn.second = read2_backtraces.at(combinedScores_indices.at(bestCombination.second).second);
-		forReturn.second.mapQ = bestCombination.first;
+			double max_individual_LL = 0;
+			for(unsigned int i = 0; i < pairDistances_and_logLikelihood.size(); i++)
+			{
+				if((i == 0) || (pairDistances_and_logLikelihood.at(i).second > max_individual_LL))
+				{
+					max_individual_LL = pairDistances_and_logLikelihood.at(i).second;
+				}
+			}
 
-		return forReturn;
+			double likelihood_sum = 0;
+			std::vector<std::pair<int, double> > pairDistances_and_likelihood;
+			for(unsigned int i = 0; i < pairDistances_and_logLikelihood.size(); i++)
+			{
+				pairDistances_and_likelihood.push_back(make_pair(pairDistances_and_logLikelihood.at(i).first, exp(pairDistances_and_logLikelihood.at(i).second - max_individual_LL)));
+				likelihood_sum += pairDistances_and_likelihood.back().second;
+			}
+
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
+
+			if(likelihood_sum > 0)
+			{
+				std::map<int, double> pairDistances_P;
+
+				for(unsigned int i = 0; i < pairDistances_and_logLikelihood.size(); i++)
+				{
+					int distance = pairDistances_and_likelihood.at(i).first;
+					double P = pairDistances_and_likelihood.at(i).second / likelihood_sum;
+
+					if(pairDistances_P.count(distance) == 0)
+					{
+						pairDistances_P[distance] = 0;
+					}
+					pairDistances_P.at(distance) += P;
+				}
+
+				insertSize_posterior_ret = pairDistances_P;
+			}
+
+			return forReturn;
+		}
+		else
+		{
+			std::pair<double, unsigned int> bestCombination = findMax_and_normalize_loglikelihoods(combinedScores);
+
+			if(verbose)
+			{
+				std::cout << "CHOOSE alternative " << combinedScores_indices.at(bestCombination.second).first << " / " << combinedScores_indices.at(bestCombination.second).second << "\n" << std::flush;
+			}
+
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
+			forReturn.first = read1_backtraces.at(combinedScores_indices.at(bestCombination.second).first);
+			forReturn.first.mapQ = bestCombination.first;
+			forReturn.second = read2_backtraces.at(combinedScores_indices.at(bestCombination.second).second);
+			forReturn.second.mapQ = bestCombination.first;
+
+			return forReturn;
+		}
 	}
 	else
 	{
