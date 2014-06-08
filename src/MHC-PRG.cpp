@@ -340,13 +340,10 @@ int main(int argc, char *argv[])
 		assert(graph_dir.length());
 		assert(referenceGenome.length());
 
-		double IS_mean = 0;
-		double IS_sd = 0;
+		std::vector<std::pair<double, double>> inserSize_mean_sd_perFile;
+		estimateInsertSizeFromGraph(input_FASTQ, graph_dir, inserSize_mean_sd_perFile);
 
-		estimateInsertSizeFromGraph(input_FASTQ, graph_dir, IS_mean, IS_sd);
-
-		assert(1 == 0);
-		alignShortReadsToHLAGraph(input_FASTQ, graph_dir, referenceGenome, 190, 100);
+		alignShortReadsToHLAGraph(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "HLATypeInference"))
 	{
@@ -380,7 +377,7 @@ int main(int argc, char *argv[])
 		assert(input_alignedReads.length());
 		assert(graph_dir.length());
 
-		HLATypeInference(input_alignedReads, graph_dir, 190, 100, sampleID);
+		HLATypeInference(input_alignedReads, graph_dir, sampleID);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))
 	{
