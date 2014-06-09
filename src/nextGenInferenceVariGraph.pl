@@ -33,7 +33,7 @@ if(hostname() =~ /(sequoia)|(elm)|(birch)|(banyan)|(cluster3)/)
 
 GetOptions ('graph:s' => \$graph,
  'sample:s' => \$sample, 
- 'redo:s' => \$redo, 
+ 'redo:s' => \$redo,  
  'collect:s' => \$collect, 
  'labelOnly:s' => \$labelOnly,
  'kmer:s' => \$kMer_size,
