@@ -19,13 +19,32 @@ my $kMer_size = 31;
 my $graph;
 my $sample;
 my $vcfPos;
-my $original_alignment = '../data/mhc_ref_8_haplotypes/alignment/all_aligned.fasta';
-my $referenceGenome =  '../data/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa';
 my $VCF_for_comparison = '';
 my $classical_VCF;
 my $contigs_file;
 my $cluster3 = 0;
+
 my $localOxford = 0;
+if(hostname() =~ /(sequoia)|(elm)|(birch)|(banyan)|(cluster3)/) 
+{
+	$localOxford = 1;
+}
+
+# Paths
+
+my $original_alignment = '../data/mhc_ref_8_haplotypes/alignment/all_aligned.fasta';
+my $referenceGenome =  '../data/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa';
+my $sample_path = qq(../data/samples/CortexGraphs);
+my $path_to_PGF_haplotype = qq(../data/mhc_ref_8_haplotypes/pgf_ref.fasta);
+
+if($localOxford)
+{
+	$original_alignment = '/gpfs1/well/gsk_hla/shared/mhc_ref_8_haplotypes/alignment/all_aligned.fasta';
+	$referenceGenome =  '/gpfs1/well/gsk_hla/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa';
+	$sample_path = qq(/gpfs1/well/gsk_hla/CortexGraphs/);
+}
+
+# stop modifications here
 
 GetOptions (
 	'graph:s' => \$graph,
@@ -39,6 +58,13 @@ GetOptions (
 	'cluster3:s' => \$cluster3,
 );         
  
+if($cluster3)
+{
+	unless($localOxford)
+	{
+		die "You activated switch --cluster3, which parallelizes contig alignment but will only work in Oxford microenvironment - if you want to implement parallelization on your system, manually modify the code activated by the cluster3 switch (not too difficult).";
+	}
+}
 die "Alignment file $original_alignment not existing" unless (-e $original_alignment);
 die "No classical VCF file specified or file not existing" unless (-e $classical_VCF);
 die "Reference genome $referenceGenome not existing" unless(-e $referenceGenome);
@@ -57,13 +83,11 @@ die "Segments file $expected_segments_file not there" unless(-e $expected_segmen
 
 ## de Bruijn graph
 
-my $sample_path = qq(/gpfs1/well/gsk_hla/CortexGraphs/);
 my $sample_deBruijn_graph_file = $sample_path.'/'.$sample.'_'.$kMer_size.'.ctx';
 die "de Bruijn graph $sample_deBruijn_graph_file not there" unless(-e $sample_deBruijn_graph_file);
 
 ## Coordinate bookkeeping & get data
 
-my $path_to_PGF_haplotype = qq(/Net/birch/data/dilthey/forDownload/mhc_ref_8_haplotypes/pgf_ref.fasta);
 my $xMHC_reference = $path_to_PGF_haplotype;
 die "Cannot access $path_to_PGF_haplotype" unless (-e $path_to_PGF_haplotype);
  
