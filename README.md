@@ -88,7 +88,8 @@ Our examples use the sample ID "AA02O9Q_Z2". Change as necessary.
   
   If you encounter an error, first check 'ulimit -a' and make sure that stack size was really set to 81920. If this was the case, send me an email.
 
-4. Now execute three commands to generate data in different output formats:
+4.
+  Now execute three commands to generate data in different output formats:
   
   ./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31 --collect 2 --vcfPos ../data/VCFsnpRefData.txt ;\
   ./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31 --collect 2viterbi --vcfPos ../data/VCFsnpRefData.txt ;\
