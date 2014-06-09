@@ -26,7 +26,7 @@ To install the package, please follow this procedure:
 
 ### Software dependencies
 
-The pipeline requires Cortex (1.0.5.12), BWA (0.6.2-r126), Stampy (1.0.20), the PICARD_SAM2FASTQ from Picard (1.83), samtools (0.1.18), Platypus (0.2.0), Boost (1.41), Bamtools (commit https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e) and sometimes zlib. The numbers in brackets indicate the version numbers as currently used for testing.
+The pipeline requires Cortex (1.0.5.12), BWA (0.6.2-r126), Stampy (1.0.20), the PICARD_SAM2FASTQ from Picard (1.83), samtools (0.1.18), Platypus (0.2.0), Boost (1.52), Bamtools (commit https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e) and sometimes zlib. The numbers in brackets indicate the version numbers as currently used for testing.
 
 The pipeline also requires access to the human genome reference, a Cortex graph of the human genome reference, the PGF haplotype, and a haplotype graph of: the eight xMHC reference haplotypes, the HLA alleles and known SNPs. These files are provided in our data package.
 
