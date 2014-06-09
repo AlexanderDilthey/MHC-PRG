@@ -19,13 +19,13 @@ my $kMer_size = 31;
 my $graph;
 my $sample;
 my $vcfPos;
-my $original_alignment = '/gpfs1/well/gsk_hla/shared/mhc_ref_8_haplotypes/alignment/all_aligned.fasta';
-my $referenceGenome =  '/gpfs1/well/gsk_hla/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa';
+my $original_alignment = '../data/mhc_ref_8_haplotypes/alignment/all_aligned.fasta';
+my $referenceGenome =  '../data/GRCh37.60/fasta/Homo_sapiens.GRCh37.60.dna.chromosome.6.fa';
 my $VCF_for_comparison = '';
 my $classical_VCF;
 my $contigs_file;
 my $cluster3 = 0;
-
+my $localOxford = 0;
 
 GetOptions (
 	'graph:s' => \$graph,
