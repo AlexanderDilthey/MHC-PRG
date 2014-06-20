@@ -36,7 +36,7 @@ readFilter::readFilter() {
 	positiveUnique_threshold = 10;
 	negativePreserveUnique_threshold = 10;
 
-	threads = 20;
+	threads = 2;
 }
 
 
