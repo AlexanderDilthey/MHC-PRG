@@ -31,6 +31,8 @@
 #include "NextGen/simulationSuite.h"
 
 #include "NextGen/Validation.h"
+#include "NextGen/HLAtypes.h"
+
 #include "GraphAligner/GraphAligner.h"
 #include "GraphAligner/AlignerTests.h"
 #include "GraphAlignerUnique/UniqueAlignerTests.h"
