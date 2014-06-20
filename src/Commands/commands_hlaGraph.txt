@@ -1,6 +1,7 @@
 Command to build a Cortex graph of reference without HLA graph:
 
-From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived: (I don't know how the reference-without-HLA was generated):
+From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived:
+(generate reference genome without graph: /Net/birch/data/dilthey/MHC-PRG/src/Util/removeHLAfromReferenceGenome.pl)
  /home/dilthey/Cortex/CORTEX_release_v1.0.5.20/bin/cortex_var_31_c1 --mem_height 26 --mem_width 120 --kmer_size 25 --dump_binary Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --se_list fileList_Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph &> Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx.output
  
 
