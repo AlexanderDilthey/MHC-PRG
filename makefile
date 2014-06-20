@@ -1,8 +1,17 @@
 # LIBRARY SETTINGS - SET AS NECESSARY
-
+# 
+# The library settings typically require some tinkering - for reasons beyond me, sometimes one has to include
+# the shared object files (.so), and sometimes the .a files (particularly for bamtools).
+# Also, curiously, sometimes bamtools requires the explicit inclusion of libz (either as 
+# file or just via -lz)
+# The following values work for me (see below for an alternative):
+#
 LIB_BOOST = /home/dilthey/PnP/libs/boost_1_52_0/
 INCS = -I$(LIB_BOOST) -IGraph -I/home/dilthey/bamtools/bamtools/include -I/home/dilthey/bamtools/bamtools/src
 LIBS = /home/dilthey/PnP/libs/boost_1_52_0/stage/lib/libboost_random.so /home/dilthey/PnP/libs/boost_1_52_0/stage/lib/libboost_filesystem.so /home/dilthey/PnP/libs/boost_1_52_0/stage/lib/libboost_system.so  /home/dilthey/bamtools/bamtools/lib/libbamtools.a /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.so  /home/dilthey/bamtools/zlib-1.2.7/libz.a
+
+# an alternative line (courtesy Peter Humburg, not working for me but for him) is
+# LIBS = /home/dilthey/PnP/libs/boost_1_52_0/stage/lib/libboost_random.so /home/dilthey/PnP/libs/boost_1_52_0/stage/lib/libboost_filesystem.so /home/dilthey/PnP/libs/boost_1_52_0/stage/lib/libboost_system.so /home/dilthey/bamtools/bamtools/lib/libbamtools.so /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.a -lz
 
 MKDIR_P = mkdir -p
 

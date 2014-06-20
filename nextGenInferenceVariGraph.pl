@@ -24,11 +24,16 @@ my $redo = 0;
 my $collect = 0;
 my $labelOnly = 1;
 my $vcfPos;
-my $mapping_display_only_instructions = 1;
+my $mapping_display_only_instructions = 0;
+my $localOxford = 0;
+if(hostname() =~ /(sequoia)|(elm)|(birch)|(banyan)|(cluster3)/)
+{
+	$localOxford = 1;
+}
 
 GetOptions ('graph:s' => \$graph,
  'sample:s' => \$sample, 
- 'redo:s' => \$redo, 
+ 'redo:s' => \$redo,  
  'collect:s' => \$collect, 
  'labelOnly:s' => \$labelOnly,
  'kmer:s' => \$kMer_size,
@@ -47,18 +52,18 @@ my $platypus_executable = qq(/home/dilthey/Platypus/Platypus_0.2.0/Platypus.py);
 
 # external data paths
 
-my $path_to_PGF_haplotype = qq(/Net/birch/data/dilthey/forDownload/mhc_ref_8_haplotypes/pgf_ref.fasta);
-my $reference_genome_FASTA_path = qq(/Net/birch/data/dilthey/forDownload/GRCh37.60/fasta);
-my $path_to_HumanGenome_graph = qq(/Net/birch/data/dilthey/forDownload/mhc_ref_8_haplotypes/alex_grc37_auto_X_Y.k${kMer_size}.ctx);
+my $path_to_PGF_haplotype = qq(../data/mhc_ref_8_haplotypes/pgf_ref.fasta);
+my $reference_genome_FASTA_path = qq(../data/GRCh37.60/fasta);
+my $path_to_HumanGenome_graph = qq(../data/GRCh37.60/graph/alex_grc37_auto_X_Y.k${kMer_size}.ctx);
 
 # temporary directory for read re-mapping
 
-my $remapping_basedir = qq(/gpfs1/well/gsk_hla/readReMapping);
+my $remapping_basedir = qq(../tmp/readReMapping/);
 
 # data lookup paths
 
-my $sample_path = qq(/gpfs1/well/gsk_hla/CortexGraphs/);
-my $base_path_BAMs = qq(/gpfs1/well/gsk_hla/bam_output/);
+my $sample_path = $localOxford ? qq(/gpfs1/well/gsk_hla/CortexGraphs/) : qq(../data/samples/CortexGraphs);
+my $base_path_BAMs = $localOxford ? qq(/gpfs1/well/gsk_hla/bam_output/) : qq(../data/samples/BAMs/);
 
 ### do not modify anything below this line
 
@@ -516,7 +521,7 @@ if($collect eq '3')
 		}
 		my $BAM_file;
 
-		if($sample =~ /Z[12]/)
+		if($localOxford and ($sample =~ /Z[12]/))
 		{
 			$remapping_dir_reads = '/Net/birch/data/oa/NA12878_ILLUMINA_PLATINUM/';
 			$needGZ = 1;
@@ -529,7 +534,6 @@ if($collect eq '3')
 		{
 			$BAM_file = find_individual_BAM($sample);
 			my $extraction_dir_OK_flag = $remapping_dir_reads.'/'.'extraction_successful';
-
 
 			unless(-e $extraction_dir_OK_flag)
 			{	
@@ -942,6 +946,10 @@ if($collect eq '3')
 			}
 			else
 			{
+				unless($localOxford)
+				{ 
+					die "You activated the switch \$mapping_display_only_instructions, but the corresponding code makes only sense in our local Oxford environment - track down this error message in nextGenInferenceVariGraph.pl, and modify the code following that line according to your environment.";
+				}	
 				print "\n\nYou now need to make sure $sorted_bam_1 and $sorted_bam_2 are there, by mapping\n\n";
 				print "READS: $remapping_dir_reads \n\n";
 				print "REFERENCES: $remapping_dir_rawGenome_1 and $remapping_dir_rawGenome_2\nn";
