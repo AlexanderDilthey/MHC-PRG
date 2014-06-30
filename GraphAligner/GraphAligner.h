@@ -101,7 +101,7 @@ public:
 				// std::cout << "i: " << i << "/" << graph_aligned_levels.size() << "\n" << std::flush;
 				
 				assert(i >= 0);    
-				assert(i < graph_aligned_levels.size());
+				assert(i < (int)graph_aligned_levels.size());
 				int level = graph_aligned_levels.at(i);
 				if(level != -1)
 				{
