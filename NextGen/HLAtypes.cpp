@@ -199,6 +199,107 @@ auto alignmentWeightedOKFraction = [&](oneRead& underlyingRead, seedAndExtend_re
 };
 
 
+double read_likelihood_per_position(const std::string& exonGenotype, const std::string& readGenotype, const std::string& readQualities, const int& alignmentGraphLevel)
+{
+
+	double log_likelihood = 0;
+	bool verbose = 0;
+
+	assert(exonGenotype.length() == 1);
+	assert(readGenotype.length() >= 1);
+	unsigned int l_diff = readGenotype.length() - exonGenotype.length();
+	if(exonGenotype == "_")
+	{
+		// assert(l_diff == 0);
+		if(readGenotype == "_")
+		{
+			assert(alignmentGraphLevel != -1);
+			// likelihood 1 - intrinsic graph gap
+
+			if(verbose)
+			{
+				std::cout << "\t\t" << "Intrinsic graph gap" << "\n";
+			}
+
+		}
+		else
+		{
+			if(verbose)
+			{
+				std::cout << "\t\t" << "Insertion " << (1 + l_diff) << "\n";
+			}
+
+			log_likelihood += (log_likelihood_insertion * (1 + l_diff));
+		}
+	}
+	else
+	{
+
+		// score from first position match
+		if(readGenotype.substr(0, 1) == "_")
+		{
+			log_likelihood += log_likelihood_deletion;
+
+			if(verbose)
+			{
+				std::cout << "\t\t" << "Deletion" << "\n";
+			}
+		}
+		else
+		{
+			assert(readQualities.length());
+			double pCorrect = Utilities::PhredToPCorrect(readQualities.at(0));
+			assert((pCorrect > 0) && (pCorrect <= 1));
+
+			if(!(pCorrect >= 0.25))
+			{
+				std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
+			}
+			assert(pCorrect >= 0.25);
+
+			if(exonGenotype == readGenotype.substr(0, 1))
+			{
+				if(verbose)
+				{
+					std::cout << "\t\t" << "Match " << pCorrect << "\n";
+				}
+
+				log_likelihood += log(pCorrect);
+			}
+			else
+			{
+				double pIncorrect = (1 - pCorrect)*(1.0/3.0);
+				assert(pIncorrect <= 0.75);
+				assert((pIncorrect > 0) && (pIncorrect < 1));
+				log_likelihood += log(pIncorrect);
+
+				if(verbose)
+				{
+					std::cout << "\t\t" << "Mismatch " << pIncorrect << "\n";
+				}
+			}
+		}
+		// if read allele is longer
+		log_likelihood += (log_likelihood_insertion * l_diff);
+
+		if(l_diff > 0)
+		{
+			if(verbose)
+			{
+				std::cout << "\t\t" << "Insertion " << l_diff << "\n";
+			}
+		}
+	}
+
+	if(verbose)
+	{
+		std::cout << "\t\t" << "Running log likelihood: " << log_likelihood << "\n";
+	}
+
+	return log_likelihood;
+}
+
+
 
 void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotypes_perLocus_1_str, std::string starting_haplotypes_perLocus_2_str)
 {
@@ -292,12 +393,8 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		Utilities::makeDir(outputDirectory);
 	}
 
-
-	std::string outputFN_bestHaplotypeGuess = outputDirectory + "/R2_haplotypes_bestguess.txt";
-	std::ofstream haplotypeBestGuess_outputStream;
-	haplotypeBestGuess_outputStream.open(outputFN_bestHaplotypeGuess.c_str());
-	assert(haplotypeBestGuess_outputStream.is_open());
 	// tbd
+
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
 	{
 		std::string starting_haplotypes_1_str = starting_haplotypes_perLocus_1.at(locusI);
@@ -668,7 +765,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					{
 						assert((alongReadMode == 0) || (alongReadMode == 1));
 						thisPosition.positionInExon = graphLevel_2_position.at(thisPosition.graphLevel);
-						assert((lastPositionInExon == -1) || (thisPosition.positionInExon == ((int)lastPositionInExon + 1)));
+						assert((lastPositionInExon == -1) || (thisPosition.positionInExon == (lastPositionInExon + 1)));
 						lastPositionInExon = thisPosition.positionInExon;
 						alongReadMode = 1;
 
@@ -743,6 +840,338 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		pileUpStream.open(fileName_pileUp.c_str());
 		assert(pileUpStream.is_open());
 
+		class haplotypeAlternative {
+		protected:
+
+			std::vector<std::string> h1;
+			std::vector<std::string> h2;
+			double LL;
+			std::map<std::string, std::pair<double, double> > ll_per_read;
+			std::map<std::string, double> averaged_ll_per_read;
+
+			int ll_computed_until_position;
+
+		public:
+			haplotypeAlternative()
+			{
+				LL = 0;
+				ll_computed_until_position = -1;
+			}
+
+			std::pair<std::string, std::string> getHaplotypeAlleles(unsigned int pI)
+			{
+				return make_pair(h1.at(pI), h2.at(pI));
+			}
+
+			double getLL()
+			{
+				return LL;
+			}
+
+			int getLL_computedUntil()
+			{
+				return ll_computed_until_position;
+			}
+
+			void updateLikelihood(const std::set<std::string>& alleles_from_h1, const std::set<std::string>& alleles_from_h2, const std::vector<oneExonPosition>& pileUpPerPosition)
+			{
+				assert(h1.size() == h2.size());
+				assert((int)h1.size() == (ll_computed_until_position + 1));
+
+				const std::string& h1_underlying_position = h1.back();
+				const std::string& h2_underlying_position = h2.back();
+
+				double log_existingAllele = log(0.9999);
+				double log_newAllele = log((1 - 0.9999) * 0.33); // on average three possible alleles
+
+				LL += (alleles_from_h1.count(h1_underlying_position)) ? log_existingAllele : log_newAllele;
+				LL += (alleles_from_h2.count(h2_underlying_position)) ? log_existingAllele : log_newAllele;
+
+				std::set<std::string> read_IDs_modified;
+				for(unsigned int rI = 0; rI < pileUpPerPosition.size(); rI++)
+				{
+					const oneExonPosition& r = pileUpPerPosition.at(rI);
+					const std::string& readID = r.thisRead_ID;
+
+					double position_likelihood_h1 = read_likelihood_per_position(h1_underlying_position, r.genotype, r.qualities, r.graphLevel);
+					double position_likelihood_h2 = read_likelihood_per_position(h2_underlying_position, r.genotype, r.qualities, r.graphLevel);
+
+					if(ll_per_read.count(readID) == 0)
+					{
+						ll_per_read[readID].first = 0;
+						ll_per_read[readID].second = 0;
+					}
+
+					ll_per_read.at(readID).first += position_likelihood_h1;
+					ll_per_read.at(readID).second += position_likelihood_h2;
+
+					read_IDs_modified.insert(readID);
+				}
+
+				for(std::set<std::string>::iterator readIDit = read_IDs_modified.begin(); readIDit != read_IDs_modified.end(); readIDit++)
+				{
+					if(averaged_ll_per_read.count(*readIDit))
+					{
+						LL -= averaged_ll_per_read.at(*readIDit);
+					}
+					else
+					{
+						averaged_ll_per_read[*readIDit] = 0;
+					}
+
+					double new_average_p = 0.5 * exp(ll_per_read.at(*readIDit).first) + 0.5 * exp(ll_per_read.at(*readIDit).second);
+					assert(new_average_p >= 0);
+					assert(new_average_p <= 1);
+
+					double new_average_logP = log(new_average_p);
+
+					LL += new_average_logP;
+					averaged_ll_per_read.at(*readIDit) = new_average_logP;
+				}
+
+				ll_computed_until_position++;
+			}
+
+			void extendHaplotypes(const std::pair<std::string, std::string>& extension)
+			{
+				h1.push_back(extension.first);
+				h2.push_back(extension.second);
+			}
+		};
+
+		class haplotypeAlternatives {
+		public:
+			std::list<haplotypeAlternative> runningAlternatives;
+			int completedLevel;
+
+			haplotypeAlternatives()
+			{
+				completedLevel = -1;
+			}
+
+			haplotypeAlternative getBestAlternative()
+			{
+				unsigned int l_max = 0;
+				double ll_max = 0;
+
+				unsigned int aI = 0;
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					if((alternativeIt == runningAlternatives.begin()) || (alternativeIt->getLL() > ll_max))
+					{
+						l_max = aI;
+						ll_max = alternativeIt->getLL();
+					}
+					aI++;
+				}
+
+				haplotypeAlternative forReturn;
+				aI = 0;
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					if(aI == l_max)
+					{
+						forReturn = *alternativeIt;
+						break;
+					}
+					aI++;
+				}
+
+				return forReturn;
+			}
+
+			void processNewAlternatives(const std::vector<std::pair<std::string, std::string>>& alternatives)
+			{
+				if(completedLevel == -1)
+				{
+					for(unsigned int aI = 0; aI < alternatives.size(); aI++)
+					{
+						haplotypeAlternative A;
+						A.extendHaplotypes(alternatives.at(aI));
+						runningAlternatives.push_back(A);
+					}
+				}
+				else
+				{
+					if(alternatives.size() == 1)
+					{
+						for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+						{
+							alternativeIt->extendHaplotypes(alternatives.front());
+						}
+					}
+					else
+					{
+						std::list<haplotypeAlternative> runningAlternatives_copy = runningAlternatives;
+						for(unsigned int aI = 0; aI < alternatives.size(); aI++)
+						{
+							if(aI == 0)
+							{
+								for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+								{
+									alternativeIt->extendHaplotypes(alternatives.front());
+								}
+							}
+							else
+							{
+								for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives_copy.begin(); alternativeIt != runningAlternatives_copy.end(); alternativeIt++)
+								{
+									haplotypeAlternative newAlternative = *alternativeIt;
+									newAlternative.extendHaplotypes(alternatives.at(aI));
+									runningAlternatives.push_back(newAlternative);
+								}
+							}
+						}
+					}
+				}
+
+				completedLevel++;
+			}
+
+			void updateLikelihood(std::set<std::string>& alleles_from_h1, std::set<std::string>& alleles_from_h2, std::vector<oneExonPosition>& pileUpPerPosition)
+			{
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					alternativeIt->updateLikelihood(alleles_from_h1, alleles_from_h2, pileUpPerPosition);
+				}
+			}
+
+			std::map<std::string, double> getBackwardConfidence(unsigned int pI_start)
+			{
+				double max_LL = -1;
+				int pI_stop = -1;
+
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					int LL_available_to = alternativeIt->getLL_computedUntil();
+					assert((int)LL_available_to >= pI_start);
+					if(alternativeIt == runningAlternatives.begin())
+					{
+						pI_stop = LL_available_to;
+					}
+					else
+					{
+						assert(pI_stop == LL_available_to);
+					}
+
+					if((alternativeIt == runningAlternatives.begin()) || (alternativeIt->getLL() > max_LL))
+					{
+						max_LL = alternativeIt->getLL();
+					}
+				}
+
+				std::vector<double> relative_P;
+				relative_P.resize(runningAlternatives.size());
+				unsigned int aI = 0;
+				double relative_P_sum = 0;
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					relative_P.at(aI) = exp(alternativeIt->getLL() - max_LL);
+					relative_P_sum += relative_P.back();
+					aI++;
+				}
+
+				for(unsigned int i = 0; i < relative_P.size(); i++)
+				{
+					relative_P.at(i) = relative_P.at(i) / relative_P_sum;
+				}
+
+				std::map<std::string, double> forReturn;
+				aI = 0;
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					std::vector<std::string> h1;
+					std::vector<std::string> h2;
+
+					for(unsigned int pI = pI_start; pI <= pI_stop; pI++)
+					{
+						std::pair<std::string, std::string> hA = alternativeIt->getHaplotypeAlleles(pI);
+						h1.push_back(hA.first);
+						h2.push_back(hA.second);
+					}
+
+					std::string h1_str = Utilities::join(h1, ";");
+					std::string h2_str = Utilities::join(h2, ";");
+
+					std::string h_comd = h1_str + "|" + h2_str;
+
+					if(forReturn.count(h_comd))
+					{
+						forReturn[h_comd] = 0;
+					}
+
+					forReturn.at(h_comd) += relative_P.at(aI);
+
+					aI++;
+				}
+
+				return forReturn;
+			}
+
+			void pruneAlternatives()
+			{
+				std::vector<std::pair<unsigned int, double> > likelihood_per_index;
+				unsigned int aI = 0;
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					likelihood_per_index.push_back(make_pair(aI, alternativeIt->getLL()));
+					aI++;
+				}
+
+				std::sort(likelihood_per_index.begin(), likelihood_per_index.end(), [](std::pair<unsigned int, double> a, std::pair<unsigned int, double> b){return (a.second < b.second);});
+				if(likelihood_per_index.size() > 1)
+				{
+					assert(likelihood_per_index.at(likelihood_per_index.size() - 1).second >= likelihood_per_index.at(likelihood_per_index.size() - 2).second);
+				}
+
+				double ll_max;
+				double ll_min;
+				double ll_cutoff = 1;
+
+				std::vector<unsigned int> alternatives_sortedPosition;
+				alternatives_sortedPosition.resize(runningAlternatives.size());
+				for(unsigned int i = 0; i < likelihood_per_index.size(); i++)
+				{
+					int invertedI = likelihood_per_index.size() - i;
+					alternatives_sortedPosition.at(likelihood_per_index.at(i).first) = invertedI;
+
+					if(i == 0)
+					{
+						ll_min = likelihood_per_index.at(i).second;
+					}
+					if(i == (likelihood_per_index.size() - 1))
+					{
+						ll_max = likelihood_per_index.at(i).second;
+					}
+					if((ll_cutoff == 1) && (i >= ((double)likelihood_per_index.size() * (2.0/3.0))))
+					{
+						ll_cutoff = likelihood_per_index.at(i).second;
+					}
+				}
+
+				assert(ll_max >= ll_cutoff);
+				assert(ll_max >= ll_min);
+				assert(ll_cutoff >= ll_min);
+
+				aI = 0;
+				std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin();
+				while(alternativeIt != runningAlternatives.end())
+				{
+					std::list<haplotypeAlternative>::iterator thisIt = alternativeIt;
+					alternativeIt++;
+					if(alternatives_sortedPosition.at(aI) < (((double)likelihood_per_index.size() * (2.0/3.0))))
+					{
+						runningAlternatives.erase(thisIt);
+					}
+					aI++;
+				}
+
+				std::cout << "Likelihood pruning: remove 2/3 between min = " << ll_min << " and " << ll_max << " with cutoff " << ll_cutoff << "\n" << std::flush;
+			}
+		};
+
+		haplotypeAlternatives runningHaplotypes;
+
 		for(unsigned int pI = 0; pI < combined_sequences_graphLevels.size(); pI++)
 		{
 			std::set<std::string> alleles_from_h1;
@@ -768,390 +1197,61 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				oneExonPosition& onePositionSpecifier = pileUpPerPosition.at(pI).at(pileUpI);
 				alleles_from_reads.insert(onePositionSpecifier.genotype);
 			}
+			std::vector<std::string> alleles_from_reads_vec(alleles_from_reads.begin(), alleles_from_reads.end());
 
-			// todo continue here
+			std::vector<std::pair<std::string, std::string>> possible_haplotype_extensions;
 
-		}
-
-
-		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
-		{
-			std::vector<std::string> typesInCluster(HLAtype_clusters.at(clusterI).begin(), HLAtype_clusters.at(clusterI).end());
-			std::string clusterName = Utilities::join(typesInCluster, "|");
-
-			bool verbose = printClusters.count(clusterI);
-
-			if(verbose)
+			for(unsigned int a1 = 0; a1 < alleles_from_reads.size(); a1++)
 			{
-				std::cout << "CLUSTER " << clusterI << " " << clusterName << "\n";
-			}
-
-			std::string& clusterSequence = cluster_2_sequence.at(clusterI);
-
-			for(unsigned int positionSpecifierI = 0; positionSpecifierI < exonPositions_fromReads.size(); positionSpecifierI++)
-			{
-				std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(positionSpecifierI);
-				double log_likelihood = 0;
-				int mismatches = 0;
-
-				std::string readID;
-				if(individualPositions.size() > 0)
+				for(unsigned int a2 = 0; a2 < alleles_from_reads.size(); a2++)
 				{
-					readID = individualPositions.at(0).thisRead_ID;
-				}
-
-				// bool verbose = ((clusterI == 1127) && (readID == "@@B81EP5ABXX:8:2208:11879:23374#GATCAGAT/2") && 0);
-
-				if(verbose)
-					std::cout << "Likelihood calculation for read " << readID << " / cluster " << clusterI << "\n";
-
-
-
-				for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
-				{
-					oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
-
-					std::string exonGenotype = clusterSequence.substr(onePositionSpecifier.positionInExon, 1);
-					std::string readGenotype = onePositionSpecifier.genotype;
-					std::string readQualities = onePositionSpecifier.qualities;
-
-					if(verbose)
-					{
-						std::cout << "\t" << positionI << " exon pos " << onePositionSpecifier.positionInExon << ": " << exonGenotype << " " << readGenotype << "\n" << std::flush;
-					}
-
-					assert(exonGenotype.length() == 1);
-					assert(readGenotype.length() >= 1);
-					unsigned int l_diff = readGenotype.length() - exonGenotype.length();
-					if(exonGenotype == "_")
-					{
-						// assert(l_diff == 0);
-						if(readGenotype == "_")
-						{
-							assert(onePositionSpecifier.graphLevel != -1);
-							// likelihood 1 - intrinsic graph gap
-
-							if(verbose)
-							{
-								std::cout << "\t\t" << "Intrinsic graph gap" << "\n";
-							}
-
-						}
-						else
-						{
-							if(verbose)
-							{
-								std::cout << "\t\t" << "Insertion " << (1 + l_diff) << "\n";
-							}
-
-							log_likelihood += (log_likelihood_insertion * (1 + l_diff));
-						}
-					}
-					else
-					{
-
-						// score from first position match
-						if(readGenotype.substr(0, 1) == "_")
-						{
-							log_likelihood += log_likelihood_deletion;
-
-							if(verbose)
-							{
-								std::cout << "\t\t" << "Deletion" << "\n";
-							}
-						}
-						else
-						{
-							assert(readQualities.length());
-							double pCorrect = Utilities::PhredToPCorrect(readQualities.at(0));
-							assert((pCorrect > 0) && (pCorrect <= 1));
-
-							if(!(pCorrect >= 0.25))
-							{
-								std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
-							}
-							assert(pCorrect >= 0.25);
-
-							if(exonGenotype == readGenotype.substr(0, 1))
-							{
-								if(verbose)
-								{
-									std::cout << "\t\t" << "Match " << pCorrect << "\n";
-								}
-
-								log_likelihood += log(pCorrect);
-							}
-							else
-							{
-								double pIncorrect = (1 - pCorrect)*(1.0/3.0);
-								assert(pIncorrect <= 0.75);
-								assert((pIncorrect > 0) && (pIncorrect < 1));
-								log_likelihood += log(pIncorrect);
-
-								if(verbose)
-								{
-									std::cout << "\t\t" << "Mismatch " << pIncorrect << "\n";
-								}
-							}
-						}
-						// if read allele is longer
-						log_likelihood += (log_likelihood_insertion * l_diff);
-
-						if(l_diff > 0)
-						{
-							if(verbose)
-							{
-								std::cout << "\t\t" << "Insertion " << l_diff << "\n";
-							}
-						}
-					}
-
-					if(readGenotype != "_")
-					{
-						if(readGenotype != exonGenotype)
-						{
-							mismatches++;
-						}
-					}
-
-					if(verbose)
-					{
-						std::cout << "\t\t" << "Running log likelihood: " << log_likelihood << "\n";
-					}
-				}
-
-				if(individualPositions.size() > 0)
-				{
-					if((clusterI == 1160) || (clusterI == 1127))
-					{
-						// std::cout << locus << " " << readID << " cluster " << clusterI << ": " << log_likelihood << "\n" << std::flush;
-					}
-				}
-
-				// std::cout << "cluster " << clusterI << ", position sequence " << positionSpecifierI << ": " << log_likelihood << "\n";
-
-				likelihoods_perCluster_perRead.at(clusterI).push_back(log_likelihood);
-				mismatches_perCluster_perRead.at(clusterI).push_back(mismatches);
-
-			}
-
-			assert(likelihoods_perCluster_perRead.at(clusterI).size() == exonPositions_fromReads.size());
-			assert(mismatches_perCluster_perRead.at(clusterI).size() == exonPositions_fromReads.size());
-		}
-
-		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon cluster pairs (" << HLAtype_clusters.size() << "**2/2)\n" << std::flush;
-
-		std::vector<double> LLs;
-		std::vector<double> Mismatches_avg;
-		std::vector<double> Mismatches_min;
-
-		std::vector<std::pair<unsigned int, unsigned int> > LLs_clusterIs;
-		std::vector<unsigned int> LLs_indices;
-
-		for(unsigned int clusterI1 = 0; clusterI1 < HLAtype_clusters.size(); clusterI1++)
-		{
-			for(unsigned int clusterI2 = clusterI1; clusterI2 < HLAtype_clusters.size(); clusterI2++)
-			{
-				double pair_log_likelihood = 0;
-
-				double mismatches_sum_averages = 0;
-				double mismatches_sum_min = 0;
-
-				for(unsigned int positionSpecifierI = 0; positionSpecifierI < exonPositions_fromReads.size(); positionSpecifierI++)
-				{
-					std::string readID;
-					if(exonPositions_fromReads.at(positionSpecifierI).size() > 0)
-					{
-						readID = exonPositions_fromReads.at(positionSpecifierI).at(0).thisRead_ID;
-					}
-
-
-					double LL_thisPositionSpecifier_cluster1 = likelihoods_perCluster_perRead.at(clusterI1).at(positionSpecifierI);
-					double LL_thisPositionSpecifier_cluster2 = likelihoods_perCluster_perRead.at(clusterI2).at(positionSpecifierI);
-
-					double LL_average = log( (1 + (exp(LL_thisPositionSpecifier_cluster2+log(0.5)))/exp(LL_thisPositionSpecifier_cluster1+log(0.5)) )) + (LL_thisPositionSpecifier_cluster1+log(0.5));
-
-					double LL_average_2 = log(0.5 * exp(LL_thisPositionSpecifier_cluster1) + 0.5 * exp(LL_thisPositionSpecifier_cluster2));
-
-					int mismatches_cluster1 = mismatches_perCluster_perRead.at(clusterI1).at(positionSpecifierI);
-					int mismatches_cluster2 = mismatches_perCluster_perRead.at(clusterI2).at(positionSpecifierI);
-
-					mismatches_sum_averages += ((double)(mismatches_cluster1 + mismatches_cluster2) / 2.0);
-					mismatches_sum_min += ((mismatches_cluster1 < mismatches_cluster2) ? mismatches_cluster1 : mismatches_cluster2);
-
-					pair_log_likelihood += LL_average_2;
-
-					// if ( ((clusterI1 == 1160) && (clusterI2 == 1640)) || ((clusterI1 == 1127) && (clusterI2 == 1640)))
-					// {
-						// std::cout << "Cluster pair " << clusterI1 << " / " << clusterI2 << " read " << readID << ": " << LL_thisPositionSpecifier_cluster1 << " and " << LL_thisPositionSpecifier_cluster2 << ": " << LL_average_2 << "\n" << std::flush;
-					// }
-				}
-
-				LLs.push_back(pair_log_likelihood);
-				Mismatches_avg.push_back(mismatches_sum_averages);
-				Mismatches_min.push_back(mismatches_sum_min);
-
-				LLs_clusterIs.push_back(make_pair(clusterI1, clusterI2));
-
-				LLs_indices.push_back(LLs.size() - 1);
-			}
-		}
-
-		std::sort(LLs_indices.begin(), LLs_indices.end(), [&](unsigned int a, unsigned int b) {
-			if(LLs.at(a) == LLs.at(b))
-			{
-				return (Mismatches_avg.at(b) < Mismatches_avg.at(a));
-			}
-			else
-			{
-				return (LLs.at(a) < LLs.at(b));
-			}
-		});
-
-		std::reverse(LLs_indices.begin(), LLs_indices.end());
-
-
-		std::pair<double, unsigned int> maxPairI = Utilities::findVectorMax(LLs);
-		std::cout << Utilities::timestamp() << "Done. (One) maximum pair is " << maxPairI.second << " with LL = " << maxPairI.first << "\n" << std::flush;
-
-		std::vector<double> LLs_normalized;
-		double LL_max = maxPairI.first;
-		double P_sum = 0;
-		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
-		{
-			double LL = LLs.at(cI);
-			double P = exp(LL - LL_max);
-			P_sum += P;
-		}
-		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
-		{
-			double LL = LLs.at(cI);
-			double P = exp(LL - LL_max);
-			double P_normalized = P / P_sum;
-			assert(P_normalized >= 0);
-			assert(P_normalized <= 1);
-			LLs_normalized.push_back(P_normalized);
-		}
-
-		std::ofstream allPairsStream;
-		allPairsStream.open(outputFN_allPairs.c_str());
-		assert(allPairsStream.is_open());
-		allPairsStream << "ClusterID" << "\t" << "P" << "\t" << "LL" << "\t" << "Mismatches_avg" << "\n";
-
-		std::vector<std::string> LLs_identifiers;
-		std::map<int, double> clusterI_overAllPairs;
-		for(unsigned int cII = 0; cII < LLs_indices.size(); cII++)
-		{
-			unsigned int cI = LLs_indices.at(cII);
-			std::pair<unsigned int, unsigned int>& clusters = LLs_clusterIs.at(cI);
-
-			std::vector<std::string> cluster1_members(HLAtype_clusters.at(clusters.first).begin(), HLAtype_clusters.at(clusters.first).end());
-			std::vector<std::string> cluster2_members(HLAtype_clusters.at(clusters.second).begin(), HLAtype_clusters.at(clusters.second).end());
-
-			std::string id = Utilities::join(cluster1_members, ";") + "/" + Utilities::join(cluster2_members, ";");
-
-			LLs_identifiers.push_back(id);
-
-			allPairsStream << id << "\t" << LLs_normalized.at(cI) << "\t" << LLs.at(cI) << "\t" << Mismatches_avg.at(cI) << "\n";
-
-			if(clusterI_overAllPairs.count(clusters.first) == 0)
-			{
-				clusterI_overAllPairs[clusters.first] = 0;
-			}
-			clusterI_overAllPairs[clusters.first] += LLs_normalized.at(cI);
-
-			if(clusters.second != clusters.first)
-			{
-				if(clusterI_overAllPairs.count(clusters.second) == 0)
-				{
-					clusterI_overAllPairs[clusters.second] = 0;
-				}
-				clusterI_overAllPairs[clusters.second] += LLs_normalized.at(cI);
-			}
-		}
-
-		allPairsStream.close();
-
-		std::pair<double, int> bestGuess_firstAllele = Utilities::findIntMapMax(clusterI_overAllPairs);
-		std::string bestGuess_firstAllele_ID = Utilities::join(std::vector<std::string>(HLAtype_clusters.at(bestGuess_firstAllele.second).begin(), HLAtype_clusters.at(bestGuess_firstAllele.second).end()), ";");
-		assert(bestGuess_firstAllele.first >= 0);
-		assert(bestGuess_firstAllele.second >= 0);
-
-		std::map<int, double> bestGuess_secondAllele_alternatives;
-		std::map<int, double> bestGuess_secondAllele_alternatives_mismatches;
-
-		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
-		{
-			std::pair<unsigned int, unsigned int>& clusters = LLs_clusterIs.at(cI);
-
-			if((int)clusters.first == bestGuess_firstAllele.second)
-			{
-				assert(bestGuess_secondAllele_alternatives.count(clusters.second) == 0);
-				bestGuess_secondAllele_alternatives[clusters.second] = LLs_normalized.at(cI);
-				bestGuess_secondAllele_alternatives_mismatches[clusters.second] = Mismatches_min.at(cI);
-			}
-			else
-			{
-				if((int)clusters.second == bestGuess_firstAllele.second)
-				{
-					assert(bestGuess_secondAllele_alternatives.count(clusters.first) == 0);
-					bestGuess_secondAllele_alternatives[clusters.first] = LLs_normalized.at(cI);
-					bestGuess_secondAllele_alternatives_mismatches[clusters.first] = Mismatches_min.at(cI);
+					std::pair<std::string, std::string> thisCombination = make_pair(alleles_from_reads_vec.at(a1), alleles_from_reads_vec.at(a2));
+					possible_haplotype_extensions.push_back(thisCombination);
 				}
 			}
+
+			runningHaplotypes.processNewAlternatives(possible_haplotype_extensions);
+			runningHaplotypes.updateLikelihood(alleles_from_h1, alleles_from_h2, pileUpPerPosition.at(pI));
+
+			std::cout << "\t\tPosition " << pI << " / " << combined_sequences_graphLevels.size() << ": " << runningHaplotypes.runningAlternatives.size() << " alternatives.\n";
+
+			runningHaplotypes.pruneAlternatives();
+
+			std::cout << "\t\t\t post-pruning: " << runningHaplotypes.runningAlternatives.size() << "\n";
+
+			// todo get backward confidences
 		}
 
-		std::pair<double, int> oneBestGuess_secondAllele = Utilities::findIntMapMax(bestGuess_secondAllele_alternatives);
-		assert(oneBestGuess_secondAllele.first >= 0);
-		assert(oneBestGuess_secondAllele.first <= 1);
+		std::string outputFN_bestHaplotypeGuess = outputDirectory + "/R2_haplotypes_bestguess_"+locus+".txt";
+		std::ofstream haplotypeBestGuess_outputStream;
+		haplotypeBestGuess_outputStream.open(outputFN_bestHaplotypeGuess.c_str());
+		assert(haplotypeBestGuess_outputStream.is_open());
 
-		std::map<int, double> mismatches_allBestGuessPairs;
-		for(std::map<int, double>::iterator secondAlleleIt = bestGuess_secondAllele_alternatives.begin(); secondAlleleIt != bestGuess_secondAllele_alternatives.end(); secondAlleleIt++)
+		haplotypeAlternative bestHaplotype = runningHaplotypes.getBestAlternative();
+
+		for(unsigned int pI = 0; pI < combined_sequences_graphLevels.size(); pI++)
 		{
-			int cluster = secondAlleleIt->first;
-			double LL_normalized = secondAlleleIt->second;
-			if(LL_normalized == oneBestGuess_secondAllele.first)
-			{
-				mismatches_allBestGuessPairs[cluster] =  -1 * bestGuess_secondAllele_alternatives_mismatches.at(cluster);
-			}
+			std::pair<std::string, std::string> alleles = bestHaplotype.getHaplotypeAlleles(pI);
+
+			std::vector<std::string> fieldsForLine;
+
+			fieldsForLine.push_back(Utilities::ItoStr(pI));
+			fieldsForLine.push_back(Utilities::ItoStr(combined_sequences_graphLevels.at(pI)));
+			fieldsForLine.push_back(combined_sequences_graphLevels_individualType.at(pI));
+			fieldsForLine.push_back(Utilities::ItoStr(combined_sequences_graphLevels_individualTypeNumber.at(pI)));
+			fieldsForLine.push_back(Utilities::ItoStr(combined_sequences_graphLevels_individualPosition.at(pI)));
+
+			fieldsForLine.push_back(alleles.first);
+			fieldsForLine.push_back(alleles.second);
+
+			haplotypeBestGuess_outputStream << Utilities::join(fieldsForLine, "\t") << "\n";
 		}
 
-		std::pair<double, int> bestGuess_secondAllele = Utilities::findIntMapMax(mismatches_allBestGuessPairs);
-
-		std::string bestGuess_secondAllele_ID = Utilities::join(std::vector<std::string>(HLAtype_clusters.at(bestGuess_secondAllele.second).begin(), HLAtype_clusters.at(bestGuess_secondAllele.second).end()), ";");
-
-		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\n";
-		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\n";
-
-		unsigned int maxPairPrint = (LLs_indices.size() > 10) ? 10 : LLs_indices.size();
-		for(unsigned int LLi = 0; LLi < maxPairPrint; LLi++)
-		{
-			unsigned int pairIndex = LLs_indices.at(LLi);
-			std::pair<unsigned int, unsigned int>& clusters = LLs_clusterIs.at(pairIndex);
-			std::cout << "#" << (LLi+1) << ": " << clusters.first << " / " << clusters.second << ": " << LLs.at(pairIndex) << " absolute and " << exp(LLs.at(pairIndex) - maxPairI.first) << " relative." << "\n" << std::flush;
-
-			std::vector<std::string> cluster1_members(HLAtype_clusters.at(clusters.first).begin(), HLAtype_clusters.at(clusters.first).end());
-			std::vector<std::string> cluster2_members(HLAtype_clusters.at(clusters.second).begin(), HLAtype_clusters.at(clusters.second).end());
-
-			std::cout << "\tcluster " << clusters.first << ": " << Utilities::join(cluster1_members, ", ") << "\n";
-			std::cout << "\tcluster " << clusters.second << ": " << Utilities::join(cluster2_members, ", ") << "\n" << std::flush;
-
-			std::cout << "\tMismatches " << Mismatches_avg.at(pairIndex) << " avg / " << Mismatches_min.at(pairIndex) << " min\n" << std::flush;
-
-			// bool equal = (LLs.at(pairIndex) == LLs.at(LLs_indices.at(0)));
-			// std::cout << "\tEqual: " << equal << "\n" << std::flush;
+		haplotypeBestGuess_outputStream.close();
 
 
-		}
-
-		assert(LLs.at(LLs_indices.at(0)) == maxPairI.first);
-		if(LLs_indices.size() > 1)
-		{
-			assert(LLs.at(LLs_indices.at(0)) >= LLs.at(LLs_indices.at(1)));
-		}
 	}
 
-	bestGuess_outputStream.close();
 }
 
 void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName)
