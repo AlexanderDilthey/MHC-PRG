@@ -100,6 +100,8 @@ private:
 public:
 
 	readSimulator(std::string qualityMatrixFile, unsigned int readLength = 100);
+
+	// not quite sure whether this function is correct...
 	size_t simulate_paired_reads_from_string(std::string readNamePrefix, std::string& s, double expected_haploid_coverage, std::vector<std::pair<std::ofstream*, std::ofstream*>>& output_FHs_perThread, double starting_coordinates_diff_mean = 450, double starting_coordinates_diff_sd = 100);
 
 	unsigned int getNumThreads()
@@ -107,6 +109,7 @@ public:
 		return threads;
 	}
 
+	std::vector<oneReadPair> simulate_paired_reads_from_string(std::string S, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly = false);
 	std::vector<oneReadPair> simulate_paired_reads_from_edgePath(std::vector<Edge*> edgePath, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly = false);
 };
 

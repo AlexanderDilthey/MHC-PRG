@@ -140,6 +140,258 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 }
 
 
+std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_string(std::string S, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly)
+{
+	std::vector<oneReadPair> forReturn;
+
+
+	std::string edgePath_string = S;
+
+	double poissonStartRate = expected_haploid_coverage / ( 2.0 * (double)(read_length)); // this is of reads and their pairs, thus / 2
+
+	long long firstPosition = 0;
+	long long lastPosition = edgePath_string.length() - read_length;
+
+	if(!(lastPosition >= firstPosition))
+	{
+		throw std::runtime_error("readSimulator::simulate_paired_reads_from_edgePath(): Problem -- lastPosition < firstPosition -- the supplied first string is not long enough!\n");
+	}
+
+	double global_indel_events = 0;
+	double global_generated_bases = 0;
+	double global_generated_errors = 0;
+	std::map<char, double> global_error_NUC;
+
+	{
+		boost::mt19937 rnd_gen;
+
+		auto seed = boost::random::random_device()();
+		rnd_gen.seed(seed);
+
+		boost::random::poisson_distribution<> rnd_starting_reads ( poissonStartRate );
+		std::vector< boost::random::poisson_distribution<> > rnd_INs;
+		std::vector< boost::random::poisson_distribution<> > rnd_DELs;
+		boost::random::normal_distribution<> rnd_jumpSize (starting_coordinates_diff_mean, starting_coordinates_diff_sd);
+
+		for(unsigned int i = 0; i < read_length; i++)
+		{
+			rnd_INs.push_back(boost::random::poisson_distribution<>( read_INDEL_freq.at(i) ));
+			rnd_DELs.push_back(boost::random::poisson_distribution<>( read_INDEL_freq.at(i) ));
+		}
+
+		double thread_indel_events = 0;
+		double thread_generated_bases = 0;
+		double thread_generated_errors = 0;
+		size_t thread_read_pairs = 0;
+
+		auto sampleOneBase = [&](unsigned int position_in_read, char underlyingBase, char& returnedBase, char& returnedQuality) -> void {
+
+			assert(position_in_read < this->read_quality_frequencies.size());
+			assert(position_in_read < this->read_quality_correctness.size());
+
+			returnedQuality = Utilities::choose_from_normalized_map(this->read_quality_frequencies.at(position_in_read), rnd_gen);
+
+			assert(returnedQuality > 0);
+
+			bool generateError = Utilities::oneBernoulliTrial( 1 - this->read_quality_correctness.at(position_in_read).at(returnedQuality), rnd_gen);
+
+			if(generateError && (! perfectly))
+			{
+				returnedBase =  Utilities::randomNucleotide(rnd_gen);
+				if(global_error_NUC.count(returnedBase) == 0)
+				{
+					global_error_NUC[returnedBase] = 0;
+				}
+				global_error_NUC[returnedBase]++;
+				thread_generated_errors++;
+			}
+			else
+			{
+				returnedBase = underlyingBase;
+			}
+
+			thread_generated_bases++;
+
+			returnedQuality += 32;
+		};
+
+		auto sampleRead = [&](long long index_into_baseString, std::string& read, std::string& read_qualities, std::vector<int>& coordinates_string, bool& success) -> void {
+
+			read.resize(this->read_length, 0);
+			read_qualities.resize(this->read_length, 0);
+
+			coordinates_string.clear();
+			success = true;
+
+			int INDEL_events = 0;
+
+			for(unsigned int base = 0; base < this->read_length; base++)
+			{
+				int insertions = rnd_INs.at(base)(rnd_gen);
+				int deletions = rnd_DELs.at(base)(rnd_gen);
+
+				if(perfectly)
+				{
+					insertions = 0;
+					deletions = 0;
+				}
+
+				// std::cout << "\tbase " << base << " " << insertions << " " << deletions << "\n" << std::flush;
+
+				INDEL_events += (insertions + deletions);
+
+				if(insertions > 0)
+				{
+					for(int insertionI = 0; insertionI < insertions; insertionI++)
+					{
+						char baseChar = Utilities::randomNucleotide(rnd_gen);
+
+						char base_for_read; char quality_for_read;
+						sampleOneBase(base, baseChar, base_for_read, quality_for_read);
+						read.at(base) = base_for_read;
+						read_qualities.at(base) = quality_for_read;
+						base++;
+
+						coordinates_string.push_back(-1);
+
+						if(base >= this->read_length)
+							break;
+					}
+
+					if(base >= this->read_length)
+						break;
+				}
+
+				if(deletions > 0)
+				{
+					index_into_baseString += deletions;
+				}
+
+				if(index_into_baseString >= edgePath_string.length())
+				{
+					success = false;
+					break;
+				}
+
+				char base_for_read; char quality_for_read;
+				assert(index_into_baseString < edgePath_string.size());
+
+				sampleOneBase(base, edgePath_string.at(index_into_baseString), base_for_read, quality_for_read);
+
+				read.at(base) = base_for_read;
+				read_qualities.at(base) = quality_for_read;
+				coordinates_string.push_back(index_into_baseString);
+
+				// std::cout << "index_into_baseString: " << index_into_baseString << "; base: " << base << "; coordinates_string.size(): " << coordinates_string.size() << "\n" << std::flush;
+				index_into_baseString++;
+			}
+
+
+			thread_indel_events += INDEL_events;
+			// std::cout << "INDEL events: " << INDEL_events << "\n";
+
+			if(!((! success) || (coordinates_string.size() == read.size())))
+			{
+				std::cerr << "success: " << success << "\n";
+				std::cerr << "coordinates_string.size(): " << coordinates_string.size() << "\n";
+				std::cerr << "read.size(): " << read.size() << "\n" << std::flush;
+			}
+
+			assert((! success) || (coordinates_string.size() == read.size()));
+
+			if(paranoid && success)
+			{
+				assert(std::find(read.begin(), read.end(), 0) == read.end());
+				assert(std::find(read_qualities.begin(), read_qualities.end(), 0) == read_qualities.end());
+			}
+		};
+
+		long long rPI = 0;
+		for(long long i = 0; i < lastPosition; i++)
+		{
+			int starting_reads = rnd_starting_reads(rnd_gen);
+
+			for(int readI = 0; readI < starting_reads; readI++)
+			{
+				int jumpSize = floor(rnd_jumpSize(rnd_gen));
+
+				rPI++;
+
+				std::string read1; std::string read1_qualities; std::vector<int> read1_coordinates_string; bool read1_success;
+				std::string read2; std::string read2_qualities; std::vector<int> read2_coordinates_string; bool read2_success;
+
+				sampleRead(i,            read1, read1_qualities, read1_coordinates_string, read1_success);
+				sampleRead(i + this->read_length + jumpSize, read2, read2_qualities, read2_coordinates_string, read2_success);
+
+				if(read1_success && read2_success)
+				{
+					thread_read_pairs++;
+
+					read2 = Utilities::seq_reverse_complement(read2);
+					std::reverse(read2_qualities.begin(), read2_qualities.end());
+
+					std::string read1_name = "p1" + readName_field_separator + Utilities::ItoStr(i) + readName_field_separator + Utilities::ItoStr(rPI);
+					std::string read2_name = "p2" + readName_field_separator + Utilities::ItoStr(i + jumpSize) + readName_field_separator + Utilities::ItoStr(rPI);
+
+					oneRead r1(read1_name, read1, read1_qualities);
+					oneRead r2(read2_name, read2, read2_qualities);
+
+					std::vector<int> read1_coordinates_edgePath;
+					std::vector<int> read2_coordinates_edgePath;
+//					for(unsigned int cI = 0; cI < read1_coordinates_string.size(); cI++)
+//					{
+//						int c = read1_coordinates_string.at(cI);
+//					}
+//					for(unsigned int cI = 0; cI < read2_coordinates_string.size(); cI++)
+//					{
+//						int c = read2_coordinates_string.at(cI);
+//					}
+
+					r1.coordinates_string = read1_coordinates_string;
+					r1.coordinates_edgePath = read1_coordinates_edgePath;
+
+					std::reverse(read2_coordinates_string.begin(), read2_coordinates_string.end());
+					std::reverse(read2_coordinates_edgePath.begin(), read2_coordinates_edgePath.end());
+
+					r2.coordinates_string = read2_coordinates_string;
+					r2.coordinates_edgePath = read2_coordinates_edgePath;
+
+					assert(r1.coordinates_string.size() == r1.sequence.size());
+					assert(r2.coordinates_string.size() == r2.sequence.size());
+
+					oneReadPair rP(r1, r2, jumpSize);
+
+					if(Utilities::oneBernoulliTrial(0.5, rnd_gen))
+					{
+						rP.invert();
+					}
+
+					forReturn.push_back(rP);
+				}
+			}
+		}
+
+		{
+			global_generated_bases += thread_generated_bases;
+			global_generated_errors += thread_generated_errors;
+			global_indel_events += thread_indel_events;
+		}
+	}
+
+	std::cout << "readSimulator::simulate_paired_reads_from_string(..): Simulated " << forReturn.size() << " read pairs.\n";
+	std::cout << "\t" << "global_generated_bases" << ": " << global_generated_bases << "\n";
+	std::cout << "\t" << "global_generated_errors" << ": " << global_generated_errors << "\n";
+	std::cout << "\t" << "global_indel_events" << ": " << global_indel_events << "\n\n";
+	std::cout << "\t" << "error base counts: \n";
+	for(std::map<char, double>::iterator bIt = global_error_NUC.begin(); bIt != global_error_NUC.end(); bIt++)
+	{
+		std::cout << "\t\t" << bIt->first << ": " << bIt->second << "\n";
+	}
+	std::cout << "\n" << std::flush;
+
+	return forReturn;
+}
+
 std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std::vector<Edge*> edgePath, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly)
 {
 	std::vector<oneReadPair> forReturn;
@@ -420,6 +672,7 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 	return forReturn;
 }
 
+// see header
 size_t readSimulator::simulate_paired_reads_from_string(std::string readNamePrefix, std::string& s, double expected_haploid_coverage, std::vector<std::pair<std::ofstream*, std::ofstream*>>& output_FHs_perThread, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd)
 {
 	std::vector<oneReadPair> forReturn;

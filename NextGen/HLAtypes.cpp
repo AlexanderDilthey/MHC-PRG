@@ -21,6 +21,7 @@
 #include <cctype>
 #include <set>
 
+#include "readSimulator.h"
 #include "../Utilities.h"
 #include <boost/math/distributions/poisson.hpp>
 
@@ -299,7 +300,349 @@ double read_likelihood_per_position(const std::string& exonGenotype, const std::
 	return log_likelihood;
 }
 
+void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype)
+{
+	double rate_perturbation = 0.01;
+	for(unsigned int pI = 0; pI < haplotype.size(); pI++)
+	{
+		if(Utilities::randomDouble() >= (1 - rate_perturbation))
+		{
+			int type_of_event = Utilities::randomNumber(10);
 
+			if(type_of_event <= 5)
+			{
+				// SNV
+				std::string newAllele;
+				newAllele.push_back(Utilities::randomNucleotide());
+				haplotype.at(pI) = newAllele;
+			}
+			else if((type_of_event > 5) && (type_of_event <= 8))
+			{
+				// deletion
+				haplotype.at(pI) = "_";
+			}
+			else
+			{
+				// insertion
+				std::string newAllele = haplotype.at(pI);
+				int length = Utilities::randomNumber(2);
+				for(unsigned int l = 0; length <= length; l++)
+				{
+					newAllele.push_back(Utilities::randomNucleotide());
+				}
+				haplotype.at(pI) = newAllele;
+			}
+		}
+	}
+}
+
+void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplotypes, std::string outputDirectory, std::string qualityMatrixFile, double insertSize_mean, double insertSize_sd, double haploidCoverage)
+{
+	std::string graph = graphDir + "/graph.txt";
+	assert(Utilities::fileReadable(graph));
+
+	if(! Utilities::directoryExists(outputDirectory))
+	{
+		Utilities::makeDir(outputDirectory);
+	}
+
+	std::set<std::string> loci;
+	std::map<std::string, std::vector<std::string> > files_per_locus;
+	std::map<std::string, std::vector<std::string> > files_per_locus_type;
+
+	// find files and loci
+
+	std::vector<std::string> files_in_order;
+	std::vector<std::string> files_in_order_type;
+	std::vector<int> files_in_order_number;
+
+	std::ifstream segmentsStream;
+	std::string segmentsFileName = graphDir + "/segments.txt";
+	segmentsStream.open(segmentsFileName.c_str());
+	assert(segmentsStream.is_open());
+	std::string line;
+	while(segmentsStream.good())
+	{
+		std::getline(segmentsStream, line);
+		Utilities::eraseNL(line);
+		if(line.length() > 0)
+		{
+			std::vector<std::string> split_by_underscore = Utilities::split(line, "_");
+			std::string file_locus = split_by_underscore.at(0);
+			loci.insert(file_locus);
+
+			files_per_locus[file_locus].push_back(line);
+			files_per_locus_type[file_locus].push_back(split_by_underscore.at(2));
+		}
+	}
+	assert(loci.size() > 0);
+
+
+	std::cout << "simulateHLAreads(..): Found " << loci.size() << "loci.\n";
+
+	// find available types
+
+	std::map<std::string, std::vector<std::string> > loci_availableTypes;
+	for(std::set<std::string>::iterator locusIt = loci.begin(); locusIt != loci.end(); locusIt++)
+	{
+		std::string locus = *locusIt;
+
+		std::string arbitraryIntronFile;
+		for(unsigned int fI = 0; fI < files_per_locus.at(locus).size(); fI++)
+		{
+			if(files_per_locus_type.at(locus).at(fI) == "intron")
+			{
+				arbitraryIntronFile = files_per_locus.at(locus).at(fI);
+			}
+		}
+		assert(arbitraryIntronFile.length());
+
+		std::vector<std::string> availableTypes;
+
+		std::ifstream fileInputStream;
+		fileInputStream.open(arbitraryIntronFile.c_str());
+		assert(fileInputStream.is_open());
+		unsigned int lI = 0;
+		while(fileInputStream.good())
+		{
+			std::string line;
+			std::getline(fileInputStream, line);
+			Utilities::eraseNL(line);
+			std::vector<std::string> line_fields = Utilities::split(line, " ");
+			if(lI == 0)
+			{
+				assert(line_fields.at(0) == "IndividualID");
+			}
+			else
+			{
+				std::string type = line_fields.at(0);
+				availableTypes.push_back(type);
+			}
+			lI++;
+		}
+		fileInputStream.close();
+
+		loci_availableTypes[locus] = availableTypes;
+	}
+
+
+	// find type haplotypes
+
+	std::map<std::string, std::map<std::string, std::vector<std::string>> > loci_types_haplotypes;
+	std::map<std::string, std::vector<std::string> > loci_graphLevelIDs;
+
+	for(std::set<std::string>::iterator locusIt = loci.begin(); locusIt != loci.end(); locusIt++)
+	{
+		std::string locus = *locusIt;
+		std::set<std::string> availableTypes_set(loci_availableTypes.at(locus).begin(), loci_availableTypes.at(locus).end());
+
+		for(unsigned int fI = 0; fI < files_per_locus.at(locus).size(); fI++)
+		{
+			std::ifstream fileInputStream;
+			fileInputStream.open(files_per_locus.at(locus).at(fI).c_str());
+			assert(fileInputStream.is_open());
+			std::vector<std::string> file_lines;
+			while(fileInputStream.good())
+			{
+				std::string line;
+				std::getline(fileInputStream, line);
+				Utilities::eraseNL(line);
+				file_lines.push_back(line);
+			}
+			fileInputStream.close();
+
+			std::string firstLine = file_lines.at(0);
+			std::vector<std::string> firstLine_fields = Utilities::split(firstLine, " ");
+			assert(firstLine_fields.at(0) == "IndividualID");
+
+			std::vector<std::string> graph_level_names(firstLine_fields.begin() + 1, firstLine_fields.end());
+			loci_graphLevelIDs[locus].insert(loci_graphLevelIDs[locus].end(), graph_level_names.begin(), graph_level_names.end());
+
+			for(unsigned int lI = 1; lI < file_lines.size(); lI++)
+			{
+				if(file_lines.at(lI).length())
+				{
+					std::vector<std::string> line_fields = Utilities::split(file_lines.at(lI), " ");
+					assert(line_fields.size() == firstLine_fields.size());
+					std::string HLA_type = line_fields.at(0);
+					std::vector<std::string> line_alleles(line_fields.begin()+1, line_fields.end());
+
+					if((files_per_locus_type.at(locus).at(fI) == "intron") || (files_per_locus_type.at(locus).at(fI) == "exon"))
+					{
+						if(availableTypes_set.count(HLA_type))
+						{
+							if(loci_types_haplotypes[locus].count(HLA_type) == 0)
+							{
+								loci_types_haplotypes[locus][HLA_type].resize(0);
+							}
+
+							loci_types_haplotypes.at(locus).at(HLA_type).insert(loci_types_haplotypes.at(locus).at(HLA_type).end(), line_alleles.begin(), line_alleles.end());
+						}
+					}
+					else
+					{
+						// this must be a pre- or post-padding sequence
+						std::cout << "TYPE: " << files_per_locus_type.at(locus).at(fI) << "\n";
+
+						for(std::set<std::string>::iterator typeIt = availableTypes_set.begin(); typeIt != availableTypes_set.end(); typeIt++)
+						{
+							std::string HLA_type = *typeIt;
+							if(loci_types_haplotypes[locus].count(HLA_type) == 0)
+							{
+								loci_types_haplotypes[locus][HLA_type].resize(0);
+							}
+
+							loci_types_haplotypes.at(locus).at(HLA_type).insert(loci_types_haplotypes.at(locus).at(HLA_type).end(), line_alleles.begin(), line_alleles.end());
+						}
+
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// check that all haplotypes make sense
+
+	for(std::set<std::string>::iterator locusIt = loci.begin(); locusIt != loci.end(); locusIt++)
+	{
+		std::string locus = *locusIt;
+		assert(loci_availableTypes.at(locus).size() > 0);
+		for(unsigned int tI = 0; tI < loci_availableTypes.at(locus).size(); tI++)
+		{
+			std::string HLA_type = loci_availableTypes.at(locus).at(tI);
+			assert(loci_types_haplotypes.at(locus).at(HLA_type).size() == loci_graphLevelIDs.at(locus).size());
+		}
+	}
+
+	// start simulations
+	std::string outputFile_trueHLA = outputDirectory + "/trueHLA.txt";
+	std::string outputFile_trueHaplotypes = outputDirectory + "/trueHaplotypes.txt";
+
+	std::ofstream trueHLAstream;
+	std::ofstream trueHaplotypesstream;
+
+	trueHLAstream.open(outputFile_trueHLA.c_str());
+	assert(trueHLAstream.is_open());
+	trueHaplotypesstream.open(outputFile_trueHaplotypes.c_str());
+	assert(trueHaplotypesstream.is_open());
+
+	std::vector<std::string> truthFiles_headerFields;
+	truthFiles_headerFields.push_back("IndividualID");
+	truthFiles_headerFields.insert(truthFiles_headerFields.end(), loci.begin(), loci.end());
+	trueHLAstream << Utilities::join(truthFiles_headerFields, " ") << "\n";
+	trueHaplotypesstream << Utilities::join(truthFiles_headerFields, " ") << "\n";
+
+	std::string outputFile_trueHaplotypes_fieldNames = outputDirectory + "/trueHaplotypes_fieldNames.txt";
+	std::ofstream trueHaplotypes_fieldNames_stream;
+	trueHaplotypes_fieldNames_stream.open(outputFile_trueHaplotypes_fieldNames.c_str());
+	assert(trueHaplotypes_fieldNames_stream.is_open());
+	for(std::set<std::string>::iterator locusIt = loci.begin(); locusIt != loci.end(); locusIt++)
+	{
+		std::vector<std::string> lineFields;
+		lineFields.push_back(*locusIt);
+		lineFields.insert(lineFields.end(), loci_graphLevelIDs.at(*locusIt).begin(), loci_graphLevelIDs.at(*locusIt).end());
+		trueHaplotypes_fieldNames_stream << Utilities::join(lineFields, " ") << "\n";
+	}
+	trueHaplotypes_fieldNames_stream.close();
+
+	std::string outputFile_simulationDetails = outputDirectory + "/simulationDetails.txt";
+	std::ofstream simulationDetailsStream;
+	simulationDetailsStream.open(outputFile_simulationDetails.c_str());
+	assert(simulationDetailsStream.is_open());
+	simulationDetailsStream << "nIndividuals" << " " << nIndividuals << "\n";
+	simulationDetailsStream << "perturbHaplotypes" << " " << perturbHaplotypes << "\n";
+	simulationDetailsStream << "haploidCoverage" << " " << haploidCoverage << "\n";
+	simulationDetailsStream << "insertSize_mean" << " " << insertSize_mean << "\n";
+	simulationDetailsStream << "insertSize_sd" << " " << insertSize_sd << "\n";
+	simulationDetailsStream.close();
+
+	readSimulator rS(qualityMatrixFile);
+
+	for(int sI = 0; sI < nIndividuals; sI++)
+	{
+		std::cout << "simulateHLAreads(..): Individual " << sI << " / " << nIndividuals << "\n" << std::flush;
+
+		std::string outputFile_FASTQ_1 = outputDirectory + "/S_" + Utilities::ItoStr(sI) + "_1.fastq";
+		std::string outputFile_FASTQ_2 = outputDirectory + "/S_" + Utilities::ItoStr(sI) + "_2.fastq";
+
+		std::ofstream fastQStream_1;
+		fastQStream_1.open(outputFile_FASTQ_1.c_str());
+		assert(fastQStream_1.is_open());
+
+		std::ofstream fastQStream_2;
+		fastQStream_2.open(outputFile_FASTQ_2.c_str());
+		assert(fastQStream_2.is_open());
+
+		std::vector<std::string> outputFields_trueHLA;
+		std::vector<std::string> outputFields_trueHaplotypes;
+
+		outputFields_trueHLA.push_back("S_" + Utilities::ItoStr(sI));
+		outputFields_trueHaplotypes.push_back("S_" + Utilities::ItoStr(sI));
+
+		for(std::set<std::string>::iterator locusIt = loci.begin(); locusIt != loci.end(); locusIt++)
+		{
+			std::string locus = *locusIt;
+			std::string selectedType_1 = loci_availableTypes.at(locus).at(Utilities::randomNumber(loci_availableTypes.at(locus).size()));
+			std::string selectedType_2 = loci_availableTypes.at(locus).at(Utilities::randomNumber(loci_availableTypes.at(locus).size()));
+
+			std::cout << "\tLocus " << locus << " selected " << selectedType_1 << " / " << selectedType_2 << "\n" << std::flush;
+
+			std::vector<std::string> haplotype_1 = loci_types_haplotypes.at(locus).at(selectedType_1);
+			std::vector<std::string> haplotype_2 = loci_types_haplotypes.at(locus).at(selectedType_2);
+
+			if(perturbHaplotypes)
+			{
+				simulateHLAreads_perturbHaplotype(haplotype_1);
+				simulateHLAreads_perturbHaplotype(haplotype_2);
+			}
+
+			std::string haplotype_1_noGaps = Utilities::join(haplotype_1, "");
+			std::string haplotype_2_noGaps = Utilities::join(haplotype_2, "");
+
+			haplotype_1_noGaps.erase(std::remove_if(haplotype_1_noGaps.begin(),haplotype_1_noGaps.end(), [&](char c){return ((c == '_') ? true : false);}), haplotype_1_noGaps.end());
+			haplotype_2_noGaps.erase(std::remove_if(haplotype_2_noGaps.begin(),haplotype_2_noGaps.end(), [&](char c){return ((c == '_') ? true : false);}), haplotype_2_noGaps.end());
+
+			std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_string(haplotype_1_noGaps, haploidCoverage, insertSize_mean, insertSize_sd, false);
+			std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_string(haplotype_2_noGaps, haploidCoverage, insertSize_mean, insertSize_sd, false);
+
+			auto print_one_readPair = [] (oneReadPair& rP, std::ofstream& output_1, std::ofstream& output_2) -> void
+			{
+				output_1 << "@" << rP.reads.first.name << "\n";
+				output_1 << rP.reads.first.sequence << "\n";
+				output_1 << "+" << "\n";
+				output_1 << rP.reads.first.quality << "\n";
+
+				output_2 << "@" << rP.reads.second.name << "\n";
+				output_2 << rP.reads.second.sequence << "\n";
+				output_2 << "+" << "\n";
+				output_2 << rP.reads.second.quality << "\n";
+			};
+
+			for(unsigned int pI = 0; pI < simulatedReadPairs_h1.size(); pI++)
+			{
+				print_one_readPair(simulatedReadPairs_h1.at(pI), fastQStream_1, fastQStream_2);
+			}
+
+			for(unsigned int pI = 0; pI < simulatedReadPairs_h2.size(); pI++)
+			{
+				print_one_readPair(simulatedReadPairs_h2.at(pI), fastQStream_1, fastQStream_2);
+			}
+
+			outputFields_trueHLA.push_back(selectedType_1 + "/" + selectedType_2);
+			outputFields_trueHaplotypes.push_back(Utilities::join(haplotype_1, ";") + "/" + Utilities::join(haplotype_2, ";"));
+		}
+
+		trueHLAstream << Utilities::join(outputFields_trueHLA, " ") << "\n" << std::flush;
+		trueHaplotypesstream << Utilities::join(outputFields_trueHaplotypes, " ") << "\n" << std::flush;
+
+		fastQStream_1.close();
+		fastQStream_2.close();
+	}
+
+	trueHLAstream.close();
+	trueHaplotypesstream.close();
+}
 
 void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotypes_perLocus_1_str, std::string starting_haplotypes_perLocus_2_str)
 {
@@ -379,8 +722,8 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		alignmentStats_fractionOK_sum += fractionOK_2;
 	}
 
-	std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
-	double alignmentStats_fractionOK_avg = (alignments.size() > 0) ? (alignmentStats_fractionOK_sum / (2.0* (double)alignments.size())) : 0;
+	// std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
+	// double alignmentStats_fractionOK_avg = (alignments.size() > 0) ? (alignmentStats_fractionOK_sum / (2.0* (double)alignments.size())) : 0;
 
 	if(! Utilities::directoryExists("../tmp/hla"))
 	{
@@ -392,8 +735,6 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 	{
 		Utilities::makeDir(outputDirectory);
 	}
-
-	// tbd
 
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
 	{
@@ -765,7 +1106,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					{
 						assert((alongReadMode == 0) || (alongReadMode == 1));
 						thisPosition.positionInExon = graphLevel_2_position.at(thisPosition.graphLevel);
-						assert((lastPositionInExon == -1) || (thisPosition.positionInExon == (lastPositionInExon + 1)));
+						assert((lastPositionInExon == -1) || ((int)thisPosition.positionInExon == (lastPositionInExon + 1)));
 						lastPositionInExon = thisPosition.positionInExon;
 						alongReadMode = 1;
 
@@ -1044,7 +1385,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
 				{
 					int LL_available_to = alternativeIt->getLL_computedUntil();
-					assert((int)LL_available_to >= pI_start);
+					assert((int)LL_available_to >= (int)pI_start);
 					if(alternativeIt == runningAlternatives.begin())
 					{
 						pI_stop = LL_available_to;
@@ -1083,7 +1424,8 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					std::vector<std::string> h1;
 					std::vector<std::string> h2;
 
-					for(unsigned int pI = pI_start; pI <= pI_stop; pI++)
+					assert((int)pI_start <= pI_stop);
+					for(int pI = pI_start; pI <= pI_stop; pI++)
 					{
 						std::pair<std::string, std::string> hA = alternativeIt->getHaplotypeAlleles(pI);
 						h1.push_back(hA.first);
@@ -1172,6 +1514,13 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 		haplotypeAlternatives runningHaplotypes;
 
+		std::vector<unsigned int> combined_sequences_confidenceIndex;
+		std::vector<std::pair<unsigned int, unsigned int> > confidenceIntervals_boundaries;
+		std::vector<std::map<std::string, double> > pruning_confidences;
+
+		unsigned int currentConfidenceInterval_start = 0;
+		unsigned int currentConfidenceInterval_index = 0;
+
 		for(unsigned int pI = 0; pI < combined_sequences_graphLevels.size(); pI++)
 		{
 			std::set<std::string> alleles_from_h1;
@@ -1215,12 +1564,43 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 			std::cout << "\t\tPosition " << pI << " / " << combined_sequences_graphLevels.size() << ": " << runningHaplotypes.runningAlternatives.size() << " alternatives.\n";
 
-			runningHaplotypes.pruneAlternatives();
+			combined_sequences_confidenceIndex.push_back(currentConfidenceInterval_index);
 
-			std::cout << "\t\t\t post-pruning: " << runningHaplotypes.runningAlternatives.size() << "\n";
+			bool pruneHere = true;
+			if(pruneHere)
+			{
+				unsigned int currentConfidenceInterval_stop = pI;
+				confidenceIntervals_boundaries.push_back(make_pair(currentConfidenceInterval_start, currentConfidenceInterval_stop));
 
-			// todo get backward confidences
+				std::map<std::string, double> localConfidences = runningHaplotypes.getBackwardConfidence(currentConfidenceInterval_start);
+				pruning_confidences.push_back(localConfidences);
+
+
+				runningHaplotypes.pruneAlternatives();
+
+				std::cout << "\t\t\t post-pruning: " << runningHaplotypes.runningAlternatives.size() << "\n";
+
+				currentConfidenceInterval_index++;
+				currentConfidenceInterval_start = currentConfidenceInterval_stop + 1;
+			}
 		}
+
+		if(currentConfidenceInterval_start != combined_sequences_graphLevels.size())
+		{
+			unsigned int currentConfidenceInterval_stop = (combined_sequences_graphLevels.size() - 1);
+			confidenceIntervals_boundaries.push_back(make_pair(currentConfidenceInterval_start, currentConfidenceInterval_stop));
+
+			std::map<std::string, double> localConfidences = runningHaplotypes.getBackwardConfidence(currentConfidenceInterval_start);
+			pruning_confidences.push_back(localConfidences);
+
+			currentConfidenceInterval_index++;
+		}
+
+		assert(currentConfidenceInterval_index >= 1);
+		assert(combined_sequences_confidenceIndex.size() == combined_sequences_graphLevels.size());
+		assert(confidenceIntervals_boundaries.size() == (combined_sequences_confidenceIndex.back() - 1));
+		assert(confidenceIntervals_boundaries.size() == pruning_confidences.size());
+
 
 		std::string outputFN_bestHaplotypeGuess = outputDirectory + "/R2_haplotypes_bestguess_"+locus+".txt";
 		std::ofstream haplotypeBestGuess_outputStream;
@@ -1244,14 +1624,35 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			fieldsForLine.push_back(alleles.first);
 			fieldsForLine.push_back(alleles.second);
 
+			unsigned int confidenceIndex = combined_sequences_confidenceIndex.at(pI);
+			fieldsForLine.push_back(Utilities::ItoStr(confidenceIndex));
+
+			std::vector<std::string> h1_forConfidence;
+			std::vector<std::string> h2_forConfidence;
+
+			for(unsigned int pI = confidenceIntervals_boundaries.at(confidenceIndex).first; pI <= confidenceIntervals_boundaries.at(confidenceIndex).second; pI++)
+			{
+				std::pair<std::string, std::string> hA = bestHaplotype.getHaplotypeAlleles(pI);
+				h1_forConfidence.push_back(hA.first);
+				h2_forConfidence.push_back(hA.second);
+			}
+
+			std::string h1_forConfidence_str = Utilities::join(h1_forConfidence, ";");
+			std::string h2_forConfidence_str = Utilities::join(h2_forConfidence, ";");
+
+			std::string h_forConfidence_combd = h1_forConfidence_str + "|" + h2_forConfidence_str;
+
+			fieldsForLine.push_back(h1_forConfidence_str);
+			fieldsForLine.push_back(h2_forConfidence_str);
+
+			fieldsForLine.push_back(Utilities::DtoStr(pruning_confidences.at(confidenceIndex).at(h_forConfidence_combd)));
+
 			haplotypeBestGuess_outputStream << Utilities::join(fieldsForLine, "\t") << "\n";
 		}
 
 		haplotypeBestGuess_outputStream.close();
 
-
 	}
-
 }
 
 void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName)
@@ -1641,7 +2042,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 							indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
 						}
 						assert(indexIntoOriginalReadData_correctlyAligned >= 0);
-						assert(indexIntoOriginalReadData_correctlyAligned < read.sequence.length());;
+						assert(indexIntoOriginalReadData_correctlyAligned <(int) read.sequence.length());
 
 						std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
 						if(alignment.reverse)
@@ -1671,7 +2072,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 								indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
 							}
 							assert(indexIntoOriginalReadData_correctlyAligned >= 0);
-							assert(indexIntoOriginalReadData_correctlyAligned < read.sequence.length());
+							assert(indexIntoOriginalReadData_correctlyAligned < (int)read.sequence.length());
 
 							std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
 							if(alignment.reverse)
@@ -1786,7 +2187,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					{
 						assert((alongReadMode == 0) || (alongReadMode == 1));
 						thisPosition.positionInExon = graphLevel_2_exonPosition.at(thisPosition.graphLevel);
-						assert((lastPositionInExon == -1) || (thisPosition.positionInExon == ((int)lastPositionInExon + 1)));
+						assert((lastPositionInExon == -1) || ((int)thisPosition.positionInExon == ((int)lastPositionInExon + 1)));
 						lastPositionInExon = thisPosition.positionInExon;
 						alongReadMode = 1;
 
@@ -2158,7 +2559,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					double LL_thisPositionSpecifier_cluster1 = likelihoods_perCluster_perRead.at(clusterI1).at(positionSpecifierI);
 					double LL_thisPositionSpecifier_cluster2 = likelihoods_perCluster_perRead.at(clusterI2).at(positionSpecifierI);
 
-					double LL_average = log( (1 + (exp(LL_thisPositionSpecifier_cluster2+log(0.5)))/exp(LL_thisPositionSpecifier_cluster1+log(0.5)) )) + (LL_thisPositionSpecifier_cluster1+log(0.5));
+					// double LL_average = log( (1 + (exp(LL_thisPositionSpecifier_cluster2+log(0.5)))/exp(LL_thisPositionSpecifier_cluster1+log(0.5)) )) + (LL_thisPositionSpecifier_cluster1+log(0.5));
 
 					double LL_average_2 = log(0.5 * exp(LL_thisPositionSpecifier_cluster1) + 0.5 * exp(LL_thisPositionSpecifier_cluster2));
 
