@@ -336,7 +336,7 @@ void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype)
 	}
 }
 
-void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplotypes, std::string outputDirectory, std::string qualityMatrixFile, double insertSize_mean, double insertSize_sd, double haploidCoverage)
+void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplotypes, bool readError, std::string outputDirectory, std::string qualityMatrixFile, int readLength, double insertSize_mean, double insertSize_sd, double haploidCoverage)
 {
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));
@@ -552,12 +552,17 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 	assert(simulationDetailsStream.is_open());
 	simulationDetailsStream << "nIndividuals" << " " << nIndividuals << "\n";
 	simulationDetailsStream << "perturbHaplotypes" << " " << perturbHaplotypes << "\n";
+	simulationDetailsStream << "readError" << " " << readError << "\n";
 	simulationDetailsStream << "haploidCoverage" << " " << haploidCoverage << "\n";
 	simulationDetailsStream << "insertSize_mean" << " " << insertSize_mean << "\n";
 	simulationDetailsStream << "insertSize_sd" << " " << insertSize_sd << "\n";
+	simulationDetailsStream << "qualityMatrix" << " " << qualityMatrixFile << "\n";
+	simulationDetailsStream << "readLength" << " " << readLength << "\n";
+
 	simulationDetailsStream.close();
 
-	readSimulator rS(qualityMatrixFile);
+	assert(readLength > 0);
+	readSimulator rS(qualityMatrixFile, (unsigned int)readLength);
 
 	for(int sI = 0; sI < nIndividuals; sI++)
 	{
@@ -603,8 +608,8 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 			haplotype_1_noGaps.erase(std::remove_if(haplotype_1_noGaps.begin(),haplotype_1_noGaps.end(), [&](char c){return ((c == '_') ? true : false);}), haplotype_1_noGaps.end());
 			haplotype_2_noGaps.erase(std::remove_if(haplotype_2_noGaps.begin(),haplotype_2_noGaps.end(), [&](char c){return ((c == '_') ? true : false);}), haplotype_2_noGaps.end());
 
-			std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_string(haplotype_1_noGaps, haploidCoverage, insertSize_mean, insertSize_sd, false);
-			std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_string(haplotype_2_noGaps, haploidCoverage, insertSize_mean, insertSize_sd, false);
+			std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_string(haplotype_1_noGaps, haploidCoverage, insertSize_mean, insertSize_sd, (! readError));
+			std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_string(haplotype_2_noGaps, haploidCoverage, insertSize_mean, insertSize_sd, (! readError));
 
 			auto print_one_readPair = [] (oneReadPair& rP, std::ofstream& output_1, std::ofstream& output_2) -> void
 			{
