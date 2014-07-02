@@ -347,6 +347,84 @@ int main(int argc, char *argv[])
 
 		alignShortReadsToHLAGraph(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile);
 	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "simulateHLAreads"))
+	{
+		std::string graph_dir;
+		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I100.txt";
+		std::string outputDirectory;
+
+		int nIndividuals = 10;
+		double insertSize_mean = 200;
+		double insertSize_sd = 15;
+		double haploidCoverage = 15;
+
+		int read_length = 100;
+		bool readError = true;
+		bool perturbHaplotypes = false;
+
+		for(unsigned int i = 5; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--graphDir")
+			{
+				graph_dir = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--filename_qualityMatrix")
+			{
+				filename_qualityMatrix = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--outputDirectory")
+			{
+				outputDirectory = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--nIndividuals")
+			{
+				nIndividuals = Utilities::StrtoI(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--insertSize_mean")
+			{
+				insertSize_mean = Utilities::StrtoD(arguments.at(i+1));
+			}
+			if(arguments.at(i) == "--insertSize_sd")
+			{
+				insertSize_sd = Utilities::StrtoD(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--haploidCoverage")
+			{
+				haploidCoverage = Utilities::StrtoD(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--readLength")
+			{
+				read_length = Utilities::StrtoI(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--readError")
+			{
+				readError = Utilities::StrtoI(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--perturbHaplotypes")
+			{
+				perturbHaplotypes = Utilities::StrtoI(arguments.at(i+1));
+			}
+		}
+
+		assert(graph_dir.length());
+		assert(outputDirectory.length());
+
+		assert(insertSize_mean > 0);
+		assert(insertSize_mean < 1000);
+		assert(insertSize_sd >= 0);
+		assert(insertSize_sd <= 20);
+		assert(nIndividuals > 0);
+
+		simulateHLAreads(graph_dir, nIndividuals, perturbHaplotypes, readError, outputDirectory, filename_qualityMatrix, read_length, insertSize_mean, insertSize_sd, haploidCoverage);
+	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "HLATypeInference"))
 	{
 		bool labelOnly = false;
