@@ -362,7 +362,7 @@ int main(int argc, char *argv[])
 		bool readError = true;
 		bool perturbHaplotypes = false;
 
-		for(unsigned int i = 5; i < arguments.size(); i++)
+		for(unsigned int i = 2; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--graphDir")
 			{
