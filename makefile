@@ -46,10 +46,10 @@ OBJS = \
         $(DIR_OBJ)/AlphaHMMlegacy.o \
         $(DIR_OBJ)/Node.o \
         $(DIR_OBJ)/NextGen.o \
+        $(DIR_OBJ)/HLAtypes.o \
         $(DIR_OBJ)/simulationSuite.o \
         $(DIR_OBJ)/readSimulator.o \
         $(DIR_OBJ)/Validation.o \
-        $(DIR_OBJ)/HLAtypes.o \        
         $(DIR_OBJ)/LocusCodeAllocation.o \
         $(DIR_OBJ)/LargeLocusCodeAllocation.o \
         $(DIR_OBJ)/Utilities.o \

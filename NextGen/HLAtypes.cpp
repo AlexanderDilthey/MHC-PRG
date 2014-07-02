@@ -5,7 +5,6 @@
  *      Author: AlexanderDilthey
  */
 
-#include "HLAtypes.h"
 
 
 #include <iostream>
@@ -21,6 +20,9 @@
 #include <cctype>
 #include <set>
 
+#include "HLAtypes.h"
+
+
 #include "readSimulator.h"
 #include "../Utilities.h"
 #include <boost/math/distributions/poisson.hpp>
@@ -28,8 +30,6 @@
 #include "../hash/deBruijn/DeBruijnGraph.h"
 #include "../GraphAligner/GraphAlignerAffine.h"
 #include "../GraphAlignerUnique/GraphAlignerUnique.h"
-
-#include "Validation.h"
 
 #include <stdio.h>
 #include "dirent.h"
@@ -65,7 +65,7 @@ public:
 };
 
 
-auto countMismatchesInExon = [](std::vector<oneExonPosition>& exonPositions) -> int {
+auto countMismatchesInExon(std::vector<oneExonPosition>& exonPositions) -> int {
 	int forReturn = 0;
 	for(unsigned int i = 0; i < exonPositions.size(); i++)
 	{
@@ -78,7 +78,8 @@ auto countMismatchesInExon = [](std::vector<oneExonPosition>& exonPositions) -> 
 };
 
 
-auto alignmentFractionOK = [](seedAndExtend_return_local& r) -> double {
+double alignmentFractionOK (seedAndExtend_return_local& r)
+{
 	int positions_OK = 0;
 	int positions_checked = 0;
 
@@ -98,12 +99,14 @@ auto alignmentFractionOK = [](seedAndExtend_return_local& r) -> double {
 	return double(positions_OK)/double(positions_checked);
 };
 
-auto printPerc = [](double v1, double v2) -> std::string {
+std::string printPerc (double v1, double v2)
+{
 	double perc = (v1/v2) * 100;
 	return Utilities::DtoStr(perc);
 };
 
-auto meanMedian = [](std::vector<double> L) -> std::pair<double, double> {
+std::pair<double, double> meanMedian (std::vector<double> L)
+{
 	std::sort(L.begin(), L.end());
 	double S = 0;
 	for(unsigned int i = 0; i < L.size(); i++)
@@ -123,7 +126,8 @@ auto meanMedian = [](std::vector<double> L) -> std::pair<double, double> {
 };
 
 
-auto alignmentWeightedOKFraction = [&](oneRead& underlyingRead, seedAndExtend_return_local& alignment) -> double {
+double alignmentWeightedOKFraction(oneRead& underlyingRead, seedAndExtend_return_local& alignment)
+{
 	int indexIntoOriginalReadData = -1;
 
 	int totalMismatches = 0;
@@ -369,16 +373,26 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 		{
 			std::vector<std::string> split_by_underscore = Utilities::split(line, "_");
 			std::string file_locus = split_by_underscore.at(0);
+			if(file_locus == "before")
+			{
+				continue;
+			}
+			if(file_locus == "after")
+			{
+				continue;
+			}
 			loci.insert(file_locus);
 
-			files_per_locus[file_locus].push_back(line);
+			std::string filePath = graphDir + "/" + line;
+
+			files_per_locus[file_locus].push_back(filePath);
 			files_per_locus_type[file_locus].push_back(split_by_underscore.at(2));
 		}
 	}
 	assert(loci.size() > 0);
 
 
-	std::cout << "simulateHLAreads(..): Found " << loci.size() << "loci.\n";
+	std::cout << "simulateHLAreads(..): Found " << loci.size() << " loci.\n";
 
 	// find available types
 
@@ -393,14 +407,36 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 			if(files_per_locus_type.at(locus).at(fI) == "intron")
 			{
 				arbitraryIntronFile = files_per_locus.at(locus).at(fI);
+				break;
 			}
 		}
+		
+		if(arbitraryIntronFile.length() == 0)
+		{
+			for(unsigned int fI = 0; fI < files_per_locus.at(locus).size(); fI++)
+			{
+				if(files_per_locus_type.at(locus).at(fI) == "exon")
+				{
+					arbitraryIntronFile = files_per_locus.at(locus).at(fI);
+					break;
+				}
+			}		
+		}
+		
+		if(!(arbitraryIntronFile.length()))
+		{
+			std::cerr << "Cannot find an arbitrary intron/exon file for locus " << locus << "\n" << std::flush;
+		}
 		assert(arbitraryIntronFile.length());
-
+		
 		std::vector<std::string> availableTypes;
 
 		std::ifstream fileInputStream;
 		fileInputStream.open(arbitraryIntronFile.c_str());
+		if(!fileInputStream.is_open())
+		{
+			std::cerr << "Cannot open file " << arbitraryIntronFile << "\n" << std::flush;
+		}
 		assert(fileInputStream.is_open());
 		unsigned int lI = 0;
 		while(fileInputStream.good())
@@ -411,12 +447,20 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 			std::vector<std::string> line_fields = Utilities::split(line, " ");
 			if(lI == 0)
 			{
+				if(!(line_fields.size() > 0))
+				{
+					std::cerr << "First line of file weird: " << arbitraryIntronFile << "\n" << std::flush;
+				}
+				assert(line_fields.size() > 0);
 				assert(line_fields.at(0) == "IndividualID");
 			}
 			else
 			{
-				std::string type = line_fields.at(0);
-				availableTypes.push_back(type);
+				if(line.length())
+				{
+					std::string type = line_fields.at(0);
+					availableTypes.push_back(type);
+				}
 			}
 			lI++;
 		}
@@ -436,6 +480,8 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 		std::string locus = *locusIt;
 		std::set<std::string> availableTypes_set(loci_availableTypes.at(locus).begin(), loci_availableTypes.at(locus).end());
 
+		// std::cerr << "Locus: " << locus << "\n";
+		
 		for(unsigned int fI = 0; fI < files_per_locus.at(locus).size(); fI++)
 		{
 			std::ifstream fileInputStream;
@@ -458,6 +504,8 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 			std::vector<std::string> graph_level_names(firstLine_fields.begin() + 1, firstLine_fields.end());
 			loci_graphLevelIDs[locus].insert(loci_graphLevelIDs[locus].end(), graph_level_names.begin(), graph_level_names.end());
 
+			// std::cerr << "\tfI = " << fI << "\n";
+
 			for(unsigned int lI = 1; lI < file_lines.size(); lI++)
 			{
 				if(file_lines.at(lI).length())
@@ -477,25 +525,33 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 							}
 
 							loci_types_haplotypes.at(locus).at(HLA_type).insert(loci_types_haplotypes.at(locus).at(HLA_type).end(), line_alleles.begin(), line_alleles.end());
+								
+							// std::cerr << "\t\t" << HLA_type << ": " << loci_types_haplotypes.at(locus).at(HLA_type).size() << " / " << loci_graphLevelIDs[locus].size() << "\n";
+
+			
 						}
 					}
 					else
 					{
 						// this must be a pre- or post-padding sequence
-						std::cout << "TYPE: " << files_per_locus_type.at(locus).at(fI) << "\n";
-
-						for(std::set<std::string>::iterator typeIt = availableTypes_set.begin(); typeIt != availableTypes_set.end(); typeIt++)
+						assert((files_per_locus_type.at(locus).at(fI) == "paddingLeft.txt") || (files_per_locus_type.at(locus).at(fI) == "paddingRight.txt"));
+						
+						// std::cout << "TYPE: " << files_per_locus_type.at(locus).at(fI) << "\n";
+						if(lI == 1)
 						{
-							std::string HLA_type = *typeIt;
-							if(loci_types_haplotypes[locus].count(HLA_type) == 0)
+							for(std::set<std::string>::iterator typeIt = availableTypes_set.begin(); typeIt != availableTypes_set.end(); typeIt++)
 							{
-								loci_types_haplotypes[locus][HLA_type].resize(0);
+								std::string HLA_type = *typeIt;
+								if(loci_types_haplotypes[locus].count(HLA_type) == 0)
+								{
+									loci_types_haplotypes[locus][HLA_type].resize(0);
+								}
+
+								loci_types_haplotypes.at(locus).at(HLA_type).insert(loci_types_haplotypes.at(locus).at(HLA_type).end(), line_alleles.begin(), line_alleles.end());
+								
+								// std::cerr << "\t\t" << HLA_type << ": " << loci_types_haplotypes.at(locus).at(HLA_type).size() << " / " << loci_graphLevelIDs[locus].size() << "\n";								
 							}
-
-							loci_types_haplotypes.at(locus).at(HLA_type).insert(loci_types_haplotypes.at(locus).at(HLA_type).end(), line_alleles.begin(), line_alleles.end());
 						}
-
-						break;
 					}
 				}
 			}
@@ -507,11 +563,33 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 	for(std::set<std::string>::iterator locusIt = loci.begin(); locusIt != loci.end(); locusIt++)
 	{
 		std::string locus = *locusIt;
+		std::set<std::string> removeTypes;
+		
 		assert(loci_availableTypes.at(locus).size() > 0);
 		for(unsigned int tI = 0; tI < loci_availableTypes.at(locus).size(); tI++)
 		{
 			std::string HLA_type = loci_availableTypes.at(locus).at(tI);
+			if(!(loci_types_haplotypes.at(locus).at(HLA_type).size() == loci_graphLevelIDs.at(locus).size()))
+			{
+				std::cerr << "Length problem for locus " << locus << " allele " << HLA_type << ": " << loci_types_haplotypes.at(locus).at(HLA_type).size() << " vs " << loci_graphLevelIDs.at(locus).size() << "\n" << std::flush;
+				removeTypes.insert(HLA_type);
+				continue;
+			}	
 			assert(loci_types_haplotypes.at(locus).at(HLA_type).size() == loci_graphLevelIDs.at(locus).size());
+		}
+		
+		if(removeTypes.size() > 0)
+		{
+			std::vector<std::string> availableTypes_new;
+			for(unsigned int tI = 0; tI < loci_availableTypes.at(locus).size(); tI++)
+			{
+				std::string HLA_type = loci_availableTypes.at(locus).at(tI);
+				if(removeTypes.count(HLA_type) == 0)
+				{
+					availableTypes_new.push_back(HLA_type);
+				}
+			}
+			loci_availableTypes.at(locus) = availableTypes_new;
 		}
 	}
 
@@ -588,8 +666,8 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 		for(std::set<std::string>::iterator locusIt = loci.begin(); locusIt != loci.end(); locusIt++)
 		{
 			std::string locus = *locusIt;
-			std::string selectedType_1 = loci_availableTypes.at(locus).at(Utilities::randomNumber(loci_availableTypes.at(locus).size()));
-			std::string selectedType_2 = loci_availableTypes.at(locus).at(Utilities::randomNumber(loci_availableTypes.at(locus).size()));
+			std::string selectedType_1 = loci_availableTypes.at(locus).at(Utilities::randomNumber(loci_availableTypes.at(locus).size() - 1));
+			std::string selectedType_2 = loci_availableTypes.at(locus).at(Utilities::randomNumber(loci_availableTypes.at(locus).size() - 1));
 
 			std::cout << "\tLocus " << locus << " selected " << selectedType_1 << " / " << selectedType_2 << "\n" << std::flush;
 
@@ -634,7 +712,14 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool perturbHaplot
 				print_one_readPair(simulatedReadPairs_h2.at(pI), fastQStream_1, fastQStream_2);
 			}
 
-			outputFields_trueHLA.push_back(selectedType_1 + "/" + selectedType_2);
+			
+			auto removeStar = [](std::string t) -> std::string {
+				std::vector<std::string> f = Utilities::split(t, "*");
+				assert(f.size() == 2);
+				return f.at(1);
+			};
+			
+			outputFields_trueHLA.push_back(removeStar(selectedType_1) + "/" + removeStar(selectedType_2));
 			outputFields_trueHaplotypes.push_back(Utilities::join(haplotype_1, ";") + "/" + Utilities::join(haplotype_2, ";"));
 		}
 
