@@ -14,7 +14,7 @@ Also, although the program has been executed many times on our servers, many bug
 
 To install the package, please follow this procedure:
 
-1. Download the MHC-PRG data package, which will also set up the right file structure. We assume that you have uncompressed the data into ~/MHC-PRG.
+1. Download the MHC-PRG data package (http://birch.well.ox.ac.uk/MHC-PRG.tar.gz - c. 213GB), which will also set up the right file structure. We assume that you have uncompressed the data into ~/MHC-PRG. 
 
 2. Now, cd into the directory ~/MHC-PRG/src. Use git to clone a copy of this repository into the src directory.
 
