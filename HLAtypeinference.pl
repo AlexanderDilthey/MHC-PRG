@@ -67,9 +67,20 @@ if(@sampleIDs)
 	}
 }	
 
-if($sampleIDs =~ /^all/)
+if($sampleIDs =~ /^allSimulations/)
 {
-	my @dirs = glob('../tmp/hla/*');
+	my @dirs = grep {$_ =~ /I\d+_simulations/} grep {-d $_} glob('../tmp/hla/*');
+	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /tmp\/hla\/(.+)/); $1} @dirs;
+	
+	if($sampleIDs =~ /^all_simulations_I(\d+)/i)
+	{
+		my $iteration = $1;
+		@sampleIDs = grep {$_ =~ /^I${iteration}_/i} @sampleIDs;
+	}
+}
+elsif($sampleIDs =~ /^all/)
+{
+	my @dirs = grep {$_ !~ /simulations/} grep {-d $_} glob('../tmp/hla/*');
 	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /tmp\/hla\/(.+)/); $1} @dirs;
 	
 	if($sampleIDs =~ /^all_I(\d+)/i)
@@ -270,6 +281,7 @@ if($actions =~ /v/)
 		my $sampleID_noI = $sampleID;
 		$sampleID_noI =~ s/^I\d+_//g;
 		
+
 		my $bestGuess_file = '../tmp/hla/'.$sampleID.'/'.$validation_round.'_bestguess.txt';
 		unless(-e $bestGuess_file)
 		{
@@ -303,7 +315,7 @@ if($actions =~ /v/)
 		die if(exists $sample_noI_toI{$sampleID_noI});
 		$sample_noI_toI{$sampleID_noI} = $sampleID;
 	}
-	
+		
 	my $debug = 0;
 	my $comparisons = 0;
 	my $compare_problems = 0;
@@ -334,6 +346,7 @@ if($actions =~ /v/)
 			$debug = 0;
 			
 			my @imputed_hla_values = map { $imputed_HLA{$locus}{$indivID}{$_} } keys %{$imputed_HLA{$locus}{$indivID}};
+						
 			my @reference_hla_values;
 			
 			next INDIV unless($#imputed_hla_values == 1);

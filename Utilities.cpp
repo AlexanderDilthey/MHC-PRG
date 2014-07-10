@@ -647,6 +647,7 @@ std::string Utilities::generateRandomSequence(int length)
 
 int Utilities::randomNumber(int max)
 {
+	assert(max >= 0);
 	int n;
 	#pragma omp critical
 	{
