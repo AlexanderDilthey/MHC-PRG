@@ -361,7 +361,8 @@ int main(int argc, char *argv[])
 		int read_length = 100;
 		bool readError = true;
 		bool perturbHaplotypes = false;
-
+		bool exon23 = true;
+		
 		for(unsigned int i = 2; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--graphDir")
@@ -412,6 +413,11 @@ int main(int argc, char *argv[])
 			{
 				perturbHaplotypes = Utilities::StrtoI(arguments.at(i+1));
 			}
+			
+			if(arguments.at(i) == "--exon23")
+			{
+				exon23 = Utilities::StrtoI(arguments.at(i+1));
+			}			
 		}
 
 		assert(graph_dir.length());
@@ -423,7 +429,7 @@ int main(int argc, char *argv[])
 		assert(insertSize_sd <= 20);
 		assert(nIndividuals > 0);
 
-		simulateHLAreads(graph_dir, nIndividuals, perturbHaplotypes, readError, outputDirectory, filename_qualityMatrix, read_length, insertSize_mean, insertSize_sd, haploidCoverage);
+		simulateHLAreads(graph_dir, nIndividuals, exon23, perturbHaplotypes, readError, outputDirectory, filename_qualityMatrix, read_length, insertSize_mean, insertSize_sd, haploidCoverage);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "HLATypeInference"))
 	{

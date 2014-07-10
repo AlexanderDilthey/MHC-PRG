@@ -330,9 +330,12 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_string(std::s
 					read2 = Utilities::seq_reverse_complement(read2);
 					std::reverse(read2_qualities.begin(), read2_qualities.end());
 
-					std::string read1_name = "p1" + readName_field_separator + Utilities::ItoStr(i) + readName_field_separator + Utilities::ItoStr(rPI);
-					std::string read2_name = "p2" + readName_field_separator + Utilities::ItoStr(i + jumpSize) + readName_field_separator + Utilities::ItoStr(rPI);
+					// std::string read1_name = "p1" + readName_field_separator + Utilities::ItoStr(i) + readName_field_separator + Utilities::ItoStr(rPI);
+					// std::string read2_name = "p2" + readName_field_separator + Utilities::ItoStr(i + jumpSize) + readName_field_separator + Utilities::ItoStr(rPI);
 
+					std::string read1_name = "p" + readName_field_separator + Utilities::ItoStr(i) + readName_field_separator + Utilities::ItoStr(jumpSize) + readName_field_separator + Utilities::ItoStr(rPI);
+					std::string read2_name = read1_name;
+					
 					oneRead r1(read1_name, read1, read1_qualities);
 					oneRead r2(read2_name, read2, read2_qualities);
 
