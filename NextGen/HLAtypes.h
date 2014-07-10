@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 
-void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName);
-void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string starting_haplotype_1, std::string starting_haplotype_2);
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2);
+void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotype_1, std::string starting_haplotype_2);
 
 void simulateHLAreads(std::string graphDir, int nIndividuals, bool exon23, bool perturbHaplotypes, bool readError, std::string outputDirectory, std::string qualityMatrixFile, int readLength, double insertSize_mean, double insertSize_sd, double haploidCoverage);
 void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype);

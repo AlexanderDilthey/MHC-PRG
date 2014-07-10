@@ -463,7 +463,13 @@ int main(int argc, char *argv[])
 		assert(input_alignedReads.length());
 		assert(graph_dir.length());
 
-		HLATypeInference(input_alignedReads, graph_dir, sampleID);
+		std::string loci_string;
+		std::string starting_haplotypes_perLocus_1_str;
+		std::string starting_haplotypes_perLocus_2_str;
+
+		HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+
+		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))
 	{
