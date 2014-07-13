@@ -36,13 +36,36 @@
 
 
 // constants
-double log_likelihood_insertion = log(0.00001);
+
+double INDELp = 0.001;
+double log_likelihood_insertion = log(INDELp);
 double log_likelihood_deletion = log_likelihood_insertion;
+double log_likelihood_nonInsertion = log(1 - INDELp);
+double log_likelihood_nonDeletion = log_likelihood_nonInsertion;
+
 // int max_mismatches_perRead = 2;
 double min_alignmentFraction_OK = 0.96; // measures all alignment positions but graph AND sequence gaps, separately for both reads
 double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downweighted by quality
 double min_bothReads_weightedCharactersOK = 0.985; // both reads, mismatches downweighted by quality
 
+using namespace boost::math::policies;
+using namespace boost::math;
+
+typedef boost::math::poisson_distribution< double, policy < discrete_quantile < integer_round_inwards> > > poisson_up;
+poisson_up poisson1(1);
+
+
+double logAvg(double a, double b)
+{
+	if(a > b)
+	{
+		return(log(0.5) + (log(1 + exp(b - a)) + a));
+		
+	} else
+	{
+		return(log(0.5) + (log(1 + exp(a - b)) + b));
+	}
+}
 
 class oneExonPosition {
 public:
@@ -226,97 +249,157 @@ double alignmentWeightedOKFraction(oneRead& underlyingRead, seedAndExtend_return
 };
 
 
-double read_likelihood_per_position(const std::string& exonGenotype, const std::string& readGenotype, const std::string& readQualities, const int& alignmentGraphLevel)
+double read_likelihood_per_position(const std::string& exonGenotypeR, const std::string& readGenotypeR, const std::string& readQualities, const int& alignmentGraphLevel)
 {
 
 	double log_likelihood = 0;
 	bool verbose = 0;
 
-	assert(exonGenotype.length() == 1);
-	assert(readGenotype.length() >= 1);
-	unsigned int l_diff = readGenotype.length() - exonGenotype.length();
-	if(exonGenotype == "_")
+	// if(!(exonGenotype.length() == 1))
+	// {
+		// std::cerr << "! (exonGenotype.length() == 1)" << "\n";
+		// std::cerr << exonGenotype.length()  << "\n";
+		// std::cerr << exonGenotype << "\n" << std::flush;
+	// }
+	// 
+	
+	assert(exonGenotypeR.length() >= 1);
+	assert(readGenotypeR.length() >= 1);
+	
+	for(unsigned int i = 0; i < exonGenotypeR.length(); i++)
 	{
-		// assert(l_diff == 0);
-		if(readGenotype == "_")
+		std::string exonGenotype = exonGenotypeR.substr(i, 1);
+		
+		std::string readGenotype;
+		if(i == (exonGenotypeR.length() - 1))
 		{
-			assert(alignmentGraphLevel != -1);
-			// likelihood 1 - intrinsic graph gap
-
-			if(verbose)
+			if(i < readGenotypeR.length())
 			{
-				std::cout << "\t\t" << "Intrinsic graph gap" << "\n";
-			}
-
-		}
-		else
-		{
-			if(verbose)
-			{
-				std::cout << "\t\t" << "Insertion " << (1 + l_diff) << "\n";
-			}
-
-			log_likelihood += (log_likelihood_insertion * (1 + l_diff));
-		}
-	}
-	else
-	{
-
-		// score from first position match
-		if(readGenotype.substr(0, 1) == "_")
-		{
-			log_likelihood += log_likelihood_deletion;
-
-			if(verbose)
-			{
-				std::cout << "\t\t" << "Deletion" << "\n";
-			}
-		}
-		else
-		{
-			assert(readQualities.length());
-			double pCorrect = Utilities::PhredToPCorrect(readQualities.at(0));
-			assert((pCorrect > 0) && (pCorrect <= 1));
-
-			if(!(pCorrect >= 0.25))
-			{
-				std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
-			}
-			assert(pCorrect >= 0.25);
-
-			if(exonGenotype == readGenotype.substr(0, 1))
-			{
-				if(verbose)
-				{
-					std::cout << "\t\t" << "Match " << pCorrect << "\n";
-				}
-
-				log_likelihood += log(pCorrect);
+				int extractLength = (int)readGenotypeR.length() - (int)i;
+				assert(extractLength > 0);
+				readGenotype = readGenotypeR.substr(i, extractLength);
+				assert(readGenotype.length() == extractLength);
 			}
 			else
 			{
-				double pIncorrect = (1 - pCorrect)*(1.0/3.0);
-				assert(pIncorrect <= 0.75);
-				assert((pIncorrect > 0) && (pIncorrect < 1));
-				log_likelihood += log(pIncorrect);
+				readGenotype = "_";
+			}
+		}
+		else
+		{
+			if(i < readGenotypeR.length())
+			{
+				readGenotype = readGenotypeR.substr(i, 1);
+			}
+			else
+			{
+				readGenotype = "_";			
+			}
+		}
+		
+		assert(exonGenotype.length() == 1);		
+		assert(readGenotype.length() >= 1);
+
+		unsigned int l_diff = readGenotype.length() - exonGenotype.length();
+		if(exonGenotype == "_")
+		{
+			// assert(l_diff == 0);
+			if(readGenotype == "_")
+			{
+				assert(alignmentGraphLevel != -1);
+				// likelihood 1 - intrinsic graph gap
 
 				if(verbose)
 				{
-					std::cout << "\t\t" << "Mismatch " << pIncorrect << "\n";
+					std::cout << "\t\t" << "Intrinsic graph gap" << "\n";
+				}
+				
+				log_likelihood += log_likelihood_nonInsertion;
+
+			}
+			else
+			{
+				if(verbose)
+				{
+					std::cout << "\t\t" << "Insertion " << (1 + l_diff) << "\n";
+				}
+				
+				assert(l_diff >= 0);			
+				log_likelihood += (log_likelihood_insertion + log(pdf(poisson1, l_diff)));
+			}
+		}
+		else
+		{
+
+			// score from first position match
+			if(readGenotype.substr(0, 1) == "_")
+			{
+				log_likelihood += log_likelihood_deletion;
+
+				if(verbose)
+				{
+					std::cout << "\t\t" << "Deletion" << "\n";
 				}
 			}
-		}
-		// if read allele is longer
-		log_likelihood += (log_likelihood_insertion * l_diff);
-
-		if(l_diff > 0)
-		{
-			if(verbose)
+			else
 			{
-				std::cout << "\t\t" << "Insertion " << l_diff << "\n";
+				log_likelihood += log_likelihood_nonDeletion;
+				
+				assert(readQualities.length());
+				double pCorrect = Utilities::PhredToPCorrect(readQualities.at(0));
+				assert((pCorrect > 0) && (pCorrect <= 1));
+
+				if(!(pCorrect >= 0.25))
+				{
+					std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
+				}
+				assert(pCorrect >= 0.25);
+
+				if(exonGenotype == readGenotype.substr(0, 1))
+				{
+					if(verbose)
+					{
+						std::cout << "\t\t" << "Match " << pCorrect << "\n";
+					}
+
+					log_likelihood += log(pCorrect);
+				}
+				else
+				{
+					double pIncorrect = (1 - pCorrect)*(1.0/3.0);
+					assert(pIncorrect <= 0.75);
+					assert((pIncorrect > 0) && (pIncorrect < 1));
+					log_likelihood += log(pIncorrect);
+
+					if(verbose)
+					{
+						std::cout << "\t\t" << "Mismatch " << pIncorrect << "\n";
+					}
+				}
 			}
-		}
+			
+			// if read allele is longer
+			if(l_diff == 0)
+			{
+				log_likelihood += log_likelihood_nonInsertion;
+			}
+			else
+			{
+				assert(l_diff >= 1);
+				
+				log_likelihood += (log_likelihood_insertion + log(pdf(poisson1, (l_diff-1))));
+			}
+
+			if(l_diff > 0)
+			{
+				if(verbose)
+				{
+					std::cout << "\t\t" << "Insertion " << l_diff << "\n";
+				}
+			}
+		}		
 	}
+
 
 	if(verbose)
 	{
@@ -1313,6 +1396,8 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		std::set<std::string> starting_haplotypes_2_set(starting_haplotypes_2_vec.begin(), starting_haplotypes_2_vec.end());
 		std::set<std::string> starting_haplotypes_combined_set = starting_haplotypes_1_set;
 		starting_haplotypes_combined_set.insert(starting_haplotypes_2_set.begin(), starting_haplotypes_2_set.end());
+		std::vector<std::string> starting_haplotypes_combined_vec(starting_haplotypes_combined_set.begin(), starting_haplotypes_combined_set.end());
+		
 		assert(starting_haplotypes_1_set.size() > 0);
 		assert(starting_haplotypes_2_set.size() > 0);
 
@@ -1337,13 +1422,24 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			{
 				std::vector<std::string> split_by_underscore = Utilities::split(line, "_");
 				std::string file_locus = split_by_underscore.at(0);
+				
+
+				
 				if(file_locus == locus)
 				{
 					if((split_by_underscore.at(2) == "intron") || (split_by_underscore.at(2) == "exon"))
 					{
-						files_in_order.push_back(line);
+						files_in_order.push_back(graphDir + "/" + line);
 						files_in_order_type.push_back(split_by_underscore.at(2));
 						files_in_order_number.push_back(Utilities::StrtoI(split_by_underscore.at(3)));
+					}
+					else
+					{
+						std::vector<std::string> third_split_by_colon = Utilities::split(split_by_underscore.at(2), ".");	
+
+						files_in_order.push_back(graphDir + "/" + line);
+						files_in_order_type.push_back(third_split_by_colon.at(0));
+						files_in_order_number.push_back(1);
 					}
 				}
 			}
@@ -1385,7 +1481,10 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				std::string line;
 				std::getline(fileInputStream, line);
 				Utilities::eraseNL(line);
-				file_lines.push_back(line);
+				if(line.length())
+				{
+					file_lines.push_back(line);
+				}
 			}
 			fileInputStream.close();
 
@@ -1428,14 +1527,19 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				combined_sequences_graphLevels_individualPosition.push_back(lI);
 			}
 
-
-			for(unsigned int lI = 1; lI < file_lines.size(); lI++)
+			if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
 			{
-				if(file_lines.at(lI).length())
-				{
-					std::vector<std::string> line_fields = Utilities::split(file_lines.at(lI), " ");
+				assert(file_lines.size() > 1);
+				for(unsigned int sI = 0; sI < starting_haplotypes_combined_vec.size(); sI++)
+				{			
+					int getLine = sI % (file_lines.size()-1) + 1;
+					assert(getLine >= 1);
+					assert(getLine < file_lines.size());
+					assert(file_lines.at(getLine).length());
+					
+					std::vector<std::string> line_fields = Utilities::split(file_lines.at(getLine), " ");
 					assert(line_fields.size() == firstLine_fields.size());
-					std::string HLA_type = line_fields.at(0);
+					std::string HLA_type = starting_haplotypes_combined_vec.at(sI);
 					std::vector<std::string> line_alleles(line_fields.begin()+1, line_fields.end());
 
 					std::string HLA_type_sequence = Utilities::join(line_alleles, "");
@@ -1447,19 +1551,74 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					}
 					else
 					{
-						assert(combined_sequences.count(HLA_type));
-						combined_sequences.at(HLA_type) += HLA_type_sequence;
+						// assert(combined_sequences.count(HLA_type));
+						combined_sequences[HLA_type] += HLA_type_sequence;
+					}				
+
+					// std::cout << HLA_type << " " << files_in_order_type.at(fileI) << " add " << HLA_type_sequence.length() << "\n" << std::flush;
+					
+				}
+			}
+			else
+			{
+				for(unsigned int lI = 1; lI < file_lines.size(); lI++)
+				{
+					assert(file_lines.at(lI).length());
+					if(file_lines.at(lI).length())
+					{
+						std::vector<std::string> line_fields = Utilities::split(file_lines.at(lI), " ");
+						assert(line_fields.size() == firstLine_fields.size());
+						std::string HLA_type = line_fields.at(0);
+						std::vector<std::string> line_alleles(line_fields.begin()+1, line_fields.end());
+
+						std::string HLA_type_sequence = Utilities::join(line_alleles, "");
+
+						if(fileI == 0)
+						{
+							assert(combined_sequences.count(HLA_type) == 0);
+							combined_sequences[HLA_type] = HLA_type_sequence;
+						}
+						else
+						{
+							// assert(combined_sequences.count(HLA_type));
+							combined_sequences[HLA_type] += HLA_type_sequence;
+						}
 					}
 				}
 			}
 		}
-
+		
+		std::set<std::string> non_full_length_types;
+		for(std::set<std::string>::iterator haplotypeIt = starting_haplotypes_combined_set.begin(); haplotypeIt != starting_haplotypes_combined_set.end(); haplotypeIt++)
+		{
+			std::string haplotypeID = *haplotypeIt;
+			assert(combined_sequences.count(haplotypeID) > 0);
+			// std::cout << "Length comparison " << haplotypeID << ": "  << combined_sequences.at(haplotypeID).length() << " vs " << combined_sequences_locusIDs.size() << "\n" << std::flush;
+			if(combined_sequences.at(haplotypeID).length() != combined_sequences_locusIDs.size())
+			{
+				non_full_length_types.insert(haplotypeID);
+			}
+		}
+		for(std::set<std::string>::iterator haplotypeIt = non_full_length_types.begin(); haplotypeIt != non_full_length_types.end(); haplotypeIt++)
+		{
+			combined_sequences.erase(*haplotypeIt);
+		}
+		
 		for(std::set<std::string>::iterator haplotypeIt = starting_haplotypes_combined_set.begin(); haplotypeIt != starting_haplotypes_combined_set.end(); haplotypeIt++)
 		{
 			std::string haplotypeID = *haplotypeIt;
 			assert(combined_sequences.count(haplotypeID) > 0);
 			assert(combined_sequences.at(haplotypeID).length() == combined_sequences_locusIDs.size());
 		}
+		
+		for(std::set<std::string>::iterator haplotypeIt = starting_haplotypes_1_set.begin(); haplotypeIt != starting_haplotypes_1_set.end(); haplotypeIt++)
+		{
+			assert(combined_sequences.count(*haplotypeIt));
+		}		
+		for(std::set<std::string>::iterator haplotypeIt = starting_haplotypes_2_set.begin(); haplotypeIt != starting_haplotypes_2_set.end(); haplotypeIt++)
+		{
+			assert(combined_sequences.count(*haplotypeIt));
+		}		
 
 		std::map<int, unsigned int> graphLevel_2_position;
 		std::map<int, std::string> graphLevel_2_position_type;
@@ -1752,7 +1911,12 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 			std::vector<std::string> h1;
 			std::vector<std::string> h2;
-			double LL;
+			double LL1;
+			double LL2;
+			double LLPriors;
+			double Pexternal;
+			bool setPexternal;
+			
 			std::map<std::string, std::pair<double, double> > ll_per_read;
 			std::map<std::string, double> averaged_ll_per_read;
 
@@ -1761,20 +1925,59 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		public:
 			haplotypeAlternative()
 			{
-				LL = 0;
+				LL1 = 0;
+				LL2 = 0;
+				LLPriors = 0;
 				ll_computed_until_position = -1;
+				setPexternal = false;
 			}
 
 			std::pair<std::string, std::string> getHaplotypeAlleles(unsigned int pI)
 			{
 				return make_pair(h1.at(pI), h2.at(pI));
 			}
-
-			double getLL()
+			
+			std::pair<std::string, std::string> getTrailingHaplotypeAlleles()
 			{
-				return LL;
-			}
+				return make_pair(h1.back(), h2.back());
+			}			
+			
+			std::pair<std::string, std::string> getTrailingHaplotypeAlleles(unsigned int pI)
+			{	
+				std::string h1Str;
+				std::string h2Str;
+				for(unsigned int i = pI; i < h1.size(); i++)
+				{
+					h1Str += h1.at(i);
+					h2Str += h2.at(i);
+				}
+				
+				return make_pair(h1Str, h2Str);
+			}			
+			
 
+			void setRescaledP(double p)
+			{
+				setPexternal = true;
+				Pexternal = p;
+			}
+			
+			double getP()
+			{
+				// assert(setPexternal); // todo activate later
+				return Pexternal;
+			}
+			
+			double getLL1()
+			{
+				return LL1;
+			}
+			
+			double getLL2()
+			{
+				return LL2;
+			}
+			
 			int getLL_computedUntil()
 			{
 				return ll_computed_until_position;
@@ -1782,73 +1985,227 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 			void updateLikelihood(const std::set<std::string>& alleles_from_h1, const std::set<std::string>& alleles_from_h2, const std::vector<oneExonPosition>& pileUpPerPosition)
 			{
-				assert(h1.size() == h2.size());
-				assert((int)h1.size() == (ll_computed_until_position + 1));
-
 				const std::string& h1_underlying_position = h1.back();
 				const std::string& h2_underlying_position = h2.back();
+			
+				bool verbose = (ll_computed_until_position > 502);
+				verbose = false;
+				
+				double log_existingAllele = log(0.999);
+				double log_newAllele = log((1 - 0.999) * 0.33); // on average three possible alleles
 
-				double log_existingAllele = log(0.9999);
-				double log_newAllele = log((1 - 0.9999) * 0.33); // on average three possible alleles
-
-				LL += (alleles_from_h1.count(h1_underlying_position)) ? log_existingAllele : log_newAllele;
-				LL += (alleles_from_h2.count(h2_underlying_position)) ? log_existingAllele : log_newAllele;
-
-				std::set<std::string> read_IDs_modified;
-				for(unsigned int rI = 0; rI < pileUpPerPosition.size(); rI++)
+				LLPriors += (alleles_from_h1.count(h1_underlying_position)) ? log_existingAllele : log_newAllele;
+				LLPriors += (alleles_from_h2.count(h2_underlying_position)) ? log_existingAllele : log_newAllele;
+				
+				//first LL
 				{
-					const oneExonPosition& r = pileUpPerPosition.at(rI);
-					const std::string& readID = r.thisRead_ID;
-
-					double position_likelihood_h1 = read_likelihood_per_position(h1_underlying_position, r.genotype, r.qualities, r.graphLevel);
-					double position_likelihood_h2 = read_likelihood_per_position(h2_underlying_position, r.genotype, r.qualities, r.graphLevel);
-
-					if(ll_per_read.count(readID) == 0)
+					assert(h1.size() == h2.size());
+					if(!((int)h1.size() == (ll_computed_until_position + 2)))
 					{
-						ll_per_read[readID].first = 0;
-						ll_per_read[readID].second = 0;
+						std::cerr << "h1.size(): " << h1.size() << "\n";
+						std::cerr << "ll_computed_until_position: " << ll_computed_until_position << "\n" << std::flush;
+						
+					}
+					
+
+						
+					assert((int)h1.size() == (ll_computed_until_position + 2));
+
+					if(verbose)
+					{
+						std::cout << "\t\\tAfter 'priors' update: " << LLPriors << "\n" << std::flush;
+					}
+					
+					if(verbose)
+					{
+						std::cout << "\t\tBefore update LL1: " << LL1 << "\n" << std::flush;
+					}
+					
+					std::set<std::string> read_IDs_modified;
+					for(unsigned int rI = 0; rI < pileUpPerPosition.size(); rI++)
+					{
+						const oneExonPosition& r = pileUpPerPosition.at(rI);
+						const std::string& readID = r.thisRead_ID;
+
+						double position_likelihood_h1 = read_likelihood_per_position(h1_underlying_position, r.genotype, r.qualities, r.graphLevel);
+						double position_likelihood_h2 = read_likelihood_per_position(h2_underlying_position, r.genotype, r.qualities, r.graphLevel);
+
+						if(ll_per_read.count(readID) == 0)
+						{
+							ll_per_read[readID].first = 0;
+							ll_per_read[readID].second = 0;
+						}
+
+						double first_before = ll_per_read.at(readID).first;
+						double second_before = ll_per_read.at(readID).second;
+						
+						// std::cout << "\t\t\tRead " << readID << ": " << r.genotype << "\n";
+
+						ll_per_read.at(readID).first += position_likelihood_h1;
+						ll_per_read.at(readID).second += position_likelihood_h2;
+
+						// std::cout << "\t\t\t\tOn H1 [" << h1_underlying_position << "]: " << first_before << " -> " << ll_per_read.at(readID).first << "\n";
+						// std::cout << "\t\t\t\tOn H2 [" << h2_underlying_position << "]: " << second_before << " -> " << ll_per_read.at(readID).second << "\n";
+						
+						read_IDs_modified.insert(readID);
+						
+						
 					}
 
-					ll_per_read.at(readID).first += position_likelihood_h1;
-					ll_per_read.at(readID).second += position_likelihood_h2;
+					for(std::set<std::string>::iterator readIDit = read_IDs_modified.begin(); readIDit != read_IDs_modified.end(); readIDit++)
+					{
+						if(averaged_ll_per_read.count(*readIDit))
+						{
+							LL1 -= averaged_ll_per_read.at(*readIDit);
+						}
+						else
+						{
+							averaged_ll_per_read[*readIDit] = 0;
+						}
 
-					read_IDs_modified.insert(readID);
+						// std::cout << *readIDit << "\n";
+						// std::cout << "\t" << ll_per_read.at(*readIDit).first << "\n";
+						// std::cout << "\t" << ll_per_read.at(*readIDit).second << "\n" << std::flush;
+						
+						double new_average_p = 0.5 * exp(ll_per_read.at(*readIDit).first) + 0.5 * exp(ll_per_read.at(*readIDit).second);
+						
+						// std::cout << "\t" << new_average_p << "\n" << std::flush;
+						
+						assert(new_average_p >= 0);
+						assert(new_average_p <= 1);
+
+						double new_average_logP = logAvg(ll_per_read.at(*readIDit).first, ll_per_read.at(*readIDit).second);
+						if(new_average_p == 0)
+						{
+							// new_average_logP = -1e100;
+						}
+						// std::cout << new_average_logP << " " << new_average_p << "\n" << std::flush;
+						LL1 += new_average_logP;
+						averaged_ll_per_read.at(*readIDit) = new_average_logP;
+					}
+
+					if(verbose)
+					{
+						std::cout << "\t\tLL1 After complete update: " << LL1 << "\n" << std::flush;
+					}
 				}
-
-				for(std::set<std::string>::iterator readIDit = read_IDs_modified.begin(); readIDit != read_IDs_modified.end(); readIDit++)
+				
+				
+				//LL2
 				{
-					if(averaged_ll_per_read.count(*readIDit))
+				
+					if(verbose)
 					{
-						LL -= averaged_ll_per_read.at(*readIDit);
-					}
-					else
+						std::cout << "\t\tBefore update LL2: " << LL2 << "\n" << std::flush;
+					}	
+					
+					double thisPosition_LL2 = 0;
+					for(unsigned int rI = 0; rI < pileUpPerPosition.size(); rI++)
 					{
-						averaged_ll_per_read[*readIDit] = 0;
+						const oneExonPosition& r = pileUpPerPosition.at(rI);
+						const std::string& readID = r.thisRead_ID;
+					
+						double position_likelihood_h1 = read_likelihood_per_position(h1_underlying_position, r.genotype, r.qualities, r.graphLevel);
+						double position_likelihood_h2 = read_likelihood_per_position(h2_underlying_position, r.genotype, r.qualities, r.graphLevel);
+						
+						double combined_LL =  logAvg(position_likelihood_h1, position_likelihood_h2);
+						double combined_L = exp(combined_LL);
+						assert(combined_L >= 0);
+						assert(combined_L <= 1);
+						
+						thisPosition_LL2 += combined_LL;
 					}
-
-					double new_average_p = 0.5 * exp(ll_per_read.at(*readIDit).first) + 0.5 * exp(ll_per_read.at(*readIDit).second);
-					assert(new_average_p >= 0);
-					assert(new_average_p <= 1);
-
-					double new_average_logP = log(new_average_p);
-
-					LL += new_average_logP;
-					averaged_ll_per_read.at(*readIDit) = new_average_logP;
+					
+					LL2 += thisPosition_LL2;
+					
+					/*
+					
+					auto compute_p_isUnderlyingAllele = [](std::string rGenotype, std::string rQualities, int rGraphLevel, std::string underlyingAllele) -> double {
+					
+						return exp(read_likelihood_per_position(underlyingAllele, rGenotype, rQualities, rGraphLevel));						
+					};
+					
+					auto compute_p_isOneOfUnderlyingAllele = [](std::string rGenotype, std::string rQualities, int rGraphLevel, std::string underlyingAllele1, std::string underlyingAllele2) -> std::vector<double> {
+					
+						double a1 = exp(read_likelihood_per_position(underlyingAllele1, rGenotype, rQualities, rGraphLevel));
+						double a2 = exp(read_likelihood_per_position(underlyingAllele2, rGenotype, rQualities, rGraphLevel));
+						assert((a1 + a2) <= 1);
+						double a3 = 1 - a1 - a2;
+						
+						std::vector<double> forReturn = {a1, a2, a3};
+						return forReturn;
+					};					
+					
+					double genericError = 0.01;
+					double thisPosition_LL2 = 0;
+					for(unsigned int rI = 0; rI < pileUpPerPosition.size(); rI++)
+					{
+						const oneExonPosition& r = pileUpPerPosition.at(rI);
+						const std::string& readID = r.thisRead_ID;
+					
+						double thisRead_L = 0;
+						if(h1_underlying_position == h2_underlying_position)
+						{
+							double p_is_underlyingAllele = compute_p_isUnderlyingAllele(r.genotype, r.qualities, r.graphLevel, h1_underlying_position);
+							assert(p_is_underlyingAllele >= 0);
+							assert(p_is_underlyingAllele <= 1);
+							
+							thisRead_L = genericError * (1 - p_is_underlyingAllele) + (1 - genericError) * (p_is_underlyingAllele);
+							assert(thisRead_L >= 0);
+							assert(thisRead_L <= 1);
+						}
+						else
+						{
+							std::vector<double> p_underlyingAlleles = compute_p_isOneOfUnderlyingAllele(r.genotype, r.qualities, r.graphLevel, h1_underlying_position, h2_underlying_position);
+							
+							assert(p_underlyingAlleles.at(0) >= 0);
+							assert(p_underlyingAlleles.at(0) <= 1);							
+							assert(p_underlyingAlleles.at(1) >= 0);
+							assert(p_underlyingAlleles.at(1) <= 1);							
+							assert(p_underlyingAlleles.at(2) >= 0);
+							assert(p_underlyingAlleles.at(2) <= 1);		
+							assert(abs(p_underlyingAlleles.at(0) + p_underlyingAlleles.at(1) + p_underlyingAlleles.at(2) - 1) < 1e-5);
+							
+							thisRead_L = genericError * p_underlyingAlleles.at(2) + (1 - genericError)*0.5 * p_underlyingAlleles.at(0) + (1 - genericError)*0.5 * p_underlyingAlleles.at(1);
+							assert(thisRead_L >= 0);
+							assert(thisRead_L <= 1);							
+						}
+						
+						assert(thisRead_L > 0);
+						assert(thisRead_L <= 1);
+						double thisRead_LL = log(thisRead_L);
+						
+						thisPosition_LL2 += thisRead_LL;
+					}
+					
+					
+					
+					LL2 += thisPosition_LL2;
+					*/
+					
+					if(verbose)
+					{
+						std::cout << "\t\tAfter update LL2: " << LL2 << "\n" << std::flush;
+					}				
+										
 				}
-
+				
 				ll_computed_until_position++;
+				setPexternal = false;
 			}
 
 			void extendHaplotypes(const std::pair<std::string, std::string>& extension)
 			{
 				h1.push_back(extension.first);
 				h2.push_back(extension.second);
+				setPexternal = false;
 			}
 		};
 
 		class haplotypeAlternatives {
 		public:
 			std::list<haplotypeAlternative> runningAlternatives;
+			
 			int completedLevel;
 
 			haplotypeAlternatives()
@@ -1856,6 +2213,25 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				completedLevel = -1;
 			}
 
+			void printAlternativesAndP(unsigned int pI)
+			{	
+				unsigned int aI = 0;
+
+				std::cout << "Haplotype alternative print starting at position " << pI << "\n";
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					double P = alternativeIt->getP();
+					std::pair<std::string, std::string> haplos = alternativeIt->getTrailingHaplotypeAlleles(pI);
+					
+					std::cout << "\t" << "Alternative " << aI << " relative likelihood " << P << "\n";
+					std::cout << "\t\t" << haplos.first << "\n";
+					std::cout << "\t\t" << haplos.second << "\n";
+					
+					std::cout << std::flush;
+					aI++;
+				}					
+			}
+			
 			haplotypeAlternative getBestAlternative()
 			{
 				unsigned int l_max = 0;
@@ -1864,10 +2240,10 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				unsigned int aI = 0;
 				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
 				{
-					if((alternativeIt == runningAlternatives.begin()) || (alternativeIt->getLL() > ll_max))
+					if((alternativeIt == runningAlternatives.begin()) || (alternativeIt->getP() > ll_max))
 					{
 						l_max = aI;
-						ll_max = alternativeIt->getLL();
+						ll_max = alternativeIt->getP();
 					}
 					aI++;
 				}
@@ -1937,10 +2313,103 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 			void updateLikelihood(std::set<std::string>& alleles_from_h1, std::set<std::string>& alleles_from_h2, std::vector<oneExonPosition>& pileUpPerPosition)
 			{
+				unsigned int aI = 0;
 				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
 				{
+					if(completedLevel > 502)
+					{
+						// std::cout << "Update likelihood for alternative " << aI << "\n" << std::flush;
+					}
 					alternativeIt->updateLikelihood(alleles_from_h1, alleles_from_h2, pileUpPerPosition);
+					
+					aI++;
 				}
+				
+				setNormalizedLikelihoods();
+			}
+			
+			void setNormalizedLikelihoods()
+			{
+				bool verbose = (completedLevel > 502);
+				verbose = false;
+				
+				if(verbose)
+					std::cout << "Enter setNormalizedLikelihoods()...\n" << std::flush;
+					
+				std::vector<double> scaled_combined_likelihoods_per_index_LL1;
+				std::vector<double> scaled_combined_likelihoods_per_index_LL2;
+				
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					scaled_combined_likelihoods_per_index_LL1.push_back(alternativeIt->getLL1());
+					scaled_combined_likelihoods_per_index_LL2.push_back(alternativeIt->getLL2());					
+				}
+				
+				auto convertLogVectorToP = [](std::vector<double>& v) -> void {
+					double v_max = 0;
+					for(unsigned int i = 0; i < v.size(); i++)
+					{
+						if((i == 0) || (v_max < v.at(i)))
+						{
+							v_max = v.at(i);
+						}
+					}
+					for(unsigned int i = 0; i < v.size(); i++)
+					{
+						v.at(i) = exp(v.at(i) - v_max);
+						assert(v.at(i) >= 0);
+						assert(v.at(i) <= 1);
+					}
+				};
+				
+				auto normalizeVector = [](std::vector<double>& v) -> void {
+					double v_sum = 0;
+					for(unsigned int i = 0; i < v.size(); i++)
+					{
+						v_sum += v.at(i);
+					}	
+					assert(v_sum > 0);
+					for(unsigned int i = 0; i < v.size(); i++)
+					{
+						v.at(i) = v.at(i) / v_sum;
+					}						
+				};
+				
+				convertLogVectorToP(scaled_combined_likelihoods_per_index_LL1);
+				convertLogVectorToP(scaled_combined_likelihoods_per_index_LL2);
+				
+				normalizeVector(scaled_combined_likelihoods_per_index_LL1);
+				normalizeVector(scaled_combined_likelihoods_per_index_LL2);
+			
+				std::vector<double> scaled_combined_likelihoods_per_index;
+				for(unsigned int i = 0; i < scaled_combined_likelihoods_per_index_LL1.size(); i++)
+				{
+					assert(scaled_combined_likelihoods_per_index_LL1.at(i) >= 0);
+					assert(scaled_combined_likelihoods_per_index_LL1.at(i) <= 1);
+					assert(scaled_combined_likelihoods_per_index_LL2.at(i) >= 0);
+					assert(scaled_combined_likelihoods_per_index_LL2.at(i) <= 1);
+					
+					double l_combined = 0.5 * scaled_combined_likelihoods_per_index_LL1.at(i) + 0.5 * scaled_combined_likelihoods_per_index_LL2.at(i);
+					
+					if(verbose)
+						std::cout << "Alternative " << i << ": " <<  scaled_combined_likelihoods_per_index_LL1.at(i) << " x " << scaled_combined_likelihoods_per_index_LL2.at(i) << "\n" << std::flush;
+					
+					
+					assert(l_combined >= 0);
+					assert(l_combined <= 1);
+					
+					scaled_combined_likelihoods_per_index.push_back(l_combined);
+				}	
+				
+				normalizeVector(scaled_combined_likelihoods_per_index);			
+
+				unsigned int aI = 0;
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					alternativeIt->setRescaledP(scaled_combined_likelihoods_per_index.at(aI));
+					aI++;
+				}		
+				assert(aI == scaled_combined_likelihoods_per_index.size());
 			}
 
 			std::map<std::string, double> getBackwardConfidence(unsigned int pI_start)
@@ -1948,6 +2417,8 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				double max_LL = -1;
 				int pI_stop = -1;
 
+				assert(runningAlternatives.size() > 0);
+				
 				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
 				{
 					int LL_available_to = alternativeIt->getLL_computedUntil();
@@ -1961,9 +2432,9 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 						assert(pI_stop == LL_available_to);
 					}
 
-					if((alternativeIt == runningAlternatives.begin()) || (alternativeIt->getLL() > max_LL))
+					if((alternativeIt == runningAlternatives.begin()) || (alternativeIt->getP() > max_LL))
 					{
-						max_LL = alternativeIt->getLL();
+						max_LL = alternativeIt->getP();
 					}
 				}
 
@@ -1973,11 +2444,12 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				double relative_P_sum = 0;
 				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
 				{
-					relative_P.at(aI) = exp(alternativeIt->getLL() - max_LL);
-					relative_P_sum += relative_P.back();
+					relative_P.at(aI) =  alternativeIt->getP(); //exp(alternativeIt->getLL1() - max_LL);
+					relative_P_sum += relative_P.at(aI);
 					aI++;
 				}
 
+				assert(relative_P_sum != 0);
 				for(unsigned int i = 0; i < relative_P.size(); i++)
 				{
 					relative_P.at(i) = relative_P.at(i) / relative_P_sum;
@@ -1985,6 +2457,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 				std::map<std::string, double> forReturn;
 				aI = 0;
+				double check_sum = 0;
 				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
 				{
 					std::vector<std::string> h1;
@@ -2003,15 +2476,33 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 					std::string h_comd = h1_str + "|" + h2_str;
 
-					if(forReturn.count(h_comd))
+					if(! forReturn.count(h_comd))
 					{
 						forReturn[h_comd] = 0;
 					}
 
 					forReturn.at(h_comd) += relative_P.at(aI);
-
+					
+					check_sum += relative_P.at(aI);
+					assert(forReturn.at(h_comd) >= 0);
+					if(!((forReturn.at(h_comd) - 1) <= 1e-4))
+					{
+						std::cerr << "! forReturn.at(h_comd) <= 1" << ": " << forReturn.at(h_comd) << "\n" << std::flush;
+					}
+					assert((forReturn.at(h_comd) - 1) <= 1e-4);
+					
 					aI++;
 				}
+				
+				if(!((abs(1 - check_sum) < 1e-9)))
+				{
+					std::cerr << "! " << "(abs(1 - check_sum) < 1e-9)" << "\n";
+					std::cerr << check_sum << "\n";
+					
+					std::cerr << "\n\n" << std::flush;
+				}
+				
+				assert(abs(1 - check_sum) < 1e-9);
 
 				return forReturn;
 			}
@@ -2020,19 +2511,27 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			{
 				std::vector<std::pair<unsigned int, double> > likelihood_per_index;
 				unsigned int aI = 0;
+				// std::cout << "PRUNING:\n";
 				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
 				{
-					likelihood_per_index.push_back(make_pair(aI, alternativeIt->getLL()));
+					likelihood_per_index.push_back(make_pair(aI, alternativeIt->getP()));
+					// std::cout << "\t" << aI << "\t" << alternativeIt->getP() << "\n" << std::flush;
 					aI++;
 				}
 
 				std::sort(likelihood_per_index.begin(), likelihood_per_index.end(), [](std::pair<unsigned int, double> a, std::pair<unsigned int, double> b){return (a.second < b.second);});
+				
 				if(likelihood_per_index.size() > 1)
 				{
+					if(!((likelihood_per_index.at(likelihood_per_index.size() - 1).second >= likelihood_per_index.at(likelihood_per_index.size() - 2).second)))
+					{
+						std::cout << "likelihood_per_index.at(likelihood_per_index.size() - 1).second" << ": " << likelihood_per_index.at(likelihood_per_index.size() - 1).second << "\n";
+						std::cout << "likelihood_per_index.at(likelihood_per_index.size() - 2).second" << ": " << likelihood_per_index.at(likelihood_per_index.size() - 2).second << "\n" << std::flush;
+					}
 					assert(likelihood_per_index.at(likelihood_per_index.size() - 1).second >= likelihood_per_index.at(likelihood_per_index.size() - 2).second);
 				}
 
-				double ll_max;
+				double ll_max = 10;
 				double ll_min;
 				double ll_cutoff = 1;
 
@@ -2040,7 +2539,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				alternatives_sortedPosition.resize(runningAlternatives.size());
 				for(unsigned int i = 0; i < likelihood_per_index.size(); i++)
 				{
-					int invertedI = likelihood_per_index.size() - i;
+					int invertedI = likelihood_per_index.size() - i - 1;
 					alternatives_sortedPosition.at(likelihood_per_index.at(i).first) = invertedI;
 
 					if(i == 0)
@@ -2051,30 +2550,100 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					{
 						ll_max = likelihood_per_index.at(i).second;
 					}
-					if((ll_cutoff == 1) && (i >= ((double)likelihood_per_index.size() * (2.0/3.0))))
-					{
-						ll_cutoff = likelihood_per_index.at(i).second;
-					}
 				}
+				assert(ll_max != 10);
+				
+				int post10Removal = 0;
+				for(unsigned int i = 0; i < likelihood_per_index.size(); i++)
+				{
+					double LL = likelihood_per_index.at(i).second;
+					assert(LL >= 0);
+					assert(LL <= 1);
+					if(log(LL) >= (log(ll_max) - 10))
+					{
+						post10Removal++;
+					}
+				}				
+				
+				int maximumPostpruning = 32;				
+				bool activateOneThirdRemoval = (post10Removal > maximumPostpruning);
+				int pruningFactor = 3;
+				if(activateOneThirdRemoval)
+				{
+					pruningFactor = (runningAlternatives.size() / maximumPostpruning) + 1;
+					if(pruningFactor < 3)
+					{
+						pruningFactor = 3;
+					}
+					for(unsigned int i = 0; i < likelihood_per_index.size(); i++)
+					{
+						// std::cout << "i: " << likelihood_per_index.at(i).second << "\n" << std::flush;
+						int invertedI = likelihood_per_index.size() - i - 1;
+						alternatives_sortedPosition.at(likelihood_per_index.at(i).first) = invertedI;
 
-				assert(ll_max >= ll_cutoff);
+						if(i == 0)
+						{
+							ll_min = likelihood_per_index.at(i).second;
+						}
+						if(i == (likelihood_per_index.size() - 1))
+						{
+							ll_max = likelihood_per_index.at(i).second;
+						}
+						if((ll_cutoff == 1) && (invertedI > int((double)likelihood_per_index.size() * (1.0/(double)pruningFactor))))
+						{
+							ll_cutoff = likelihood_per_index.at(i).second;
+						}
+					}				
+				}
+				
+				assert((ll_cutoff == 1) || (ll_max >= ll_cutoff));
 				assert(ll_max >= ll_min);
-				assert(ll_cutoff >= ll_min);
+				assert((ll_cutoff == 1) || (ll_cutoff >= ll_min));
 
+				assert(ll_max >= 0);
+				assert(ll_max <= 1);
+				
+				std::cout << "Before pruning: " << runningAlternatives.size() << "\n\n";
+				if(activateOneThirdRemoval)
+				{
+					std::cout << "Likelihood pruning: remove 1 - 1/" << pruningFactor << " between min = " << ll_min << " and " << ll_max << " with cutoff " << ll_cutoff << "\n" << std::flush;
+				}
+				else
+				{
+					std::cout << "Likelihood pruning: remove ll -10 between min = " << ll_min << " and " << ll_max << " without one-third-removal\n" << std::flush;				
+				}
+				
 				aI = 0;
 				std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin();
 				while(alternativeIt != runningAlternatives.end())
 				{
 					std::list<haplotypeAlternative>::iterator thisIt = alternativeIt;
 					alternativeIt++;
-					if(alternatives_sortedPosition.at(aI) < (((double)likelihood_per_index.size() * (2.0/3.0))))
+					
+					// if( 0 || ((completedLevel > 500) && (completedLevel < 510)))
+					// { 
+						// std::pair<std::string, std::string> trailingAlleles = thisIt->getTrailingHaplotypeAlleles();
+						// std::cout << "CompletedLevel " << completedLevel << ": Pruning " << aI << " with relative P " << thisIt->getP() << " vs max " << ll_max << " (log diff " << (log(ll_max) - log(alternativeIt->getP())) << "): Ending in " << trailingAlleles.first << " / " << trailingAlleles.second << "\n" << std::flush;						
+					// }
+					// if(completedLevel == 510)
+					// {
+						// assert( 1 == 0 );
+					// }
+					
+					
+					if((log(thisIt->getP()) < (log(ll_max) - 10)) || (activateOneThirdRemoval && (alternatives_sortedPosition.at(aI) > int((double)likelihood_per_index.size() * (1.0/double(pruningFactor))))))
 					{
 						runningAlternatives.erase(thisIt);
 					}
 					aI++;
 				}
-
-				std::cout << "Likelihood pruning: remove 2/3 between min = " << ll_min << " and " << ll_max << " with cutoff " << ll_cutoff << "\n" << std::flush;
+				
+				std::cout << "After pruning: " << runningAlternatives.size() << "\n";
+				
+				assert(runningAlternatives.size() > 0);
+				assert(runningAlternatives.size() <= maximumPostpruning);
+				
+				setNormalizedLikelihoods();
 			}
 		};
 
@@ -2087,8 +2656,17 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		unsigned int currentConfidenceInterval_start = 0;
 		unsigned int currentConfidenceInterval_index = 0;
 
+		std::vector<std::vector<std::string> > considered_pairs_perPosition;
+		std::vector<std::vector<std::string> > considered_h1_perPosition;
+		std::vector<std::vector<std::string> > considered_h2_perPosition;
+		
 		for(unsigned int pI = 0; pI < combined_sequences_graphLevels.size(); pI++)
 		{
+			if((pI % 100) == 0)
+			{
+				std::cout << "\r" << "pI = " << pI << std::flush;
+			}
+			
 			std::set<std::string> alleles_from_h1;
 			std::set<std::string> alleles_from_h2;
 			std::set<std::string> alleles_from_reads;
@@ -2112,24 +2690,96 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				oneExonPosition& onePositionSpecifier = pileUpPerPosition.at(pI).at(pileUpI);
 				alleles_from_reads.insert(onePositionSpecifier.genotype);
 			}
+			alleles_from_reads.insert(alleles_from_h1.begin(), alleles_from_h1.end());
+			alleles_from_reads.insert(alleles_from_h2.begin(), alleles_from_h2.end());
+			
 			std::vector<std::string> alleles_from_reads_vec(alleles_from_reads.begin(), alleles_from_reads.end());
 
 			std::vector<std::pair<std::string, std::string>> possible_haplotype_extensions;
 
+			std::vector<std::string> considered_pairs_str;
 			for(unsigned int a1 = 0; a1 < alleles_from_reads.size(); a1++)
 			{
 				for(unsigned int a2 = 0; a2 < alleles_from_reads.size(); a2++)
 				{
 					std::pair<std::string, std::string> thisCombination = make_pair(alleles_from_reads_vec.at(a1), alleles_from_reads_vec.at(a2));
 					possible_haplotype_extensions.push_back(thisCombination);
+					considered_pairs_str.push_back(thisCombination.first + "/" + thisCombination.second);
 				}
 			}
+			
+			considered_pairs_perPosition.push_back(considered_pairs_str);
+			considered_h1_perPosition.push_back(std::vector<std::string>(alleles_from_h1.begin(), alleles_from_h1.end()));
+			considered_h2_perPosition.push_back(std::vector<std::string>(alleles_from_h2.begin(), alleles_from_h2.end()));
+			
+			// if(possible_haplotype_extensions.size() == 0)
+			// {	
+				// std::set<std::string> alleles_from_haplotypes = alleles_from_h1;
+				// alleles_from_haplotypes.insert(alleles_from_h2.begin(), alleles_from_h2.end());
+				// assert(alleles_from_haplotypes.size() > 0);
+				
+				// std::vector<std::string> all_alleles(alleles_from_haplotypes.begin(), alleles_from_haplotypes.end());
+			
+				// std::cout << "\t\tPosition " << pI << " / " << combined_sequences_graphLevels.size() << ": No reads, use haplotype alleles as possible!\n" << std::flush;
+			
+				// for(unsigned int a1 = 0; a1 < all_alleles.size(); a1++)
+				// {
+					// for(unsigned int a2 = 0; a2 < all_alleles.size(); a2++)
+					// {
+						// std::pair<std::string, std::string> thisCombination = make_pair(all_alleles.at(a1), all_alleles.at(a2));
+						// possible_haplotype_extensions.push_back(thisCombination);
+					// }
+				// }					
+			// }	
+			
+			assert(possible_haplotype_extensions.size() > 0);
+			
+			// std::cout << "\t\tPosition " << pI << " / " << combined_sequences_graphLevels.size() << ": " << alleles_from_reads.size() << " alleles from " << pileUpPerPosition.at(pI).size() << " reads [" << Utilities::join(alleles_from_reads_vec, ", ") << "] and " << possible_haplotype_extensions.size() << " possible haplotype extensions.\n" << std::flush;
+			
+			// std::cout << "\t\t\tH1:\n";
+			// for(std::set<std::string>::iterator alleleIt = alleles_from_h1.begin(); alleleIt != alleles_from_h1.end(); alleleIt++)
+			// {
+				// std::cout << "\t\t\t\t" << *alleleIt << "\n";
+			// }
+			// std::cout << "\n\t\t\tH2:\n";
+			// for(std::set<std::string>::iterator alleleIt = alleles_from_h2.begin(); alleleIt != alleles_from_h2.end(); alleleIt++)
+			// {
+				// std::cout << "\t\t\t\t" << *alleleIt << "\n";
+			// }			
+			
+			std::cout << std::flush;
+			
+			// if(pI == 507)
+			// {
+				// assert( 1 == 0 );
+			// }
+			
+			// if(pI > 502)
+			// {
+				// std::cout << "Position " << pI << " BEFORE amending " << "\n";
+				// runningHaplotypes.printAlternativesAndP(500);
+			// }
+				
 
 			runningHaplotypes.processNewAlternatives(possible_haplotype_extensions);
+			
+			// if(pI > 500)
+			// {
+				// std::cout << "Position " << pI << " AFTER amending, BEFORE LL update " << "\n";
+				// runningHaplotypes.printAlternativesAndP(500);
+			// }
+			
 			runningHaplotypes.updateLikelihood(alleles_from_h1, alleles_from_h2, pileUpPerPosition.at(pI));
 
-			std::cout << "\t\tPosition " << pI << " / " << combined_sequences_graphLevels.size() << ": " << runningHaplotypes.runningAlternatives.size() << " alternatives.\n";
+			// if(pI > 500)
+			// {
+				// std::cout << "Position " << pI << " AFTER LL update " << "\n";
+				// runningHaplotypes.printAlternativesAndP(500);
+			// }
+			
+			// std::cout << "\t\tPosition " << pI << " / " << combined_sequences_graphLevels.size() << ": " << runningHaplotypes.runningAlternatives.size() << " alternatives.\n" << std::flush;
 
+			
 			combined_sequences_confidenceIndex.push_back(currentConfidenceInterval_index);
 
 			bool pruneHere = true;
@@ -2144,12 +2794,23 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 				runningHaplotypes.pruneAlternatives();
 
-				std::cout << "\t\t\t post-pruning: " << runningHaplotypes.runningAlternatives.size() << "\n";
-
+				// std::cout << "\t\t\t post-pruning: " << runningHaplotypes.runningAlternatives.size() << "\n" << std::flush;
+				
+				assert(runningHaplotypes.runningAlternatives.size() > 0);
+				
 				currentConfidenceInterval_index++;
 				currentConfidenceInterval_start = currentConfidenceInterval_stop + 1;
+					
+				// if(pI > 500)
+				// {
+					// std::cout << "Position " << pI << " AFTER pruning " << "\n";
+					// runningHaplotypes.printAlternativesAndP(500);
+				// }
+			
 			}
 		}
+		
+		std::cout << "\n";
 
 		if(currentConfidenceInterval_start != combined_sequences_graphLevels.size())
 		{
@@ -2164,7 +2825,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 		assert(currentConfidenceInterval_index >= 1);
 		assert(combined_sequences_confidenceIndex.size() == combined_sequences_graphLevels.size());
-		assert(confidenceIntervals_boundaries.size() == (combined_sequences_confidenceIndex.back() - 1));
+		assert(confidenceIntervals_boundaries.size() == (combined_sequences_confidenceIndex.back() + 1));
 		assert(confidenceIntervals_boundaries.size() == pruning_confidences.size());
 
 
@@ -2213,6 +2874,23 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 			fieldsForLine.push_back(Utilities::DtoStr(pruning_confidences.at(confidenceIndex).at(h_forConfidence_combd)));
 
+			std::vector<std::string> pileUpVec;
+			for(unsigned int pileUpI = 0; pileUpI < pileUpPerPosition.at(pI).size(); pileUpI++)
+			{
+				pileUpVec.push_back(pileUpPerPosition.at(pI).at(pileUpI).genotype+"["+pileUpPerPosition.at(pI).at(pileUpI).thisRead_ID+"]"); // .qualities
+			}
+			std::string pileUpString = Utilities::join(pileUpVec, "-");
+			
+			fieldsForLine.push_back(Utilities::ItoStr(pileUpPerPosition.at(pI).size()));
+			fieldsForLine.push_back(pileUpString);
+			
+			fieldsForLine.push_back(Utilities::join(considered_pairs_perPosition.at(pI), ";"));
+
+			fieldsForLine.push_back(Utilities::join(considered_h1_perPosition.at(pI), ";"));
+			
+			fieldsForLine.push_back(Utilities::join(considered_h2_perPosition.at(pI), ";"));			
+						
+			
 			haplotypeBestGuess_outputStream << Utilities::join(fieldsForLine, "\t") << "\n";
 		}
 
@@ -3292,15 +3970,15 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		{
 			unsigned int pairIndex = LLs_indices.at(LLi);
 			std::pair<unsigned int, unsigned int>& clusters = LLs_clusterIs.at(pairIndex);
-			std::cout << "#" << (LLi+1) << ": " << clusters.first << " / " << clusters.second << ": " << LLs.at(pairIndex) << " absolute and " << exp(LLs.at(pairIndex) - maxPairI.first) << " relative." << "\n" << std::flush;
+			// std::cout << "#" << (LLi+1) << ": " << clusters.first << " / " << clusters.second << ": " << LLs.at(pairIndex) << " absolute and " << exp(LLs.at(pairIndex) - maxPairI.first) << " relative." << "\n" << std::flush;
 
 			std::vector<std::string> cluster1_members(HLAtype_clusters.at(clusters.first).begin(), HLAtype_clusters.at(clusters.first).end());
 			std::vector<std::string> cluster2_members(HLAtype_clusters.at(clusters.second).begin(), HLAtype_clusters.at(clusters.second).end());
 
-			std::cout << "\tcluster " << clusters.first << ": " << Utilities::join(cluster1_members, ", ") << "\n";
-			std::cout << "\tcluster " << clusters.second << ": " << Utilities::join(cluster2_members, ", ") << "\n" << std::flush;
+			// std::cout << "\tcluster " << clusters.first << ": " << Utilities::join(cluster1_members, ", ") << "\n";
+			// std::cout << "\tcluster " << clusters.second << ": " << Utilities::join(cluster2_members, ", ") << "\n" << std::flush;
 
-			std::cout << "\tMismatches " << Mismatches_avg.at(pairIndex) << " avg / " << Mismatches_min.at(pairIndex) << " min\n" << std::flush;
+			// std::cout << "\tMismatches " << Mismatches_avg.at(pairIndex) << " avg / " << Mismatches_min.at(pairIndex) << " min\n" << std::flush;
 
 			// bool equal = (LLs.at(pairIndex) == LLs.at(LLs_indices.at(0)));
 			// std::cout << "\tEqual: " << equal << "\n" << std::flush;

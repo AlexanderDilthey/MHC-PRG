@@ -72,6 +72,56 @@ foreach my $dir (@dirs)
 	close(TRUEOUT);
 	
 	print "Validation HLA file:\n$trueHLA_out\n\n";
+	
+	# true haplotypes
+	my $trueHaplotypes = $dir . '/trueHaplotypes.txt';
+	my $trueHaplotypes_out = '../tmp/hla/trueHaplotypes'.$iteration.'_'.$baseName_outer;
+	
+	open(TRUE, '<', $trueHaplotypes) or die "Cannot open $trueHaplotypes";
+	open(TRUEOUT, '>', $trueHaplotypes_out) or die "Cannot open $trueHaplotypes_out";
+	
+	$headerLine = <TRUE>;
+	chomp($headerLine);
+	@header_fields = split(/ /, $headerLine);
+	for(my $i = 1; $i <= $#header_fields; $i++)
+	{
+		$header_fields[$i] = 'HLA'.$header_fields[$i];
+	}
+	print TRUEOUT join("\t", @header_fields), "\n";
+	while(<TRUE>)
+	{
+		my $line = $_;
+		chomp($line);
+		my @fields = split(/ /, $line);
+		
+		die unless($fields[0] =~ /S_(\d+)/);
+		my $sampleN = $1;
+			
+		$fields[0] = 'simulations_'.$baseName_outer.'_sample'.$sampleN;
+		
+		for(my $i = 1; $i <= $#fields; $i++)
+		{
+			my $v = $fields[$i];
+			my @p = split(/\//, $v);
+			die unless($#p == 1);
+			for(my $j = 0; $j <= $#p; $j++)
+			{
+				my @p2 = split(/\:/, $p[$j]);
+				if($#p2 >= 1)
+				{
+					$p[$j] = join('', @p2[0, 1]);
+				}
+			}
+			$v = join('/', @p);
+			$fields[$i] = $v;
+		}
+		
+		print TRUEOUT join("\t", @fields), "\n";
+	}
+	close(TRUE);
+	close(TRUEOUT);
+	
+	print "Validation haplotypes file:\n$trueHaplotypes_out\n\n";	
 		
 	# files
 	
