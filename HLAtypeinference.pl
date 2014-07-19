@@ -99,6 +99,12 @@ if($sampleIDs =~ /^allSimulations/)
 		my $iteration = $1;
 		@sampleIDs = grep {$_ =~ /^I${iteration}_/i} @sampleIDs;
 	}
+	
+	my $debug = 1;
+	if($debug)
+	{
+		@sampleIDs = grep {die unless($_ =~ /sample(\d+)$/); ($1 < 5)} @sampleIDs;
+	}
 }
 elsif($sampleIDs =~ /^all/)
 {
@@ -326,7 +332,7 @@ if($actions =~ /v/)
 			my $Q = $line_hash{'Q1'};
 			if($Q < $T)
 			{
-				$imputed_HLA{$line_hash{'Locus'}}{$sampleID_noI}{$line_hash{'Chromosome'}} = '0000';			
+				$imputed_HLA{$line_hash{'Locus'}}{$sampleID_noI}{$line_hash{'Chromosome'}} = '??:??';			
 			}
 			else
 			{
@@ -366,10 +372,12 @@ if($actions =~ /v/)
 		my @indivIDs = keys %{$imputed_HLA{$locus}};
 		INDIV: foreach my $indivID (@indivIDs)
 		{	
+			$| = 1;
+						
 			$debug = 0;
 			
 			my @imputed_hla_values = map { $imputed_HLA{$locus}{$indivID}{$_} } keys %{$imputed_HLA{$locus}{$indivID}};
-						
+								
 			my @reference_hla_values;
 			
 			next INDIV unless($#imputed_hla_values == 1);
@@ -400,7 +408,7 @@ if($actions =~ /v/)
 				@reference_hla_values = map {&simpleHLA::HLA_2digit($_)} @reference_hla_values;
 				@imputed_hla_values = map {join(';', map {&simpleHLA::HLA_2digit($_)} split(/;/, $_))} @imputed_hla_values;
 			}
-			
+		
 			my $comparisons_before = $comparisons;
 			my $problem_locus_detail_before = $problem_locus_detail{$locus};
 			
@@ -620,7 +628,7 @@ if($actions =~ /v/)
 			my $thisIndiv_comparions = $comparisons - $comparisons_before;
 			my $thisIndiv_OK = $thisIndiv_comparions - $thisIndiv_problems;
 			
-			if(1 or ($thisIndiv_problems > 0))
+			if(0 or ($thisIndiv_problems > 0))
 			{
 				my $indivID_withI = $sample_noI_toI{$indivID};
 				die unless(defined $indivID_withI);
@@ -650,15 +658,14 @@ if($actions =~ /v/)
 				
 				my @exons = print_which_exons($locus);				
 				my @inferred_trimmed = twoClusterAlleles($inferred);
-
 				
 				foreach my $exon (@exons)
 				{
 					my $file = find_exon_file($locus, $exon);
 					my $sequences = read_exon_sequences($file);
-					
+										
 					my @validated_extended = twoValidationAlleles_2_proper_names($truth, $locus, $sequences);
-				
+								
 					my $oneAllele = (keys %$sequences)[0];
 					my $length = length($sequences->{$oneAllele});
 										
@@ -787,7 +794,41 @@ if($actions =~ /w/)
 		$reference_data{$primary_key} = \%line;
 	}
 	close(REFERENCE);
-		
+	
+	# perturbed positions
+	my %reference_data_perturbedWhere;	
+	my $trueHaplotypes_perturbed = $trueHaplotypes . '.perturbed';
+	if(-e $trueHaplotypes_perturbed)
+	{
+		open(REFERENCE, "<", $trueHaplotypes_perturbed) or die "Cannot open $trueHaplotypes_perturbed";
+		my $headerLine = <REFERENCE>;
+		chomp($headerLine);
+		$headerLine =~ s/\n//g;
+		$headerLine =~ s/\r//g;
+		my @header_fields = split(/\t/, $headerLine);
+		@header_fields = map {if($_ =~ /HLAD((QA)|(QB)|(RB))$/){$_ .= '1';} $_} @header_fields;	
+		while(<REFERENCE>)
+		{
+			my $line = $_;
+			chomp($line);
+			
+			$line =~ s/\n//g;
+			$line =~ s/\r//g;
+			
+			my @fields = split(/\t/, $line);
+			my %line = (mesh @header_fields, @fields);
+			
+			my $primary_key = $line{'IndividualID'};
+			$reference_data_perturbedWhere{$primary_key} = \%line;
+		}
+		close(REFERENCE);
+	}
+	else
+	{
+		warn "No perturbation information ($trueHaplotypes_perturbed) found.";
+	}	
+	
+	
 	my %imputed_haplotypes;
 	my %sample_noI_toI;
 	
@@ -842,7 +883,7 @@ if($actions =~ /w/)
 			}	
 			close(BESTGUESS);
 			
-			die if(exists $sample_noI_toI{$sampleID_noI});
+			die if((exists $sample_noI_toI{$sampleID_noI}) and ($sample_noI_toI{$sampleID_noI} ne $sampleID));
 			$sample_noI_toI{$sampleID_noI} = $sampleID;
 		}
 	}
@@ -865,6 +906,14 @@ if($actions =~ /w/)
 		my $locus_gt_disagree = 0;
 		my $locus_gt_missing = 0;
 					
+		my $locus_pt_agree = 0;
+		my $locus_pt_disagree = 0;
+		my $locus_pt_missing = 0;
+
+		my $locus_pt_gt_agree = 0;
+		my $locus_pt_gt_disagree = 0;
+		my $locus_pt_gt_missing = 0;
+		
 		my @indivIDs = keys %{$imputed_haplotypes{$locus}};
 		INDIV: foreach my $indivID (@indivIDs)
 		{	
@@ -880,6 +929,7 @@ if($actions =~ /w/)
 			$reference_data{$indivID}{'HLA'.$locus} or die;
 			
 			my @reference_haplotypes = split(/\//, $reference_data{$indivID}{'HLA'.$locus});
+			my @reference_haplotypes_perturbed = split(/\//, $reference_data_perturbedWhere{$indivID}{'HLA'.$locus});
 			
 			die Dumper($reference_data{$indivID}, \@reference_haplotypes) unless($#reference_haplotypes == 1);
 				
@@ -887,6 +937,9 @@ if($actions =~ /w/)
 			die unless($#reference_haplotypes == 1);
 			
 			my @reference_haplotypes_split = (map {[split(/;/, $_)]} @reference_haplotypes);
+			my @reference_haplotypes_perturbed_split = (map {[split(/;/, $_)]} @reference_haplotypes_perturbed);
+			my %perturbedWhere = map {$_ => 1} @reference_haplotypes_perturbed_split;
+			
 			my @imputed_haplotypes_split = (map {[split(/;/, $_)]} @imputed_haplotypes);
 			
 			die unless($#reference_haplotypes_split == 1);
@@ -906,6 +959,15 @@ if($actions =~ /w/)
 			my @alleles_gt_missing = (0, 0);;
 			my @alleles_gt_disagree = (0, 0);;
 			
+			my @alleles_pt_agree = (0, 0);
+			my @alleles_pt_missing = (0, 0);;
+			my @alleles_pt_disagree = (0, 0);;
+
+			my @alleles_pt_gt_agree = (0, 0);
+			my @alleles_pt_gt_missing = (0, 0);;
+			my @alleles_pt_gt_disagree = (0, 0);;
+			
+			
 			for(my $invertImputations = 0; $invertImputations <= 1; $invertImputations++)
 			{
 				my @imputed_haplotypes_split_forAnalysis = ($invertImputations) ? reverse(@imputed_haplotypes_split) : @imputed_haplotypes_split;
@@ -918,16 +980,28 @@ if($actions =~ /w/)
 						if($imputed_haplotypes_split_forAnalysis[$j][$i] eq "?")
 						{
 							$alleles_missing[$invertImputations]++;
+							if($perturbedWhere{$i})
+							{
+								$alleles_pt_missing[$invertImputations]++;
+							}
 						}
 						else
 						{
 							if($reference_haplotypes_split[$j][$i] eq $imputed_haplotypes_split_forAnalysis[$j][$i])
 							{
 								$alleles_agree[$invertImputations]++;
+								if($perturbedWhere{$i})
+								{
+									$alleles_pt_agree[$invertImputations]++;
+								}								
 							}
 							else
 							{
 								$alleles_disagree[$invertImputations]++;
+								if($perturbedWhere{$i})
+								{
+									$alleles_pt_disagree[$invertImputations]++;
+								}									
 							}
 						}
 					}
@@ -938,14 +1012,22 @@ if($actions =~ /w/)
 					$alleles_gt_disagree[$invertImputations] += $thisPosition_gt_disagree;
 					$alleles_gt_missing[$invertImputations] += $thisPosition_gt_missing;
 					
-					if(($invertImputations == 0) and ($thisPosition_gt_agree != 2))
-					{
-						print "Position $i -- agreement: $thisPosition_gt_agree\n";
-						print "\tTrue genotypes: ", join('/', $reference_haplotypes_split[0][$i], $reference_haplotypes_split[1][$i]), "\n";
-						print "\tImputed genotypes: ", join('/', $imputed_haplotypes_split_forAnalysis[0][$i], $imputed_haplotypes_split_forAnalysis[1][$i]), "\n";
-						print "\t\tLine: ",	$imputed_haplotypes_lines{$locus}{$indivID}[$i], "\n";
-						print "\n";
+					if($perturbedWhere{$i})
+					{					
+						$alleles_pt_gt_agree[$invertImputations] += $thisPosition_gt_agree;
+						$alleles_pt_gt_disagree[$invertImputations] += $thisPosition_gt_disagree;
+						$alleles_pt_gt_missing[$invertImputations] += $thisPosition_gt_missing;
+					
 					}
+					
+					# if(($invertImputations == 0) and ($thisPosition_gt_agree != 2))
+					# {
+						# print "Position $i -- agreement: $thisPosition_gt_agree\n";
+						# print "\tTrue genotypes: ", join('/', $reference_haplotypes_split[0][$i], $reference_haplotypes_split[1][$i]), "\n";
+						# print "\tImputed genotypes: ", join('/', $imputed_haplotypes_split_forAnalysis[0][$i], $imputed_haplotypes_split_forAnalysis[1][$i]), "\n";
+						# print "\t\tLine: ",	$imputed_haplotypes_lines{$locus}{$indivID}[$i], "\n";
+						# print "\n";
+					# }
 				}
 			}
 			
@@ -960,20 +1042,43 @@ if($actions =~ /w/)
 				my $alleles_sum = $alleles_agree[$invertImputations] + $alleles_disagree[$invertImputations] + $alleles_missing[$invertImputations];
 				die unless($alleles_sum > 0);
 				print "\t", "Inversion ", $invertImputations, "\n";
-				print "\t\tOK:       ", $alleles_agree[$invertImputations], " ", sprintf("%.2f", $alleles_agree[$invertImputations]/$alleles_sum), "%\n";
-				print "\t\tNOT OK:   ", $alleles_disagree[$invertImputations], " ", sprintf("%.2f", $alleles_disagree[$invertImputations]/$alleles_sum), "%\n";
-				print "\t\tMISSING:  ", $alleles_missing[$invertImputations], " ", sprintf("%.2f", $alleles_missing[$invertImputations]/$alleles_sum), "%\n";
+				print "\t\tOK:       ", $alleles_agree[$invertImputations], " ", sprintf("%.2f", $alleles_agree[$invertImputations]/$alleles_sum * 100), "%\n";
+				print "\t\tNOT OK:   ", $alleles_disagree[$invertImputations], " ", sprintf("%.2f", $alleles_disagree[$invertImputations]/$alleles_sum * 100), "%\n";
+				print "\t\tMISSING:  ", $alleles_missing[$invertImputations], " ", sprintf("%.2f", $alleles_missing[$invertImputations]/$alleles_sum * 100), "%\n";
 				print "\n";
+				
 				$invertImputations_notOK[$invertImputations] = $alleles_disagree[$invertImputations];
+				
+				my $alleles_pt_sum = $alleles_pt_agree[$invertImputations] + $alleles_pt_disagree[$invertImputations] + $alleles_pt_missing[$invertImputations];
+				
+				print "\t", "Inversion ", $invertImputations, " (perturbed alleles only)\n";
+				if($alleles_pt_sum > 0)		
+				{
+					print "\t\tOK:       ", $alleles_pt_agree[$invertImputations], " ", sprintf("%.2f", $alleles_pt_agree[$invertImputations]/$alleles_pt_sum * 100), "%\n";
+					print "\t\tNOT OK:   ", $alleles_pt_disagree[$invertImputations], " ", sprintf("%.2f", $alleles_pt_disagree[$invertImputations]/$alleles_pt_sum * 100), "%\n";
+					print "\t\tMISSING:  ", $alleles_pt_missing[$invertImputations], " ", sprintf("%.2f", $alleles_pt_missing[$invertImputations]/$alleles_pt_sum * 100), "%\n";
+				}
+				print "\n";
+				
 			}
 			
 			my $alleles_gt_sum = $alleles_gt_agree[0] + $alleles_gt_disagree[0] + $alleles_gt_missing[0];
 			print "\t", "Genotypes ", "\n";
-			print "\t\tOK:       ", $alleles_gt_agree[0], " ", sprintf("%.2f", $alleles_gt_agree[0]/$alleles_gt_sum), "%\n";
-			print "\t\tNOT OK:   ", $alleles_gt_disagree[0], " ", sprintf("%.2f", $alleles_gt_disagree[0]/$alleles_gt_sum), "%\n";
-			print "\t\tMISSING:  ", $alleles_gt_missing[0], " ", sprintf("%.2f", $alleles_gt_missing[0]/$alleles_gt_sum), "%\n";
+			print "\t\tOK:       ", $alleles_gt_agree[0], " ", sprintf("%.2f", $alleles_gt_agree[0]/$alleles_gt_sum * 100), "%\n";
+			print "\t\tNOT OK:   ", $alleles_gt_disagree[0], " ", sprintf("%.2f", $alleles_gt_disagree[0]/$alleles_gt_sum * 100), "%\n";
+			print "\t\tMISSING:  ", $alleles_gt_missing[0], " ", sprintf("%.2f", $alleles_gt_missing[0]/$alleles_gt_sum * 100), "%\n";
 			print "\n";			
 			
+			my $alleles_pt_gt_sum = $alleles_pt_gt_agree[0] + $alleles_pt_gt_disagree[0] + $alleles_pt_gt_missing[0];
+			print "\t", "Genotypes at perturbed positions", "\n";
+			if($alleles_pt_gt_sum > 0)
+			{
+				print "\t\tOK:       ", $alleles_pt_gt_agree[0], " ", sprintf("%.2f", $alleles_pt_gt_agree[0]/$alleles_pt_gt_sum * 100), "%\n";
+				print "\t\tNOT OK:   ", $alleles_pt_gt_disagree[0], " ", sprintf("%.2f", $alleles_pt_gt_disagree[0]/$alleles_pt_gt_sum * 100), "%\n";
+				print "\t\tMISSING:  ", $alleles_pt_gt_missing[0], " ", sprintf("%.2f", $alleles_pt_gt_missing[0]/$alleles_pt_gt_sum * 100), "%\n";
+			}
+			print "\n";					
+						
 			my $invertImputations_optimal = ($invertImputations_notOK[1] < $invertImputations_notOK[0]) ? 1 : 0;
 			
 			$locus_agree += $alleles_agree[$invertImputations_optimal];
@@ -982,7 +1087,15 @@ if($actions =~ /w/)
 			
 			$locus_gt_agree += $alleles_gt_agree[0];
 			$locus_gt_disagree += $alleles_gt_disagree[0];
-			$locus_gt_missing += $alleles_gt_missing[0];			
+			$locus_gt_missing += $alleles_gt_missing[0];	
+
+			$locus_pt_agree += $alleles_pt_agree[$invertImputations_optimal];
+			$locus_pt_disagree += $alleles_pt_disagree[$invertImputations_optimal];
+			$locus_pt_missing += $alleles_pt_missing[$invertImputations_optimal];
+			
+			$locus_pt_gt_agree += $alleles_pt_gt_agree[0];
+			$locus_pt_gt_disagree += $alleles_pt_gt_disagree[0];
+			$locus_pt_gt_missing += $alleles_pt_gt_missing[0];	
 		}
 		
 		my $locus_sum = $locus_agree + $locus_disagree + $locus_missing;
@@ -991,13 +1104,30 @@ if($actions =~ /w/)
 		die if($locus_sum == 0);
 		print "LOCUS SUMMARY $locus\n";
 		print "\tHaplotypes:\n";
-		print "\t\tOK:       ", $locus_agree, " ", sprintf("%.2f", $locus_agree/$locus_sum), "%\n";
-		print "\t\tNOT OK:   ", $locus_disagree, " ", sprintf("%.2f", $locus_disagree/$locus_sum), "%\n";
-		print "\t\tMISSING:  ", $locus_missing, " ", sprintf("%.2f", $locus_missing/$locus_sum), "%\n\n";
+		print "\t\tOK:       ", $locus_agree, " ", sprintf("%.2f", $locus_agree/$locus_sum * 100), "%\n";
+		print "\t\tNOT OK:   ", $locus_disagree, " ", sprintf("%.2f", $locus_disagree/$locus_sum * 100), "%\n";
+		print "\t\tMISSING:  ", $locus_missing, " ", sprintf("%.2f", $locus_missing/$locus_sum * 100), "%\n\n";
 		print "\tGenotypes:\n";
-		print "\t\tOK:       ", $locus_gt_agree, " ", sprintf("%.2f", $locus_gt_agree/$locus_gt_sum), "%\n";
-		print "\t\tNOT OK:   ", $locus_gt_disagree, " ", sprintf("%.2f", $locus_gt_disagree/$locus_gt_sum), "%\n";
-		print "\t\tMISSING:  ", $locus_gt_missing, " ", sprintf("%.2f", $locus_gt_missing/$locus_gt_sum), "%\n";
+		print "\t\tOK:       ", $locus_gt_agree, " ", sprintf("%.2f", $locus_gt_agree/$locus_gt_sum * 100), "%\n";
+		print "\t\tNOT OK:   ", $locus_gt_disagree, " ", sprintf("%.2f", $locus_gt_disagree/$locus_gt_sum * 100), "%\n";
+		print "\t\tMISSING:  ", $locus_gt_missing, " ", sprintf("%.2f", $locus_gt_missing/$locus_gt_sum * 100), "%\n";
+		print "\n";
+		
+		my $locus_pt_sum = $locus_pt_agree + $locus_pt_disagree + $locus_pt_missing;
+		my $locus_pt_gt_sum = $locus_pt_gt_agree + $locus_pt_gt_disagree + $locus_pt_gt_missing;
+		
+		print "LOCUS SUMMARY $locus (perturbed only)\n";
+		if($locus_pt_sum > 0)
+		{
+			print "\tHaplotypes:\n";
+			print "\t\tOK:       ", $locus_pt_agree, " ", sprintf("%.2f", $locus_pt_agree/$locus_pt_sum * 100), "%\n";
+			print "\t\tNOT OK:   ", $locus_pt_disagree, " ", sprintf("%.2f", $locus_pt_disagree/$locus_pt_sum * 100), "%\n";
+			print "\t\tMISSING:  ", $locus_pt_missing, " ", sprintf("%.2f", $locus_pt_missing/$locus_pt_sum * 100), "%\n\n";
+			print "\tGenotypes:\n";
+			print "\t\tOK:       ", $locus_pt_gt_agree, " ", sprintf("%.2f", $locus_pt_gt_agree/$locus_pt_gt_sum * 100), "%\n";
+			print "\t\tNOT OK:   ", $locus_pt_gt_disagree, " ", sprintf("%.2f", $locus_pt_gt_disagree/$locus_pt_gt_sum * 100), "%\n";
+			print "\t\tMISSING:  ", $locus_pt_gt_missing, " ", sprintf("%.2f", $locus_pt_gt_missing/$locus_pt_gt_sum * 100), "%\n";
+		}	
 				
 	}
 
@@ -1144,9 +1274,21 @@ sub compatibleAlleles_individual
 	my $locus = shift;
 	my $allele_validation = shift;	
 	my $allele_inference = shift;
-
+	
 	die unless(length($allele_validation) >= 4); die unless($allele_validation =~ /^\d\d/);
-	$allele_validation = substr($allele_validation, 0, 2).':'.substr($allele_validation, 2);
+	
+	my $components_validation;
+	if($allele_validation !~ /\:/)
+	{
+		$allele_validation = substr($allele_validation, 0, 2).':'.substr($allele_validation, 2);
+		$components_validation = 2;
+	}
+	else
+	{
+		$components_validation = scalar(split(/\:/, $allele_validation));
+	}
+	die unless(defined $components_validation);
+	
 	
 	my $true_allele = $allele_validation;
 	$true_allele =~ s/g//;
@@ -1155,9 +1297,30 @@ sub compatibleAlleles_individual
 	my @inferred_alleles = split(/;/, $inferred_alleles);
 	
 	@inferred_alleles = map {
-		die "Can't parse allele $_" unless($_ =~ /^\s*\w+\*(\d\d)\:(\d\dN?).*$/);
-		my $allele = $1.':'.$2;
-		$allele
+		# die "Can't parse allele $_" unless($_ =~ /^\s*\w+\*(\d\d\d?)\:(\d\d\d?N?).*$/);
+		# my $allele = $1.':'.$2;
+		# $allele
+		
+		die "Can't parse allele $_" unless($_ =~ /^\s*(\w+)\*([\d\:N]+)$/);
+		
+		my $allele = $2;
+		
+		my @components_allele = split(/:/, $allele);
+		my @components_allele_rightLength;
+		
+		for(my $i = 0; $i < $components_validation; $i++)
+		{
+			if($i <= $#components_allele)
+			{
+				push(@components_allele_rightLength, $components_allele[$i]);
+			}
+			else
+			{
+				push(@components_allele_rightLength, '00');
+			}
+		}
+		$allele = join(':', @components_allele_rightLength);
+		
 	} @inferred_alleles;
 	
 	my %inferred = map {$_ => 1} @inferred_alleles;
@@ -1170,7 +1333,7 @@ sub compatibleAlleles_individual
 	}		
 	else
 	{
-		# print Dumper($allele_validation, $allele_inference, \@inferred_alleles, 0), "\n"  if ($locus eq 'DQB1');	
+		print Dumper($allele_validation, $allele_inference, \@inferred_alleles, 0), "\n"  if ($locus eq 'B');	
 	
 		return 0;
 	}
@@ -1247,12 +1410,27 @@ sub twoValidationAlleles_2_proper_names
 	for(my $aI = 0; $aI < 2; $aI++)
 	{
 		my $validation_allele = $alleles_validation->[$aI];
-		$validation_allele =~ s/g//;
-		die unless(length($validation_allele) >= 4);
 		
-		$validation_allele = substr($validation_allele, 0, 2) . ':' . substr($validation_allele, 2);
-		$validation_allele = $locus . '*' . $validation_allele;
+		if($validation_allele =~ /\:/)
+		{
+			$validation_allele = $locus . '*' . $validation_allele;
+			# $validation_allele =~ s/g//;
+			# my @components = split(/\:/, $validation_alleles),
+			
+			# die unless(length($validation_allele) >= 4);
+			
+			# $validation_allele = substr($validation_allele, 0, 2) . ':' . substr($validation_allele, 2);
+			# $validation_allele = $locus . '*' . $validation_allele;
 		
+		}
+		else
+		{
+			$validation_allele =~ s/g//;
+			die unless(length($validation_allele) >= 4);
+			
+			$validation_allele = substr($validation_allele, 0, 2) . ':' . substr($validation_allele, 2);
+			$validation_allele = $locus . '*' . $validation_allele;
+		}
 		my @validation_alleles = ($validation_allele);
 		
 		my $extensions = 0;

@@ -170,8 +170,8 @@ sub is_compatible
 sub HLA_2digit
 {
 	my $hla = shift;
+	
 	my $four_dig = &HLA_4digit($hla);
-
 	if(is_missing($four_dig))
 	{
 		return '????';
@@ -208,6 +208,18 @@ sub HLA_4digit
 {
 	my $hla = shift;
 	
+	if($hla =~ /\:/)
+	{
+		my @components = split(/\:/, $hla);
+		if($#components == 0)
+		{
+			return $components[0].':00';
+		}
+		else
+		{
+			return $components[0].':'.$components[1];
+		}
+	}
 	if(is_missing($hla))
 	{
 		return '????';
@@ -273,14 +285,29 @@ sub HLA_is2digit
 sub HLA_is4digit
 {
 	my $hla = shift;
-	$hla = &HLA_4digit($hla);
-	if(HLA_is_g($hla))
+	if($hla =~ /\:/)
 	{
-		return HLA_is4digit(HLA_strip_g($hla));
+		my @components = split(/\:/, $hla);
+		if($#components >= 1)
+		{
+			return ($components[1] !~ /^0+$/);
+		}
+		else
+		{
+			return 0;
+		}
 	}
 	else
 	{
-		return ((!is_missing($hla)) and (substr($hla, 2, 2) ne '00'));	
+		$hla = &HLA_4digit($hla);
+		if(HLA_is_g($hla))
+		{
+			return HLA_is4digit(HLA_strip_g($hla));
+		}
+		else
+		{
+			return ((!is_missing($hla)) and (substr($hla, 2, 2) ne '00'));	
+		}
 	}
 }
 
