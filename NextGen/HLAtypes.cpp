@@ -37,7 +37,7 @@
 
 // constants
 
-double INDELp = 0.001;
+double INDELp = 0.01;
 double log_likelihood_insertion = log(INDELp);
 double log_likelihood_deletion = log_likelihood_insertion;
 double log_likelihood_nonInsertion = log(1 - INDELp);
@@ -409,11 +409,14 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 	return log_likelihood;
 }
 
-void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype)
+void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype, std::vector<int>& perturbedPositions)
 {
+	perturbedPositions.clear();
+	
 	double rate_perturbation = 0.01;
 	for(unsigned int pI = 0; pI < haplotype.size(); pI++)
 	{
+		bool madePerturbation = false;
 		if(Utilities::randomDouble() >= (1 - rate_perturbation))
 		{
 			int type_of_event = Utilities::randomNumber(10);
@@ -423,11 +426,19 @@ void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype)
 				// SNV
 				std::string newAllele;
 				newAllele.push_back(Utilities::randomNucleotide());
+				if(haplotype.at(pI) != newAllele)
+				{
+					madePerturbation = true;
+				}
 				haplotype.at(pI) = newAllele;
 			}
 			else if((type_of_event > 5) && (type_of_event <= 8))
 			{
 				// deletion
+				if(haplotype.at(pI) != "_")
+				{
+					madePerturbation = true;
+				}				
 				haplotype.at(pI) = "_";
 			}
 			else
@@ -440,7 +451,13 @@ void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype)
 					newAllele.push_back(Utilities::randomNucleotide());
 				}
 				haplotype.at(pI) = newAllele;
+				madePerturbation = true;
 			}
+		}
+		
+		if(madePerturbation)
+		{
+			perturbedPositions.push_back(pI);
 		}
 	}
 }
@@ -878,20 +895,26 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool exon23, bool 
 	// start simulations
 	std::string outputFile_trueHLA = outputDirectory + "/trueHLA.txt";
 	std::string outputFile_trueHaplotypes = outputDirectory + "/trueHaplotypes.txt";
+	std::string outputFile_trueHaplotypes_perturbed = outputDirectory + "/trueHaplotypes.txt.perturbed";
 
 	std::ofstream trueHLAstream;
 	std::ofstream trueHaplotypesstream;
+	std::ofstream trueHaplotypesPerturbedstream;
 
 	trueHLAstream.open(outputFile_trueHLA.c_str());
 	assert(trueHLAstream.is_open());
 	trueHaplotypesstream.open(outputFile_trueHaplotypes.c_str());
 	assert(trueHaplotypesstream.is_open());
+	trueHaplotypesPerturbedstream.open(outputFile_trueHaplotypes_perturbed.c_str());
+	assert(trueHaplotypesPerturbedstream.is_open());
 
 	std::vector<std::string> truthFiles_headerFields;
 	truthFiles_headerFields.push_back("IndividualID");
 	truthFiles_headerFields.insert(truthFiles_headerFields.end(), loci.begin(), loci.end());
+	
 	trueHLAstream << Utilities::join(truthFiles_headerFields, " ") << "\n";
 	trueHaplotypesstream << Utilities::join(truthFiles_headerFields, " ") << "\n";
+	trueHaplotypesPerturbedstream << Utilities::join(truthFiles_headerFields, " ") << "\n";
 
 	std::string outputFile_trueHaplotypes_fieldNames = outputDirectory + "/trueHaplotypes_fieldNames.txt";
 	std::ofstream trueHaplotypes_fieldNames_stream;
@@ -942,10 +965,12 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool exon23, bool 
 
 		std::vector<std::string> outputFields_trueHLA;
 		std::vector<std::string> outputFields_trueHaplotypes;
+		std::vector<std::string> outputFields_trueHaplotypesPerturbed;
 
 		outputFields_trueHLA.push_back("S_" + Utilities::ItoStr(sI));
 		outputFields_trueHaplotypes.push_back("S_" + Utilities::ItoStr(sI));
-
+		outputFields_trueHaplotypesPerturbed.push_back("S_" + Utilities::ItoStr(sI));
+		
 		for(std::set<std::string>::iterator locusIt = loci.begin(); locusIt != loci.end(); locusIt++)
 		{
 			std::string locus = *locusIt;
@@ -960,10 +985,12 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool exon23, bool 
 			std::vector<std::string> haplotype_1 = loci_types_haplotypes.at(locus).at(selectedType_1);
 			std::vector<std::string> haplotype_2 = loci_types_haplotypes.at(locus).at(selectedType_2);
 
+			std::vector<int> perturbed_h1;
+			std::vector<int> perturbed_h2;			
 			if(perturbHaplotypes)
 			{
-				simulateHLAreads_perturbHaplotype(haplotype_1);
-				simulateHLAreads_perturbHaplotype(haplotype_2);
+				simulateHLAreads_perturbHaplotype(haplotype_1, perturbed_h1);
+				simulateHLAreads_perturbHaplotype(haplotype_2, perturbed_h2);
 			}
 
 			std::string haplotype_1_noGaps = Utilities::join(haplotype_1, "");
@@ -998,7 +1025,7 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool exon23, bool 
 				print_one_readPair(simulatedReadPairs_h2.at(pI), fastQStream_1, fastQStream_2);
 			}
 
-			
+
 			auto removeStar = [](std::string t) -> std::string {
 				std::vector<std::string> f = Utilities::split(t, "*");
 				assert(f.size() == 2);
@@ -1007,17 +1034,32 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool exon23, bool 
 			
 			outputFields_trueHLA.push_back(removeStar(selectedType_1) + "/" + removeStar(selectedType_2));
 			outputFields_trueHaplotypes.push_back(Utilities::join(haplotype_1, ";") + "/" + Utilities::join(haplotype_2, ";"));
+			
+			std::vector<std::string> perturbed_h1_str;
+			std::vector<std::string> perturbed_h2_str;
+			for(unsigned int i = 0; i < perturbed_h1.size(); i++)
+			{
+				perturbed_h1_str.push_back(Utilities::ItoStr(perturbed_h1.at(i)));
+			}
+			for(unsigned int i = 0; i < perturbed_h2.size(); i++)
+			{
+				perturbed_h2_str.push_back(Utilities::ItoStr(perturbed_h2.at(i)));
+			}			
+			
+			outputFields_trueHaplotypesPerturbed.push_back(Utilities::join(perturbed_h1_str, ";") + "/" + Utilities::join(perturbed_h2_str, ";"));
 		}
 
 		trueHLAstream << Utilities::join(outputFields_trueHLA, " ") << "\n" << std::flush;
 		trueHaplotypesstream << Utilities::join(outputFields_trueHaplotypes, " ") << "\n" << std::flush;
-
+		trueHaplotypesPerturbedstream << Utilities::join(outputFields_trueHaplotypesPerturbed, " ") << "\n" << std::flush;
+		
 		fastQStream_1.close();
 		fastQStream_2.close();
 	}
 
 	trueHLAstream.close();
 	trueHaplotypesstream.close();
+	trueHaplotypesPerturbedstream.close();
 }
 
 
@@ -2877,7 +2919,8 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			std::vector<std::string> pileUpVec;
 			for(unsigned int pileUpI = 0; pileUpI < pileUpPerPosition.at(pI).size(); pileUpI++)
 			{
-				pileUpVec.push_back(pileUpPerPosition.at(pI).at(pileUpI).genotype+"["+pileUpPerPosition.at(pI).at(pileUpI).thisRead_ID+"]"); // .qualities
+				//pileUpVec.push_back(pileUpPerPosition.at(pI).at(pileUpI).genotype+"["+pileUpPerPosition.at(pI).at(pileUpI).thisRead_ID+"]"); // .qualities
+				pileUpVec.push_back(pileUpPerPosition.at(pI).at(pileUpI).genotype);
 			}
 			std::string pileUpString = Utilities::join(pileUpVec, "-");
 			
