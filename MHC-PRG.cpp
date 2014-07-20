@@ -436,8 +436,7 @@ int main(int argc, char *argv[])
 		bool labelOnly = false;
 		CONFIG.threads=32;
 		omp_set_num_threads(CONFIG.threads);
-
-
+				
 		std::string input_alignedReads;
 		std::string graph_dir;
 		std::string sampleID;
@@ -467,15 +466,15 @@ int main(int argc, char *argv[])
 		std::string starting_haplotypes_perLocus_1_str;
 		std::string starting_haplotypes_perLocus_2_str;
 
-		// HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+		HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 
- 		loci_string = "A";
-		starting_haplotypes_perLocus_1_str = "A*02:07:01;A*02:265";
-		starting_haplotypes_perLocus_2_str = "A*02:06:01";
-		
+ 		// loci_string = "A";
+		// starting_haplotypes_perLocus_1_str = "A*02:07:01;A*02:265";
+		// starting_haplotypes_perLocus_2_str = "A*02:06:01";
+				
 		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
-		// HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))
