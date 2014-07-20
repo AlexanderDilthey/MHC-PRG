@@ -1544,7 +1544,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 	
 	std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Start.\n";
 	
-	std::cout << "omp_get_max_threads(): " << omp_get_max_threads() << "\n" << std::flush;
+	// std::cout << "omp_get_max_threads(): " << omp_get_max_threads() << "\n" << std::flush;
 	
 	std::cout << "\t\t" << "loci_str" << ": " << loci_str << "\n";
 	std::cout << "\t\t" << "starting_haplotypes_perLocus_1_str" << ": " << starting_haplotypes_perLocus_1_str << "\n";
@@ -3198,7 +3198,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				// std::cerr << graphLevelID << " " << next_graphLevelID << " " << graphLevel_2_AAid[graphLevelID] << " " << graphLevel_2_AAid[next_graphLevelID] << "\n";				
 			}			
 
-			// std::cerr << "Pruning " << pI << " " << graphLevelID << ": " << pruneHere << " index " << combined_sequences_confidenceIndex.back() <<  "\n" << std::flush; // 
+			std::cerr << "Pruning " << pI << " " << graphLevelID << ": " << pruneHere << " index " << combined_sequences_confidenceIndex.back() << "   # running: " << runningHaplotypes.runningAlternatives.size() <<  "\n" << std::flush; // 
 			
 			if(pruneHere)
 			{
@@ -3226,7 +3226,14 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					// std::cout << "Position " << pI << " AFTER pruning " << "\n";
 					// runningHaplotypes.printAlternativesAndP(500);
 				// }
-			
+			}
+			else
+			{
+				if(runningHaplotypes.runningAlternatives.size() > 9000)
+				{
+					// prune without telling anyone
+					runningHaplotypes.pruneAlternatives();					
+				}
 			}
 		}
 		
