@@ -103,7 +103,7 @@ if($sampleIDs =~ /^allSimulations/)
 	my $debug = 1;
 	if($debug)
 	{
-		@sampleIDs = grep {die unless($_ =~ /sample(\d+)$/); ($1 < 5)} @sampleIDs;
+		@sampleIDs = grep {die unless($_ =~ /sample(\d+)$/); ($1 < 30)} @sampleIDs;
 	}
 }
 elsif($sampleIDs =~ /^all/)
@@ -848,7 +848,7 @@ if($actions =~ /w/)
 			die unless($bestGuess_file =~ /haplotypes_bestguess_(.+)\.txt/);
 			my $locus = $1;
 			
-			next unless($locus eq 'A'); # todo remove
+			# next unless($locus eq 'A'); # todo remove   
 			
 			unless(-e $bestGuess_file)
 			{
@@ -1029,11 +1029,11 @@ if($actions =~ /w/)
 					
 					if(($invertImputations == 0) and ($thisPosition_gt_agree != 2))
 					{
-						print "Position $i -- agreement: $thisPosition_gt_agree\n";
-						print "\tTrue genotypes: ", join('/', $reference_haplotypes_split[0][$i], $reference_haplotypes_split[1][$i]), "\n";
-						print "\tImputed genotypes: ", join('/', $imputed_haplotypes_split_forAnalysis[0][$i], $imputed_haplotypes_split_forAnalysis[1][$i]), "\n";
-						print "\t\tLine: ",	$imputed_haplotypes_lines{$locus}{$indivID}[$i], "\n";
-						print "\n";
+						# print "Position $i -- agreement: $thisPosition_gt_agree\n";
+						# print "\tTrue genotypes: ", join('/', $reference_haplotypes_split[0][$i], $reference_haplotypes_split[1][$i]), "\n";
+						# print "\tImputed genotypes: ", join('/', $imputed_haplotypes_split_forAnalysis[0][$i], $imputed_haplotypes_split_forAnalysis[1][$i]), "\n";
+						# print "\t\tLine: ",	$imputed_haplotypes_lines{$locus}{$indivID}[$i], "\n";
+						# print "\n";
 					}
 				}
 			}
