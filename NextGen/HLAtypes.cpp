@@ -131,50 +131,99 @@ double alignmentFractionOK (seedAndExtend_return_local& r)
 	return double(positions_OK)/double(positions_checked);
 };
 
-
+bool debugOpenMP = false;
 auto convertLogVectorToP = [](std::vector<double>& v) -> void {
-	if(omp_get_num_threads() > 1)
+	if((v.size() > 10000) && (omp_get_max_threads() > 1))
 	{
-		int chunk_size = v.size() / omp_get_num_threads();
+		std::vector<double> v2;
 	
-		std::vector<double> v_max_pT; 
-		v_max_pT.resize(omp_get_num_threads(), 0);
-				
-		#pragma omp parallel
+		if(debugOpenMP)
 		{
-			int thisThread = omp_get_thread_num();
-			int firstState = thisThread * chunk_size;
-			int lastState = (thisThread+1) * chunk_size - 1;
-			if(thisThread == (omp_get_num_threads()-1))
+			v2 = v;
+			double v_max = 0;
+			for(unsigned int i = 0; i < v2.size(); i++)
 			{
-				lastState = (v.size()-1);
-			}
-
-			for(int i = firstState; i <= lastState; i++)
-			{
-				if((i == firstState) || (v_max_pT.at(thisThread) < v.at(i)))
+				if((i == 0) || (v_max < v2.at(i)))
 				{
-					v_max_pT.at(thisThread) = v.at(i);
-				}			
+					v_max = v2.at(i);
+				}
 			}
-		}
-		
-		double v_max = 0;
-		for(unsigned int i = 0; i < v_max_pT.size(); i++)
-		{
-			if((i == 0) || (v_max < v_max_pT.at(i)))
+			for(unsigned int i = 0; i < v2.size(); i++)
 			{
-				v_max = v_max_pT.at(i);
+				v2.at(i) = exp(v2.at(i) - v_max);
+				assert(v2.at(i) >= 0);
+				assert(v2.at(i) <= 1);
+			}		
+		}	
+		
+		
+		{
+			int T = omp_get_max_threads();
+			int chunk_size = v.size() / T;
+		
+			std::vector<double> v_max_pT; 
+			v_max_pT.resize(omp_get_max_threads(), 0);
+					
+			#pragma omp parallel
+			{
+				assert(omp_get_num_threads() == T);
+			
+				int thisThread = omp_get_thread_num();
+				int firstState = thisThread * chunk_size;
+				int lastState = (thisThread+1) * chunk_size - 1;
+				if(thisThread == (omp_get_num_threads()-1))
+				{
+					lastState = (v.size()-1);
+				}
+				
+				for(int i = firstState; i <= lastState; i++)
+				{
+					if((i == firstState) || (v_max_pT.at(thisThread) < v.at(i)))
+					{
+						v_max_pT.at(thisThread) = v.at(i);
+					}			
+				}
+			}
+			
+			double v_max = 0;
+			for(unsigned int i = 0; i < v_max_pT.size(); i++)
+			{
+				if((i == 0) || (v_max < v_max_pT.at(i)))
+				{
+					v_max = v_max_pT.at(i);
+				}
+			}
+
+			#pragma omp parallel for
+			for(unsigned int i = 0; i < v.size(); i++)
+			{
+				v.at(i) = exp(v.at(i) - v_max);
+				assert(v.at(i) >= 0);
+				assert(v.at(i) <= 1);
+			}
+			
+			if(debugOpenMP)
+			{
+				for(unsigned int i = 0; i < v.size(); i++)
+				{
+					if(!(abs(v.at(i) - v2.at(i)) < 1e-5))
+					{
+						#pragma omp critical
+						{					
+							std::cerr << "Problem 1!\n";
+							std::cerr << "i: " << i << "\n";
+							std::cerr << "v.at(i): " << v.at(i)  << "\n";
+							std::cerr << "v2.at(i): " << v2.at(i)  << "\n";
+							std::cerr << "\n" << std::flush;
+						}
+					}
+					
+					assert(abs(v.at(i) - v2.at(i)) < 1e-5);
+				}			
+				// std::cout << "OK1" << std::flush;
 			}
 		}
 
-		#pragma omp parallel for
-		for(unsigned int i = 0; i < v.size(); i++)
-		{
-			v.at(i) = exp(v.at(i) - v_max);
-			assert(v.at(i) >= 0);
-			assert(v.at(i) <= 1);
-		}
 	}
 	else
 	{
@@ -196,29 +245,70 @@ auto convertLogVectorToP = [](std::vector<double>& v) -> void {
 };
 
 auto normalizeVector = [](std::vector<double>& v) -> void {
-	if(omp_get_num_threads() > 1)
+	if((v.size() > 10000) && (omp_get_max_threads() > 1))
 	{
-		std::vector<double> sums; 
-		sums.resize(omp_get_num_threads(), 0);
+		std::vector<double> v2;
 		
-		size_t M = v.size();
-		#pragma omp parallel for
-		for(unsigned int i = 0; i < M; i++)
+		if(debugOpenMP)
 		{
-			sums.at(omp_get_thread_num()) += v.at(i);
+			v2 = v;
+			double v_sum = 0;
+			for(unsigned int i = 0; i < v2.size(); i++)
+			{
+				v_sum += v2.at(i);
+			}
+			assert(v_sum > 0);
+			for(unsigned int i = 0; i < v2.size(); i++)
+			{
+				v2.at(i) = v2.at(i) / v_sum;
+			}			
 		}
 		
-		double v_sum = 0;
-		for(int i = 0; i < sums.size(); i++)
 		{
-			v_sum += sums.at(i);
-		}
+			int T = omp_get_max_threads();
+			std::vector<double> sums; 
+			sums.resize(T, 0);
+			
+			size_t M = v.size();
+			#pragma omp parallel for
+			for(unsigned int i = 0; i < M; i++)
+			{
+				assert(omp_get_num_threads() == T);
+				sums.at(omp_get_thread_num()) += v.at(i);
+			}
+			
+			double v_sum = 0;
+			for(int i = 0; i < sums.size(); i++)
+			{
+				v_sum += sums.at(i);
+			}
 
-		assert(v_sum > 0);
-		#pragma omp parallel for		
-		for(unsigned int i = 0; i < v.size(); i++)
-		{
-			v.at(i) = v.at(i) / v_sum;
+			assert(v_sum > 0);
+			#pragma omp parallel for		
+			for(unsigned int i = 0; i < v.size(); i++)
+			{
+				v.at(i) = v.at(i) / v_sum;				
+			}
+			
+			if(debugOpenMP)
+			{
+				for(unsigned int i = 0; i < v.size(); i++)
+				{
+					if(!(abs(v.at(i) - v2.at(i)) < 1e-5))
+					{
+						#pragma omp critical
+						{
+							std::cerr << "Problem 2!\n";
+							std::cerr << "i: " << i << "\n";
+							std::cerr << "v.at(i): " << v.at(i)  << "\n";
+							std::cerr << "v2.at(i): " << v2.at(i)  << "\n";
+							std::cerr << "\n" << std::flush;
+						}
+					}
+					assert(abs(v.at(i) - v2.at(i)) < 1e-5);
+				}			
+				// std::cout << "OK2" << std::flush;
+			}			
 		}
 	}
 	else
@@ -1451,7 +1541,11 @@ std::set<std::string> getCompletelyDefinedHLAAlleles(std::string graphDir, std::
 
 void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotypes_perLocus_1_str, std::string starting_haplotypes_perLocus_2_str)
 {
+	
 	std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Start.\n";
+	
+	std::cout << "omp_get_max_threads(): " << omp_get_max_threads() << "\n" << std::flush;
+	
 	std::cout << "\t\t" << "loci_str" << ": " << loci_str << "\n";
 	std::cout << "\t\t" << "starting_haplotypes_perLocus_1_str" << ": " << starting_haplotypes_perLocus_1_str << "\n";
 	std::cout << "\t\t" << "starting_haplotypes_perLocus_2_str" << ": " << starting_haplotypes_perLocus_2_str << "\n\n" << std::flush;
@@ -2694,9 +2788,125 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			{
 			
 				bool verbose = ((completedLevel >= 589) && (completedLevel <= 596));
-			
-				std::vector<std::pair<unsigned int, double> > likelihood_per_index;
+				verbose = false;
+				
+				int maximumPostpruning = 32;				
+
+				std::vector<double> P_per_index;
+				std::vector<std::pair<std::string, std::string>> trailingAlleles_per_index;
+				double P_max = 0;
 				unsigned int aI = 0;
+				for(std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin(); alternativeIt != runningAlternatives.end(); alternativeIt++)
+				{
+					double thisAlternative_P = alternativeIt->getP();
+					P_per_index.push_back(thisAlternative_P);
+					
+					if((aI == 0) || (thisAlternative_P > P_max))
+					{
+						P_max = thisAlternative_P;
+					}
+					
+					if(verbose)
+						trailingAlleles_per_index.push_back(alternativeIt->getTrailingHaplotypeAlleles());
+					
+					aI++;
+				}
+				assert(P_max > 0);
+				
+				std::vector<unsigned int> sorted_indices;
+				for(unsigned int i = 0; i < P_per_index.size(); i++)
+				{
+					sorted_indices.push_back(i);
+				}
+				
+				std::sort(sorted_indices.begin(), sorted_indices.end(),
+					[&P_per_index](unsigned int a, unsigned int b){return (P_per_index.at(a) < P_per_index.at(b));}
+				);
+				std::reverse(sorted_indices.begin(), sorted_indices.end());
+				
+				assert(P_per_index.at(sorted_indices.at(0)) == P_max);
+				if(sorted_indices.size() > 1)
+				{
+					assert(P_per_index.at(sorted_indices.at(0)) <= P_per_index.at(sorted_indices.at(1)));
+				}
+				
+				std::vector<int> P_per_index_sortIndex;
+				P_per_index_sortIndex.resize(P_per_index.size(), -1);
+				for(unsigned int i = 0; i < sorted_indices.size(); i++)
+				{
+					unsigned int originalIndex = sorted_indices.at(i);
+					P_per_index_sortIndex.at(originalIndex) = i;
+				}
+
+				std::vector<bool> keep_per_index;
+				for(unsigned int i = 0; i < P_per_index.size(); i++)
+				{
+					int sortedIndex = P_per_index_sortIndex.at(i);
+					assert(sortedIndex >= 0);
+					
+					
+					bool keep = true;
+					if(sortedIndex >= maximumPostpruning)
+					{
+						keep = false;
+					}
+					
+					double thisAlternative_P = P_per_index.at(i);
+					if(P_max != 0)
+					{
+						if(thisAlternative_P != 0)
+						{
+							keep = (keep && ((log(P_max) - log(thisAlternative_P)) < 10));
+						}
+						else
+						{
+							keep = false;
+						}
+					}
+
+					keep_per_index.push_back(keep);
+					
+					// std::cout << i << " / " << P_per_index.size() << ": " << keep << "\n" << std::flush ;
+					
+					if(verbose)
+					{
+						std::string trailing = "Ending in " + trailingAlleles_per_index.at(i).first + " / " + trailingAlleles_per_index.at(i).second;
+						std::cout << "\t" << i << " P: " << thisAlternative_P << " (sorted " << sortedIndex << "/" << P_per_index_sortIndex.size() << ") - keep: " << keep << "\t\t" << trailing << "\n" << std::flush;
+					}
+				}
+				
+				aI = 0;
+				std::list<haplotypeAlternative>::iterator alternativeIt = runningAlternatives.begin();
+				while(alternativeIt != runningAlternatives.end())
+				{
+					std::list<haplotypeAlternative>::iterator thisIt = alternativeIt;
+					alternativeIt++;
+
+					if(keep_per_index.at(aI) == false)
+					{
+						runningAlternatives.erase(thisIt);
+					}
+					aI++;
+				}
+
+	
+				assert(runningAlternatives.size() > 0);
+				if(!((int)runningAlternatives.size() <= maximumPostpruning))
+				{
+					std::cerr << "! ((int)runningAlternatives.size() <= maximumPostpruning) " << "\n";
+					std::cerr << "runningAlternatives.size(): " << runningAlternatives.size() << "\n";
+					std::cerr << "maximumPostpruning: " << maximumPostpruning << "\n" << std::flush;
+					
+				}
+				assert((int)runningAlternatives.size() <= maximumPostpruning);
+				
+				setNormalizedLikelihoods();
+								
+	
+			/*	
+				
+				
+				std::vector<std::pair<unsigned int, double> > likelihood_per_index;
 				
 				if(verbose)
 					std::cout << "PRUNING:\n";
@@ -2753,7 +2963,6 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					}
 				}				
 				
-				int maximumPostpruning = 32;				
 				bool activateOneThirdRemoval = (post10Removal > maximumPostpruning);
 				int pruningFactor = 3;
 				if(activateOneThirdRemoval)
@@ -2828,10 +3037,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				
 				// std::cout << "After pruning: " << runningAlternatives.size() << "\n";
 				
-				assert(runningAlternatives.size() > 0);
-				assert((int)runningAlternatives.size() <= maximumPostpruning);
-				
-				setNormalizedLikelihoods();
+				*/						
 			}
 		};
 
