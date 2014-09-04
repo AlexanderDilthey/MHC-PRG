@@ -118,6 +118,10 @@ elsif($sampleIDs =~ /^all/)
 	}
 }
 
+if(scalar(@sampleIDs) > 8)
+{
+	@sampleIDs = @sampleIDs[0 .. 7];
+}
 if($actions =~ /p/)
 {
 	unless(@BAMs)
@@ -628,7 +632,7 @@ if($actions =~ /v/)
 			my $thisIndiv_comparions = $comparisons - $comparisons_before;
 			my $thisIndiv_OK = $thisIndiv_comparions - $thisIndiv_problems;
 			
-			if(0 or ($thisIndiv_problems > 0))
+			if(($thisIndiv_problems > 0))
 			{
 				my $indivID_withI = $sample_noI_toI{$indivID};
 				die unless(defined $indivID_withI);
@@ -1320,7 +1324,7 @@ sub compatibleAlleles_individual
 		# my $allele = $1.':'.$2;
 		# $allele
 		
-		die "Can't parse allele $_" unless($_ =~ /^\s*(\w+)\*([\d\:N]+)L?Q?$/);
+		die "Can't parse allele $_" unless($_ =~ /^\s*(\w+)\*([\d\:N]+)L?Q?S?$/);
 		
 		my $allele = $2;
 		

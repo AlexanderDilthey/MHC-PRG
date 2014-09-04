@@ -4522,7 +4522,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 		std::vector<std::pair<unsigned int, unsigned int> > LLs_clusterIs;
 
-		bool combineReadAndBaseLikelihoods = true;
+		bool combineReadAndBaseLikelihoods = false;
 
 		std::cout << "Threads: " << omp_get_num_threads() << "\n";
 		
@@ -4610,7 +4610,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 						double LL_thisBase_cluster2 = likelihoods_perCluster_perObservedBase.at(clusterI2).at(baseI);
 
 						double LL_thisBase_avg = logAvg(LL_thisBase_cluster1, LL_thisBase_cluster2);
-						pair_log_likelihood_fromBases += pair_log_likelihood_fromBases;
+						pair_log_likelihood_fromBases += LL_thisBase_avg;
 					}
 				}
 				LLs_observedBases_perThread.push_back(pair_log_likelihood_fromBases);
