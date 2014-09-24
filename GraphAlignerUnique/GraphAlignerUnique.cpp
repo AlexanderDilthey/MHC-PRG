@@ -1381,9 +1381,47 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	// bool verbose = ((readPair.reads.first.name == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2") || (readPair.reads.second.name  == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2"));
 	bool verbose = false;
 	
+
+	std::map<std::string, std::string> readID_2_group;
+
+	// this section here can be filles with output from extractReadsAlignment.pl
+
+	readID_2_group["@@B819B8ABXX:2:1204:2500:66314#CGATGTAT/2:FROM:6:32552025:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@B81EP5ABXX:7:1107:20989:92286#GCCAATAT/1:FROM:6:32489739:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@B81998ABXX:6:1207:2569:100263#GCCNATAT/2:FROM:6:32551912:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B9ABXX:8:1105:13324:120581#CGCCNNNN/1:FROM:6:32551913:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B9ABXX:8:2208:3453:9743#GCCAATAT/1:FROM:6:32551903:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B81998ABXX:6:1108:16939:81798#GCCAATAT/2:FROM:6:32489698:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A8176BABXX:1:1104:18107:177078#CGATGTAT/2:FROM:6:32525833:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@B819B8ABXX:2:2203:4373:99705#CGATGTAT/2:FROM:6:32489862:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B8ABXX:2:1205:11083:89762#CATGTATC/2:FROM:6:32552024:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A8176BABXX:1:1206:2915:25661#CGATGTAT/1:FROM:6:32552024:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@FCC00N2ABXX:8:1203:18982:24309#CGATGTAT/2:FROM:6:32489672:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@B81998ABXX:6:1108:16939:81798#GCCAATAT/1:FROM:6:32489762:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B8ABXX:2:1203:10388:38266#CGATGTAT/2:FROM:6:32552015:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A819GPABXX:5:2107:18518:148281#GCCAATAT/1:FROM:6:32551968:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@A8197TABXX:4:2208:4575:106554#GCCAATAT/1:FROM:6:31323963:FROM:"] = "Unknown";
+	readID_2_group["@@B819B8ABXX:2:1205:11083:89762#CATGTATC/1:FROM:6:32551957:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A8176BABXX:1:1101:11794:63897#CGATGTAT/2:FROM:6:32489763:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B9ABXX:8:1108:4618:200340#GCCANNNN/1:FROM:6:32489707:FROM:"] = "trueHLAsaysThere";
+
+	// end output from extractReadsAlignment.pl
+
+	verbose = ( readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name) );
+
+	std::string GROUP;
+
+	if(readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name))
+	{
+		GROUP = readID_2_group.count(readPair.reads.first.name) ? readID_2_group.at(readPair.reads.first.name) : readID_2_group.at(readPair.reads.second.name);
+	}
+
 	if(verbose)
 	{
-		std::cout << "Alignment of " << readPair.reads.first.name << " / " << readPair.reads.second.name << "\n";
+		std::cout << "=======================================================================================\n";
+		std::cout << "[" << GROUP << "] Alignment of " << readPair.reads.first.name << " / " << readPair.reads.second.name << "\n";
+		std::cout << "=======================================================================================\n\n";
+
 	}
 	
 	// assert(readPair.reads.first.sequence.find("_") == std::string::npos);
