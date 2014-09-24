@@ -52,6 +52,8 @@ double min_alignmentFraction_OK = 0.96; // measures all alignment positions but 
 double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downweighted by quality
 double min_bothReads_weightedCharactersOK = 0.985; // both reads, mismatches downweighted by quality
 
+double minimumMappingQuality = 0.9;
+
 using namespace boost::math::policies;
 using namespace boost::math;
 
@@ -4243,7 +4245,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					// (countMismatchesInExon(read2_exonPositions) < max_mismatches_perRead)
 					(alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK) &&
 					(alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK) &&
-					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_oneRead_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_oneRead_weightedCharactersOK))
+					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_oneRead_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_oneRead_weightedCharactersOK)) &&
+					(alignedReadPair.first.mapQ >= minimumMappingQuality)
 			)
 			{
 				// good
@@ -4263,7 +4266,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 				// std::cout << "\t\t" << "readPair " << readPairI << "/" < < alignments.size() << ", pairing FAILED.\n" << std::flush;
 
+				if(alignedReadPair_strandsValid(alignedReadPair) &&
+				(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)))
+				{
+					std::cout << "REJECTED MAPQ " << alignedReadPair.first.mapQ << "\n" << std::flush;
+				}
 
+				// (countMismatchesInExon(read1_exonPositions) < max_mismatches_perRead) &&
 				// if((read1_exonPositions.size() > 0) && (countMismatchesInExon(read1_exonPositions) < max_mismatches_perRead))
 				if(0 && (read1_exonPositions.size() > 0) && (alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK) && (alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK))
 					exonPositions_fromReads.push_back(read1_exonPositions);
