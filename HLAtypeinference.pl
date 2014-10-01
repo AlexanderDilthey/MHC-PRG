@@ -45,12 +45,15 @@ my $T = 0;
 my $all_2_dig = 0;
 my $only_4_dig = 1;
 
+my $referenceGenome;
+
 GetOptions ('graph:s' => \$graph,
  'sampleIDs:s' => \$sampleIDs, 
  'BAMs:s' => \$BAMs, 
  'actions:s' => \$actions, 
  'trueHLA:s' => \$trueHLA,
  'trueHaplotypes:s' => \$trueHaplotypes, 
+ 'referenceGenome:s' => \$referenceGenome, 
  #'validation_round:s' => \$validation_round,
  'T:s' => \$T,
 );         
@@ -118,6 +121,17 @@ elsif($sampleIDs =~ /^all/)
 	}
 }
 
+if(scalar(@sampleIDs) > 10)
+{
+	@sampleIDs = @sampleIDs[0 .. 9];
+	
+	warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
+}
+
+# @sampleIDs = $sampleIDs[7]; # todo remove
+# warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples:\n".join("\n", @sampleIDs)."\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
+
+
 if($actions =~ /p/)
 {
 	unless(@BAMs)
@@ -184,7 +198,7 @@ if($actions =~ /n/)
 	my $fastQ_files = join(',', @fastQ_files);
 	my $output_files = join(',', @output_files);
 	
-	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files);
+	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files --referenceGenome $referenceGenome);
 	
 	print "Now executing command:\n$command\n\n";
 	
@@ -266,7 +280,12 @@ if($actions =~ /i/)
 	
 		print "Now executing command:\n$command\n\n";
 		
-		system($command);		
+		my $ret = system($command);	
+		
+		unless($ret == 0)
+		{
+			die "When executing $command, got return code $ret";
+		}
 	}
 }  
 
@@ -408,6 +427,8 @@ if($actions =~ /v/)
 				@reference_hla_values = map {&simpleHLA::HLA_2digit($_)} @reference_hla_values;
 				@imputed_hla_values = map {join(';', map {&simpleHLA::HLA_2digit($_)} split(/;/, $_))} @imputed_hla_values;
 			}
+			
+			# print Dumper(\@reference_hla_values, @imputed_hla_values), "\n";
 		
 			my $comparisons_before = $comparisons;
 			my $problem_locus_detail_before = $problem_locus_detail{$locus};
@@ -625,10 +646,12 @@ if($actions =~ /v/)
 			
 			my $thisIndiv_problems = $problem_locus_detail{$locus} - $problem_locus_detail_before;
 			
+			# print "\t", $thisIndiv_problems, "\n";
+			
 			my $thisIndiv_comparions = $comparisons - $comparisons_before;
 			my $thisIndiv_OK = $thisIndiv_comparions - $thisIndiv_problems;
 			
-			if(0 or ($thisIndiv_problems > 0))
+			if(($thisIndiv_problems > 0))
 			{
 				my $indivID_withI = $sample_noI_toI{$indivID};
 				die unless(defined $indivID_withI);
@@ -647,6 +670,11 @@ if($actions =~ /v/)
 				open(my $output_fh, '>', $output_fn) or die "Cannot open $output_fn";
 				print $output_fh join("\t", $indivID_withI, $locus, $thisIndiv_OK), "\n";
 				
+				unless(scalar(@imputed_hla_values) == 2)
+				{
+					warn "Can't produce pileup for $locus / $indivID";
+					next;
+				}
 				my $inferred = \@imputed_hla_values;
 				
 				my $truth = \@reference_hla_values;
@@ -1291,7 +1319,9 @@ sub compatibleAlleles_noFlip
 sub compatibleAlleles_individual
 {
 	my $locus = shift;
-	my $allele_validation = shift;	
+	my $allele_validation = shift;
+		my $allele_validation_original = $allele_validation;
+		
 	my $allele_inference = shift;
 	
 	die unless(length($allele_validation) >= 4); die unless($allele_validation =~ /^\d\d/);
@@ -1320,7 +1350,7 @@ sub compatibleAlleles_individual
 		# my $allele = $1.':'.$2;
 		# $allele
 		
-		die "Can't parse allele $_" unless($_ =~ /^\s*(\w+)\*([\d\:N]+)L?Q?$/);
+		die "Can't parse allele $_" unless($_ =~ /^\s*(\w+)\*([\d\:N]+Q?)L?S?$/);
 		
 		my $allele = $2;
 		
@@ -1346,13 +1376,13 @@ sub compatibleAlleles_individual
 	
 	if($inferred{$true_allele})
 	{
-		# print Dumper($allele_validation, $allele_inference, \@inferred_alleles, 1), "\n" if ($locus eq 'DQB1');	
+		# print Dumper($allele_validation_original, $allele_inference, \@inferred_alleles, 1), "\n" if ($locus eq 'DQB1');	
 		
 		return 1;  
 	}		
 	else
 	{
-		# print Dumper($allele_validation, $allele_inference, \@inferred_alleles, 0), "\n"  if ($locus eq 'B');	
+		# print Dumper($allele_validation_original, $allele_inference, \@inferred_alleles, 0), "\n"  if ($locus eq 'DQB1');	
 	
 		return 0;
 	}
@@ -1505,7 +1535,7 @@ sub twoValidationAlleles_2_proper_names
 sub twoClusterAlleles
 {
 	my $alleles_inference = shift;
-	die unless($#{$alleles_inference} == 1);
+	die Dumper("Don't have two inferred alleles", $alleles_inference) unless($#{$alleles_inference} == 1);
 	
 	my @forReturn;
 	

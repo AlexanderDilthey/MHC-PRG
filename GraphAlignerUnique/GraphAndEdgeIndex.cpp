@@ -18,11 +18,15 @@ GraphAndEdgeIndex::GraphAndEdgeIndex(Graph* graph, int k) {
 	kMerSize = k;
 	g = graph;
 	kMerGraph = 0;
-	Index();
+	if(g != 0)
+	{
+		Index();
+	}
 }
 
 std::vector<std::string> GraphAndEdgeIndex::getIndexedkMers()
 {
+	assert(g != 0);
 	std::vector<std::string> forReturn;
 	for(std::map<std::string, std::vector<kMerInGraphSpec> >::iterator kMerIt = kMers.begin(); kMerIt != kMers.end(); kMerIt++)
 	{
@@ -34,6 +38,7 @@ std::vector<std::string> GraphAndEdgeIndex::getIndexedkMers()
 
 std::vector<kMerEdgeChain*> GraphAndEdgeIndex::findChains(std::string sequence)
 {
+	assert(g != 0);
 	std::vector<kMerEdgeChain> forReturn;
 	std::vector<kMerEdgeChain> runningChains;
 	bool superquiet = true;
@@ -346,6 +351,7 @@ std::vector<kMerEdgeChain*> GraphAndEdgeIndex::findChains(std::string sequence)
 
 void GraphAndEdgeIndex::fillEdgeJumper()
 {
+	assert(g != 0);
 	class runningGapChain {
 	public:
 		std::vector<Edge*> traversedEdges;
@@ -415,6 +421,7 @@ void GraphAndEdgeIndex::fillEdgeJumper()
 
 void GraphAndEdgeIndex::Index()
 {
+	assert(g != 0);
 	assert(kMerGraph == 0);
 	kMerGraph = new LargeGraph();
 	bool quiet = true;
@@ -950,6 +957,7 @@ void GraphAndEdgeIndex::Index()
 
 void GraphAndEdgeIndex::printIndex()
 {
+	assert(g != 0);
 	std::cout << "GraphAndEdgeIndex::printIndex(): " << kMers.size() << " kMers.\n" << std::flush;
 
 	for(std::map<std::string, std::vector<kMerInGraphSpec > >::iterator kMerPosIt = kMers.begin(); kMerPosIt != kMers.end(); kMerPosIt++)
@@ -973,6 +981,7 @@ void GraphAndEdgeIndex::printIndex()
 
 std::vector<kMerInGraphSpec> GraphAndEdgeIndex::queryIndex(std::string kMer)
 {
+	assert(g != 0);
 	if(kMers.count(kMer) == 0)
 	{
 		return std::vector<kMerInGraphSpec>();
@@ -999,7 +1008,11 @@ GraphAndEdgeIndex::~GraphAndEdgeIndex()
 	}
 	generated_edges.clear();
 
-	delete(kMerGraph);
+	if(g != 0)
+	{
+		assert(kMerGraph != 0);
+		delete(kMerGraph);
+	}
 }
 
 };
