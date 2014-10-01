@@ -63,6 +63,7 @@ OBJS = \
         $(DIR_OBJ)/GraphAlignerAffine.o \
         $(DIR_OBJ)/GraphAlignerendsFree.o \
         $(DIR_OBJ)/GraphAlignerUnique.o \
+        $(DIR_OBJ)/coveredIntervals.o \
         $(DIR_OBJ)/GraphAndEdgeIndex.o \
         $(DIR_OBJ)/UniqueAlignerTests.o \
         $(DIR_OBJ)/readFilter.o \

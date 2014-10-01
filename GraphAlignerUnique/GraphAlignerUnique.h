@@ -12,6 +12,8 @@
 #include "../GraphAligner/GraphAligner.h"
 #include "VirtualNWUnique.h"
 #include "../NextGen/readSimulator.h"
+#include "coveredIntervals.h"
+
 
 #include <map>
 #include <vector>
@@ -61,67 +63,70 @@ class VirtualNWTable_Unique;
 
 class GraphAlignerUnique {
 
-Graph* g;
-int kMerSize;
-GraphAndEdgeIndex gI;
-double S_match;
-double S_mismatch;
-double S_gap;
-double S_openGap;
-double S_extendGap;
-double S_graphGap;
-int randomizationParameter;
-int iterationsMainRandomizationLoop;
-int minimumChainUniqueness;
-bool verbose;
+	Graph* g;
+	int kMerSize;
+	GraphAndEdgeIndex gI;
+	double S_match;
+	double S_mismatch;
+	double S_gap;
+	double S_openGap;
+	double S_extendGap;
+	double S_graphGap;
+	int randomizationParameter;
+	int iterationsMainRandomizationLoop;
+	int minimumChainUniqueness;
+	bool verbose;
 
-int threads;
+	int threads;
 
-std::vector<unsigned int> rng_seeds;
+	coveredIntervals myGraph_coveredIntervals;
 
-std::vector<std::vector<Node*> > nodesPerLevel_ordered;
-std::vector<std::map<Node*, unsigned int> > nodesPerLevel_ordered_rev;
+	std::vector<unsigned int> rng_seeds;
 
-void seedAndExtend_init_occurrence_strand_etc(std::string& sequence_nonReverse, bool& useReverse, std::string& sequence, std::vector<std::string>& kMers_sequence, std::map<std::string, int>& kMer_sequence_occurrences);
-bool iskMerDoubleUnique(std::string& kMer, std::map<std::string, int>& occurrencesInSequence);
-std::vector<kMerEdgeChain*> trimChainsForUniqueness(std::vector<kMerEdgeChain*>& inputChains, std::string& sequence, std::map<std::string, int>& occurrencesInSequence);
-void analyzeChainUniqueness(std::string& sequence, std::vector<kMerEdgeChain*>& uniquelyTrimmedChains, std::map<std::string, int>& kMer_sequence_occurrences, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered);
-void cleanChainsAccordingToSelectedChain(kMerEdgeChain* selectedChain, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& availableChains);
-void selectedChainsConsistencyCheck(std::set<kMerEdgeChain*> selectedChains);
-void fixUniqueChains(std::string& sequence, bool thisIterationRandomization, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered, std::set<kMerEdgeChain*>& selectedChains, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers, bool rescueNonUnique);
-void trimChain(kMerEdgeChain* inputChain, std::string& sequence, int removeLeft, int removeRight);
+	std::vector<std::vector<Node*> > nodesPerLevel_ordered;
+	std::vector<std::map<Node*, unsigned int> > nodesPerLevel_ordered_rev;
 
-void fixNonUniqueChains(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered, bool thisIterationRandomization, std::vector<kMerEdgeChain*>& allChains, std::vector<kMerEdgeChain*>& newChains);
+	void seedAndExtend_init_occurrence_strand_etc(std::string& sequence_nonReverse, bool& useReverse, std::string& sequence, std::vector<std::string>& kMers_sequence, std::map<std::string, int>& kMer_sequence_occurrences);
+	bool iskMerDoubleUnique(std::string& kMer, std::map<std::string, int>& occurrencesInSequence);
+	std::vector<kMerEdgeChain*> trimChainsForUniqueness(std::vector<kMerEdgeChain*>& inputChains, std::string& sequence, std::map<std::string, int>& occurrencesInSequence);
+	void analyzeChainUniqueness(std::string& sequence, std::vector<kMerEdgeChain*>& uniquelyTrimmedChains, std::map<std::string, int>& kMer_sequence_occurrences, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered);
+	void cleanChainsAccordingToSelectedChain(kMerEdgeChain* selectedChain, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& availableChains);
+	void selectedChainsConsistencyCheck(std::set<kMerEdgeChain*> selectedChains);
+	void fixUniqueChains(std::string& sequence, bool thisIterationRandomization, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered, std::set<kMerEdgeChain*>& selectedChains, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers, bool rescueNonUnique);
+	void trimChain(kMerEdgeChain* inputChain, std::string& sequence, int removeLeft, int removeRight);
 
-std::vector<std::pair<int, Edge*> > _graph_get_previous_z_values_and_edges(int x, int z);
-std::vector<std::pair<int, Edge*> > _graph_get_next_z_values_and_edges(int x, int z);
-std::vector<int> _graph_get_previous_z_values(int x, int z);
+	void fixNonUniqueChains(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered, bool thisIterationRandomization, std::vector<kMerEdgeChain*>& allChains, std::vector<kMerEdgeChain*>& newChains);
 
-std::vector<std::pair<int, int> > findGaps_chainCoverage(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered_input);
-void closeOneGap_withNonUniqueChains(std::string& sequence, std::pair<int, int> gapCoordinates, std::vector<kMerEdgeChain*>& sequencePositions_covered, bool thisIterationRandomization, std::vector<kMerEdgeChain*>& chainsToConsider, std::vector<kMerEdgeChain*>& newTrimmedChains, int& assignedChains);
+	std::vector<std::pair<int, Edge*> > _graph_get_previous_z_values_and_edges(int x, int z);
+	std::vector<std::pair<int, Edge*> > _graph_get_next_z_values_and_edges(int x, int z);
+	std::vector<int> _graph_get_previous_z_values(int x, int z);
 
-void cleanChainsAccordingToBoundaries(Node* leftBoundaryNode, Node* rightBoundaryNode, std::vector<kMerEdgeChain*>& chains);
-void analyzeLocalChainUniqueness(std::string& sequence, std::pair<int, int>& spannedRegionCoordinates, std::pair<int, int>& spannedRegionGraphBoundaries, std::vector<kMerEdgeChain*>& availableChains, 	std::map<kMerEdgeChain*, int>& chains_localUniqueness, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered_output);
-bool iskMerLocallyDoubleUnique(std::string& kMer, std::pair<int, int>& spannedRegionCoordinates, std::pair<int, int>& spannedRegionGraphBoundaries, std::map<std::string, int>& occurrencesInSequence);
+	std::vector<std::pair<int, int> > findGaps_chainCoverage(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered_input);
+	void closeOneGap_withNonUniqueChains(std::string& sequence, std::pair<int, int> gapCoordinates, std::vector<kMerEdgeChain*>& sequencePositions_covered, bool thisIterationRandomization, std::vector<kMerEdgeChain*>& chainsToConsider, std::vector<kMerEdgeChain*>& newTrimmedChains, int& assignedChains);
 
-void buildkMerOccurrenceMap(std::string& S, std::map<std::string, int>& occurrencesInSequence);
+	void cleanChainsAccordingToBoundaries(Node* leftBoundaryNode, Node* rightBoundaryNode, std::vector<kMerEdgeChain*>& chains);
+	void analyzeLocalChainUniqueness(std::string& sequence, std::pair<int, int>& spannedRegionCoordinates, std::pair<int, int>& spannedRegionGraphBoundaries, std::vector<kMerEdgeChain*>& availableChains, 	std::map<kMerEdgeChain*, int>& chains_localUniqueness, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered_output);
+	bool iskMerLocallyDoubleUnique(std::string& kMer, std::pair<int, int>& spannedRegionCoordinates, std::pair<int, int>& spannedRegionGraphBoundaries, std::map<std::string, int>& occurrencesInSequence);
 
-void printSequenceChainCoverageStats(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered);
+	void buildkMerOccurrenceMap(std::string& S, std::map<std::string, int>& occurrencesInSequence);
 
-void kMerEdgeChains2vNW(VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& currentChains_start, std::map<kMerEdgeChain*, NWPath*>& chains2Paths);
-void vNW_completeRemainingGaps_and_score(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack);
-void vNW_completeRemainingGaps_and_score_local(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack);
+	void printSequenceChainCoverageStats(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered);
 
-void findShortGappedGraphConnection_affine(int start_x, int start_z, int stop_x, int stop_z, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startAffinely, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startNormally);
-void findShortGappedGraphConnection_affine_MTM(int start_x, int start_z, int stop_x, int stop_z, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startAffinely, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startNormally);
+	void kMerEdgeChains2vNW(VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& currentChains_start, std::map<kMerEdgeChain*, NWPath*>& chains2Paths);
+	void vNW_completeRemainingGaps_and_score(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack);
+	void vNW_completeRemainingGaps_and_score_local(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack);
 
-void seedAndExtend_backtrack(VirtualNWTable_Unique& vNW2, std::string& sequence, double finalScore, int finalScore_z, NWEdge* finalScore_backtrack, std::string& reconstructedSequence, std::string& reconstructedGraph, std::vector<int>& reconstructedGraph_levels, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap);
-void seedAndExtend_backtrack_local(VirtualNWTable_Unique& vNW2, std::string& sequence, double finalScore, int finalScore_z, NWEdge* finalScore_backtrack, std::string& reconstructedSequence, std::string& reconstructedGraph, std::vector<int>& reconstructedGraph_levels, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap);
-void affinelyCalculateGraphDistancesForVirtualNW(int fromLevel, int toLevel, std::vector<NWEdge*>& entryEdges_vector, std::vector<NWEdge*>& exitEdges_vector, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startInAffineGap,  std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal);
-void affinelyCalculateGraphDistancesForVirtualNW_local(int fromLevel, int toLevel, std::vector<NWEdge*>& entryEdges_vector, std::vector<NWEdge*>& exitEdges_vector, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startInAffineGap,  std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal);
+	void findShortGappedGraphConnection_affine(int start_x, int start_z, int stop_x, int stop_z, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startAffinely, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startNormally);
+	void findShortGappedGraphConnection_affine_MTM(int start_x, int start_z, int stop_x, int stop_z, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startAffinely, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startNormally);
 
-std::vector<localExtension_pathDescription> fullNeedleman_diagonal_extension(std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, int diagonal_stop_threshold, VirtualNWTable_Unique* blockedPathsTable, bool directionPositive,  bool returnGlobalScore);
+	void seedAndExtend_backtrack(VirtualNWTable_Unique& vNW2, std::string& sequence, double finalScore, int finalScore_z, NWEdge* finalScore_backtrack, std::string& reconstructedSequence, std::string& reconstructedGraph, std::vector<int>& reconstructedGraph_levels, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap);
+	void seedAndExtend_backtrack_local(VirtualNWTable_Unique& vNW2, std::string& sequence, double finalScore, int finalScore_z, NWEdge* finalScore_backtrack, std::string& reconstructedSequence, std::string& reconstructedGraph, std::vector<int>& reconstructedGraph_levels, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap);
+	void affinelyCalculateGraphDistancesForVirtualNW(int fromLevel, int toLevel, std::vector<NWEdge*>& entryEdges_vector, std::vector<NWEdge*>& exitEdges_vector, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startInAffineGap,  std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal);
+	void affinelyCalculateGraphDistancesForVirtualNW_local(int fromLevel, int toLevel, std::vector<NWEdge*>& entryEdges_vector, std::vector<NWEdge*>& exitEdges_vector, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startInAffineGap,  std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal);
 
+	std::vector<localExtension_pathDescription> fullNeedleman_diagonal_extension(std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, int diagonal_stop_threshold, VirtualNWTable_Unique* blockedPathsTable, bool directionPositive,  bool returnGlobalScore);
+
+	bool alignmentContainedWithinAreaCoveredByMyGraph(std::string regionID, int start, int stop);
 
 public:
 	GraphAlignerUnique(Graph* graph, int k);
