@@ -120,6 +120,8 @@ int main(int argc, char *argv[])
 		bool output_kMer_levels = false;
 		std::string referenceGenomeCortexGraph;
 
+		int k = 31;
+		
 		for(unsigned int i = 5; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--output_kMer_levels")
@@ -130,6 +132,10 @@ int main(int argc, char *argv[])
 			{
 				referenceGenomeCortexGraph = arguments.at(i+1);
 			}
+			if(arguments.at(i) == "--k")
+			{
+				k = Utilities::StrtoI(arguments.at(i+1));
+			}			
 		}
 
 		if(referenceGenomeCortexGraph.length())
@@ -140,7 +146,15 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		describeGraph(graph_file, temp_dir, temp_label, output_kMer_levels, referenceGenomeCortexGraph);
+		if(k == 25)
+		{
+			describeGraph_25(graph_file, temp_dir, temp_label, output_kMer_levels, referenceGenomeCortexGraph);
+		}
+		else
+		{
+			assert(k == 31);
+			describeGraph(graph_file, temp_dir, temp_label, output_kMer_levels, referenceGenomeCortexGraph);
+		}
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "plotGraph"))
 	{
@@ -466,19 +480,21 @@ int main(int argc, char *argv[])
 		std::string starting_haplotypes_perLocus_1_str;
 		std::string starting_haplotypes_perLocus_2_str;
 
-		// HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+		HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 
  		// loci_string = "A";
 		// starting_haplotypes_perLocus_1_str = "A*02:07:01;A*02:265";
 		// starting_haplotypes_perLocus_2_str = "A*02:06:01";
 
- 		loci_string = "A";
-		starting_haplotypes_perLocus_1_str = "A*02:03:01;A*02:264";
-		starting_haplotypes_perLocus_2_str = "A*24:02:01:01;A*24:02:01:02L;A*24:02:03Q;A*24:02:10;A*24:09N;A*24:11N";
+ 		// loci_string = "A";
+		// starting_haplotypes_perLocus_1_str = "A*02:03:01;A*02:264";
+		// starting_haplotypes_perLocus_2_str = "A*24:02:01:01;A*24:02:01:02L;A*24:02:03Q;A*24:02:10;A*24:09N;A*24:11N";
 			
 		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
-		// HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+		// nodo activate
+		
+		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))
@@ -1134,6 +1150,8 @@ int main(int argc, char *argv[])
 		std::string positiveFilter;
 		std::string negativeFilter;
 
+		std::string referenceGenome;
+
 		double positiveThreshold = 0.3;
 		double negativeThreshold = 0.3;
 
@@ -1169,6 +1187,10 @@ int main(int argc, char *argv[])
 			if(arguments.at(i) == "--input_FASTQ")
 			{
 				input_FASTQ = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--referenceGenome")
+			{
+				referenceGenome = arguments.at(i+1);
 			}
 			if(arguments.at(i) == "--output_FASTQ")
 			{
@@ -1217,6 +1239,7 @@ int main(int argc, char *argv[])
 		F.positiveUnique = positiveUnique;
 		F.uniqueness_base = uniqueness_base;
 		F.uniqueness_subtract = uniqueness_subtract;
+		F.referenceGenomeFile = referenceGenome;
 
 		F.doFilter();
 

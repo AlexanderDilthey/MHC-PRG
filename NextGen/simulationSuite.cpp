@@ -89,7 +89,7 @@ void describeGraph(string graph_file, string temp_dir, string temp_label, bool o
 		int cortex_height = 26;
 		int cortex_width = 50;
 
-		std::cout << Utilities::timestamp() << "Allocate Cortex graph object for reference genoem; height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
+		std::cout << Utilities::timestamp() << "Allocate Cortex graph object k = 31 for reference genome; height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
 
 		reference_kMers = new DeBruijnGraph<1, 31, 1>(cortex_height, cortex_width);
 
@@ -208,6 +208,156 @@ void describeGraph(string graph_file, string temp_dir, string temp_label, bool o
 								std::cerr << "Wrong kMer length: " << kMer.length() << " kMer: " << kMer << "\n" << std::flush;
 							}	
 							assert(kMer.length() == 31);
+							kMers_referenceCount[kMer] = reference_kMers->kMer_getCoverage(kMer);
+						}
+					}
+
+					kMersPerLevelStream << "\t" << Utilities::JoinMapUInt2Str(kMers_referenceCount);
+				}
+				kMersPerLevelStream << "\n";
+			}
+		}
+	}
+
+	if(output_kMer_levels)
+	{
+		kMersPerLevelStream.close();
+	}
+	output_stats.close();
+}
+
+
+
+void describeGraph_25(string graph_file, string temp_dir, string temp_label, bool output_kMer_levels, std::string referenceGenomeCortexGraph)
+{
+	DeBruijnGraph<1, 25, 1>* reference_kMers;
+
+	if(referenceGenomeCortexGraph.length())
+	{
+		assert(output_kMer_levels);
+
+		int cortex_height = 26;
+		int cortex_width = 50;
+
+		std::cout << Utilities::timestamp() << "Allocate Cortex graph object k = 25 for reference genome; height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
+
+		reference_kMers = new DeBruijnGraph<1, 25, 1>(cortex_height, cortex_width);
+
+		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary...\n" << std::flush;
+
+		reference_kMers->loadMultiColourBinary(referenceGenomeCortexGraph);
+
+		std::cout << Utilities::timestamp() << "\tdone\n" << std::flush;
+
+		std::cout << "\tTotal coverage: " << reference_kMers->totalCoverage() << "\n";
+
+	}
+	
+
+	std::size_t graphFileNamePosition = graph_file.find("graph.txt.kmers_");
+	assert(graphFileNamePosition != std::string::npos);
+	std::string graph_file_nucleotides = graph_file.substr(0, graphFileNamePosition) + "graph.txt";
+	
+	std::cout << "Loading nucleotide graph " << graph_file_nucleotides << "\n" << std::flush;
+	
+	Graph nucleotideGraph;
+	nucleotideGraph.readFromFile(graph_file_nucleotides);
+
+	std::cout << "Loading kMer graph " << graph_file << "\n" << std::flush;	
+	
+	LargeGraph kMerG;
+	kMerG.readFromFile(graph_file);
+	
+	std::cout << "Compute multi-PRG from kMer-PRG...\n" << std::flush;
+	
+	MultiGraph* multiG = multiBeautifyForAlpha2(&kMerG, "", false, false);
+
+	vector< vector<string> > level_categories = kMerG.categorizeEdgeLevels();
+	set<string> possible_categories;
+	for(int i = 0; i < (int)level_categories.size(); i++)
+	{
+		for(int j = 0; j < (int)level_categories.at(i).size(); j++)
+		{
+			possible_categories.insert(level_categories.at(i).at(j));
+		}
+	}
+
+	multiG->kMerDiagnostics();
+
+	vector<string> ordered_categories(possible_categories.begin(), possible_categories.end());
+
+	vector<levelInfo> levelInformation = kMerG.getLevelInfo();
+
+	string fn_globalstats = temp_dir + "/graph_globalstats_" + temp_label + ".txt";
+	ofstream output_stats;
+	output_stats.open (fn_globalstats.c_str(), ios::out | ios::trunc);
+
+	std::string fn_kMers_perLevel = temp_dir + "/graph_kMersPerLevel_" + temp_label + ".txt";
+	ofstream kMersPerLevelStream;
+
+	if(output_kMer_levels)
+	{
+		kMersPerLevelStream.open(fn_kMers_perLevel.c_str());
+		assert(kMersPerLevelStream.is_open());
+
+		kMersPerLevelStream << "Level" << "\t" << "NucleotideGraph_Locus" << "\t" << "kMerMultiplicityAtLevel";
+		if(referenceGenomeCortexGraph.length())
+		{
+			kMersPerLevelStream << "\t" << "kMerMultiplicityInReferenceGenome";
+		}
+		kMersPerLevelStream << "\n";
+	}
+
+	if (output_stats.is_open())
+	{
+		output_stats << "Level\tNodes\tEdges\tSymbols\tSymbols_CODE\t" << Utilities::join(ordered_categories, "\t") << "\n";
+		for(int i = 0; i < (int)level_categories.size(); i++)
+		{
+			set<string> categories(level_categories.at(i).begin(), level_categories.at(i).end());
+			vector<string> fields;
+			fields.push_back(Utilities::ItoStr(i));
+			fields.push_back(Utilities::ItoStr(levelInformation.at(i).nodes));
+			fields.push_back(Utilities::ItoStr(levelInformation.at(i).edges));
+			fields.push_back(Utilities::ItoStr(levelInformation.at(i).symbols));
+			fields.push_back(Utilities::ItoStr(levelInformation.at(i).symbols_CODE));
+
+			for(int k = 0; k < (int)ordered_categories.size(); k++)
+			{
+				string cat = ordered_categories.at(k);
+				if(categories.count(cat) > 0)
+				{
+					fields.push_back(Utilities::ItoStr(1));
+				}
+				else
+				{
+					fields.push_back(Utilities::ItoStr(0));
+				}
+			}
+			output_stats << Utilities::join(fields, "\t") << "\n";
+
+
+			if(output_kMer_levels)
+			{
+				std::map<std::string, unsigned int> kMers_thisLevel = kMerG.getkMersFromLevel(i);
+
+				std::string locusID;
+				
+				
+				
+				kMersPerLevelStream << i << "\t" << nucleotideGraph.getOneLocusIDforLevel(i) << "\t" << Utilities::JoinMapUInt2Str(kMers_thisLevel);
+				if(referenceGenomeCortexGraph.length())
+				{
+					std::map<std::string, unsigned int> kMers_referenceCount;
+					for(std::map<std::string, unsigned int>::iterator mIt = kMers_thisLevel.begin(); mIt != kMers_thisLevel.end(); mIt++)
+					{
+						std::string kMer = mIt->first;
+						if((kMer != "_") && (kMer != "*"))
+						{	
+							if(!(kMer.length() == 25))
+							{
+								std::cerr << "Wrong kMer length: " << kMer.length() << " kMer: " << kMer << "\n" << std::flush;
+							}	
+							assert(kMer.length() == 25);
 							kMers_referenceCount[kMer] = reference_kMers->kMer_getCoverage(kMer);
 						}
 					}

@@ -44,16 +44,19 @@ GraphAlignerUnique::GraphAlignerUnique(Graph* graph, int k) : g(graph), kMerSize
 
 	threads = 4;
 
-	// enumerate states at levels
-	unsigned int levels = g->NodesPerLevel.size();
-	nodesPerLevel_ordered.resize(levels);
-	nodesPerLevel_ordered_rev.resize(levels);
-	for(unsigned int levelI = 0; levelI < levels; levelI++)
+	if(graph != 0)
 	{
-		nodesPerLevel_ordered.at(levelI) = std::vector<Node*>(g->NodesPerLevel.at(levelI).begin(), g->NodesPerLevel.at(levelI).end());
-		for(unsigned int nodeI = 0; nodeI < nodesPerLevel_ordered.at(levelI).size(); nodeI++)
+		// enumerate states at levels
+		unsigned int levels = g->NodesPerLevel.size();
+		nodesPerLevel_ordered.resize(levels);
+		nodesPerLevel_ordered_rev.resize(levels);
+		for(unsigned int levelI = 0; levelI < levels; levelI++)
 		{
-			nodesPerLevel_ordered_rev.at(levelI)[nodesPerLevel_ordered.at(levelI).at(nodeI)] = nodeI;
+			nodesPerLevel_ordered.at(levelI) = std::vector<Node*>(g->NodesPerLevel.at(levelI).begin(), g->NodesPerLevel.at(levelI).end());
+			for(unsigned int nodeI = 0; nodeI < nodesPerLevel_ordered.at(levelI).size(); nodeI++)
+			{
+				nodesPerLevel_ordered_rev.at(levelI)[nodesPerLevel_ordered.at(levelI).at(nodeI)] = nodeI;
+			}
 		}
 	}
 }
@@ -149,6 +152,7 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 
 void GraphAlignerUnique::printkMerProfile(std::string file)
 {
+	assert(g != 0);
 	std::vector<std::string> kMersInGraph = gI.getIndexedkMers();
 	unsigned int graphLevels = g->NodesPerLevel.size();
 
@@ -202,6 +206,8 @@ void GraphAlignerUnique::printkMerProfile(std::string file)
 
 void GraphAlignerUnique::analyzeChainUniqueness(std::string& sequence, std::vector<kMerEdgeChain*>& uniquelyTrimmedChains, std::map<std::string, int>& kMer_sequence_occurrences, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered)
 {
+	assert(g != 0);
+
 	for(size_t chainI = 0; chainI < uniquelyTrimmedChains.size(); chainI++)
 	{
 		kMerEdgeChain* chain = uniquelyTrimmedChains.at(chainI);
@@ -246,6 +252,7 @@ void GraphAlignerUnique::analyzeChainUniqueness(std::string& sequence, std::vect
 
 void GraphAlignerUnique::buildkMerOccurrenceMap(std::string& S, std::map<std::string, int>& occurrencesInSequence)
 {
+	assert(g != 0);
 	std::vector<std::string> kMers = partitionStringIntokMers(S, kMerSize);
 	for(unsigned int kI = 0; kI < kMers.size(); kI++)
 	{
@@ -260,6 +267,7 @@ void GraphAlignerUnique::buildkMerOccurrenceMap(std::string& S, std::map<std::st
 
 void  GraphAlignerUnique::seedAndExtend_init_occurrence_strand_etc(std::string& sequence_nonReverse, bool& useReverse, std::string& sequence, std::vector<std::string>& kMers_sequence, std::map<std::string, int>& kMer_sequence_occurrences)
 {
+	assert(g != 0);
 	// build occurrence hashes
 
 	std::string sequence_reverse = seq_reverse_complement(sequence_nonReverse);
@@ -301,6 +309,7 @@ void  GraphAlignerUnique::seedAndExtend_init_occurrence_strand_etc(std::string& 
 
 bool GraphAlignerUnique::iskMerDoubleUnique(std::string& kMer, std::map<std::string, int>& occurrencesInSequence)
 {
+	assert(g != 0);
 	if(occurrencesInSequence.count(kMer) && (occurrencesInSequence.at(kMer) == 1))
 	{
 		if(gI.queryIndex(kMer).size() == 1)
@@ -313,6 +322,7 @@ bool GraphAlignerUnique::iskMerDoubleUnique(std::string& kMer, std::map<std::str
 
 void GraphAlignerUnique::trimChain(kMerEdgeChain* inputChain, std::string& sequence, int removeLeft, int removeRight)
 {
+	assert(g != 0);
 	int existingLength = inputChain->sequence_end - inputChain->sequence_begin + 1;
 	assert(existingLength > 0);
 	assert(existingLength > (removeLeft + removeRight));
@@ -426,6 +436,7 @@ void GraphAlignerUnique::trimChain(kMerEdgeChain* inputChain, std::string& seque
 
 std::vector<kMerEdgeChain*> GraphAlignerUnique::trimChainsForUniqueness(std::vector<kMerEdgeChain*>& inputChains, std::string& sequence, std::map<std::string, int>& occurrencesInSequence)
 {
+	assert(g != 0);
 	std::vector<kMerEdgeChain*> uniquelyTrimmedChains;
 
 	auto trimChainForUniquess = [&](kMerEdgeChain* inputChain) -> kMerEdgeChain* {
@@ -494,6 +505,7 @@ std::vector<kMerEdgeChain*> GraphAlignerUnique::trimChainsForUniqueness(std::vec
 
 std::vector<std::pair<int, int> > GraphAlignerUnique::findGaps_chainCoverage(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered_input)
 {
+	assert(g != 0);
 	std::vector<std::pair<int, int> > gaps;
 	long long lastGapStart_sequence = -1;
 	for(int seqI = 0; seqI < (int)sequence.length(); seqI++)
@@ -532,6 +544,7 @@ std::vector<std::pair<int, int> > GraphAlignerUnique::findGaps_chainCoverage(std
 
 void GraphAlignerUnique::fixNonUniqueChains(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered, bool thisIterationRandomization, std::vector<kMerEdgeChain*>& allChains, std::vector<kMerEdgeChain*>& newChains)
 {
+	assert(g != 0);
 	if(verbose)
 		std::cout << Utilities::timestamp() << "GraphAlignerUnique::fixNonUniqueChain(..): Enter function with " << allChains.size() << " total chains.\n" << std::flush;
 
@@ -557,6 +570,7 @@ void GraphAlignerUnique::fixNonUniqueChains(std::string& sequence, std::vector<k
 
 void GraphAlignerUnique::closeOneGap_withNonUniqueChains(std::string& sequence, std::pair<int, int> gapCoordinates, std::vector<kMerEdgeChain*>& sequencePositions_covered, bool thisIterationRandomization, std::vector<kMerEdgeChain*>& chainsToConsider, std::vector<kMerEdgeChain*>& newTrimmedChains, int& assignedChains)
 {
+	assert(g != 0);
 	if(verbose) std::cout << Utilities::timestamp() << "closeOneGap_withNonUniqueChains(..): Examine gap from " << gapCoordinates.first << " to " << gapCoordinates.second << "\n" << std::flush;
 
 	int gapLength = gapCoordinates.second - gapCoordinates.first + 1;
@@ -735,6 +749,7 @@ void GraphAlignerUnique::closeOneGap_withNonUniqueChains(std::string& sequence, 
 
 bool GraphAlignerUnique::iskMerLocallyDoubleUnique(std::string& kMer, std::pair<int, int>& spannedRegionCoordinates, std::pair<int, int>& spannedRegionGraphBoundaries, std::map<std::string, int>& occurrencesInSequence)
 {
+	assert(g != 0);
 	if(occurrencesInSequence.count(kMer) && (occurrencesInSequence.at(kMer) == 1))
 	{
 		std::vector<kMerInGraphSpec> kMerPositions = gI.queryIndex(kMer);
@@ -766,6 +781,7 @@ bool GraphAlignerUnique::iskMerLocallyDoubleUnique(std::string& kMer, std::pair<
 
 void GraphAlignerUnique::analyzeLocalChainUniqueness(std::string& sequence, std::pair<int, int>& spannedRegionCoordinates, std::pair<int, int>& spannedRegionGraphBoundaries, std::vector<kMerEdgeChain*>& availableChains, 	std::map<kMerEdgeChain*, int>& chains_localUniqueness, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered_output)
 {
+	assert(g != 0);
 	assert(spannedRegionCoordinates.second >= spannedRegionCoordinates.first);
 	assert(spannedRegionGraphBoundaries.second > spannedRegionGraphBoundaries.first);
 
@@ -797,6 +813,7 @@ void GraphAlignerUnique::analyzeLocalChainUniqueness(std::string& sequence, std:
 
 void GraphAlignerUnique::cleanChainsAccordingToBoundaries(Node* leftBoundaryNode, Node* rightBoundaryNode, std::vector<kMerEdgeChain*>& chains)
 {
+	assert(g != 0);
 	int gapBoundary_left_level = (leftBoundaryNode != 0) ? leftBoundaryNode->level : 0;
 	int gapBoundary_right_level = (rightBoundaryNode != 0) ? rightBoundaryNode->level : (g->NodesPerLevel.size() - 1);
 
@@ -927,6 +944,7 @@ void GraphAlignerUnique::cleanChainsAccordingToBoundaries(Node* leftBoundaryNode
 
 seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonReverse)
 {
+	assert(g != 0);
 	seedAndExtend_return forReturn;
 
 	std::cout << Utilities::timestamp() << " Enter GraphAlignerUnique::seedAndExtend(..)!\n" << std::flush;
@@ -1370,7 +1388,7 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 
 std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired_or_short(oneReadPair readPair, bool usePairing, bool use_short, double insertSize_mean, double insertSize_sd, bool estimateInsertSize, std::map<int, double>& insertSize_posterior_ret)
 {
-
+	assert(g != 0);
 	if(estimateInsertSize)
 	{
 		assert(usePairing);
@@ -1381,9 +1399,47 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	// bool verbose = ((readPair.reads.first.name == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2") || (readPair.reads.second.name  == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2"));
 	bool verbose = false;
 	
+
+	std::map<std::string, std::string> readID_2_group;
+
+	// this section here can be filles with output from extractReadsAlignment.pl
+
+	readID_2_group["@@B819B8ABXX:2:1204:2500:66314#CGATGTAT/2:FROM:6:32552025:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@B81EP5ABXX:7:1107:20989:92286#GCCAATAT/1:FROM:6:32489739:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@B81998ABXX:6:1207:2569:100263#GCCNATAT/2:FROM:6:32551912:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B9ABXX:8:1105:13324:120581#CGCCNNNN/1:FROM:6:32551913:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B9ABXX:8:2208:3453:9743#GCCAATAT/1:FROM:6:32551903:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B81998ABXX:6:1108:16939:81798#GCCAATAT/2:FROM:6:32489698:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A8176BABXX:1:1104:18107:177078#CGATGTAT/2:FROM:6:32525833:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@B819B8ABXX:2:2203:4373:99705#CGATGTAT/2:FROM:6:32489862:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B8ABXX:2:1205:11083:89762#CATGTATC/2:FROM:6:32552024:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A8176BABXX:1:1206:2915:25661#CGATGTAT/1:FROM:6:32552024:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@FCC00N2ABXX:8:1203:18982:24309#CGATGTAT/2:FROM:6:32489672:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@B81998ABXX:6:1108:16939:81798#GCCAATAT/1:FROM:6:32489762:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B8ABXX:2:1203:10388:38266#CGATGTAT/2:FROM:6:32552015:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A819GPABXX:5:2107:18518:148281#GCCAATAT/1:FROM:6:32551968:FROM:"] = "trueHLAsaysThere";
+	readID_2_group["@@A8197TABXX:4:2208:4575:106554#GCCAATAT/1:FROM:6:31323963:FROM:"] = "Unknown";
+	readID_2_group["@@B819B8ABXX:2:1205:11083:89762#CATGTATC/1:FROM:6:32551957:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A8176BABXX:1:1101:11794:63897#CGATGTAT/2:FROM:6:32489763:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@B819B9ABXX:8:1108:4618:200340#GCCANNNN/1:FROM:6:32489707:FROM:"] = "trueHLAsaysThere";
+
+	// end output from extractReadsAlignment.pl
+
+	verbose = ( readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name) );
+
+	std::string GROUP;
+
+	if(readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name))
+	{
+		GROUP = readID_2_group.count(readPair.reads.first.name) ? readID_2_group.at(readPair.reads.first.name) : readID_2_group.at(readPair.reads.second.name);
+	}
+
 	if(verbose)
 	{
-		std::cout << "Alignment of " << readPair.reads.first.name << " / " << readPair.reads.second.name << "\n";
+		std::cout << "=======================================================================================\n";
+		std::cout << "[" << GROUP << "] Alignment of " << readPair.reads.first.name << " / " << readPair.reads.second.name << "\n";
+		std::cout << "=======================================================================================\n\n";
+
 	}
 	
 	// assert(readPair.reads.first.sequence.find("_") == std::string::npos);
@@ -1653,6 +1709,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces)
 {
+	assert(g != 0);
 	seedAndExtend_return_local forReturn;
 	
 	verbose = false;
@@ -2207,6 +2264,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 
 seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces)
 {
+	assert(g != 0);
 	seedAndExtend_return_local forReturn;
 
 	// verbose = true;
@@ -2482,6 +2540,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 
 void GraphAlignerUnique::vNW_completeRemainingGaps_and_score(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack)
 {
+	assert(g != 0);
 	bool verbose = false;
 	bool superquiet = false;
 
@@ -3130,6 +3189,7 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score(std::string& sequen
 
 void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack)
 {
+	assert(g != 0);
 	bool verbose = false;
 	bool superquiet = true;
 
@@ -3979,6 +4039,7 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 
 void GraphAlignerUnique::affinelyCalculateGraphDistancesForVirtualNW(int fromLevel, int toLevel, std::vector<NWEdge*>& entryEdges_vector, std::vector<NWEdge*>& exitEdges_vector, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startInAffineGap,  std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal)
 {
+	assert(g != 0);
 	assert(S_graphGap == 0);
 	double minusInfinity = -1 * numeric_limits<double>::max();
 
@@ -4331,6 +4392,7 @@ void GraphAlignerUnique::affinelyCalculateGraphDistancesForVirtualNW(int fromLev
 
 void GraphAlignerUnique::affinelyCalculateGraphDistancesForVirtualNW_local(int fromLevel, int toLevel, std::vector<NWEdge*>& entryEdges_vector, std::vector<NWEdge*>& exitEdges_vector, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startInAffineGap,  std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal)
 {
+	assert(g != 0);
 	assert(S_graphGap == 0);
 	double minusInfinity = -1 * numeric_limits<double>::max();
 
@@ -4685,6 +4747,7 @@ void GraphAlignerUnique::affinelyCalculateGraphDistancesForVirtualNW_local(int f
 
 void GraphAlignerUnique::seedAndExtend_backtrack(VirtualNWTable_Unique& vNW2, std::string& sequence, double finalScore, int finalScore_z, NWEdge* finalScore_backtrack, std::string& reconstructedSequence, std::string& reconstructedGraph, std::vector<int>& reconstructedGraph_levels, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap)
 {
+	assert(g != 0);
 	int completed_x = g->NodesPerLevel.size() - 1;
 	int completed_y = sequence.length();
 	int completed_z = finalScore_z;
@@ -5319,6 +5382,7 @@ void GraphAlignerUnique::seedAndExtend_backtrack(VirtualNWTable_Unique& vNW2, st
 
 void GraphAlignerUnique::seedAndExtend_backtrack_local(VirtualNWTable_Unique& vNW2, std::string& sequence, double finalScore, int finalScore_z, NWEdge* finalScore_backtrack, std::string& reconstructedSequence, std::string& reconstructedGraph, std::vector<int>& reconstructedGraph_levels, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap)
 {
+	assert(g != 0);
 	double minusInfinity = -1 * numeric_limits<double>::max();
 
 	int completed_x = g->NodesPerLevel.size() - 1;
@@ -5954,6 +6018,7 @@ void GraphAlignerUnique::seedAndExtend_backtrack_local(VirtualNWTable_Unique& vN
 
 void GraphAlignerUnique::findShortGappedGraphConnection_affine(int start_x, int start_z, int stop_x, int stop_z, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startAffinely, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startNormally)
 {
+	assert(g != 0);
 	assert(S_graphGap == 0);
 	double minusInfinity = -1 * numeric_limits<double>::max();
 	int thisThread = omp_get_thread_num();
@@ -6341,6 +6406,7 @@ void GraphAlignerUnique::findShortGappedGraphConnection_affine(int start_x, int 
 
 void GraphAlignerUnique::findShortGappedGraphConnection_affine_MTM(int start_x, int start_z, int stop_x, int stop_z, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startAffinely, std::map<int, std::map<int, graphPointDistance_withBacktrack>>& distances_startNormally)
 {
+	assert(g != 0);
 	assert(S_graphGap == 0);
 	double minusInfinity = -1 * numeric_limits<double>::max();
 	int thisThread = omp_get_thread_num();
@@ -6890,6 +6956,7 @@ void GraphAlignerUnique::findShortGappedGraphConnection_affine_MTM(int start_x, 
 
 void GraphAlignerUnique::kMerEdgeChains2vNW(VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& currentChains_start, std::map<kMerEdgeChain*, NWPath*>& chains2Paths)
 {
+	assert(g != 0);
 	std::set<kMerEdgeChain*> currentChains;
 
 	for(unsigned int positionI = 0; positionI < sequencePositions_covered.size(); positionI++)
@@ -6958,6 +7025,7 @@ void GraphAlignerUnique::kMerEdgeChains2vNW(VirtualNWTable_Unique& vNW, std::vec
 
 void GraphAlignerUnique::printSequenceChainCoverageStats(std::string& sequence, std::vector<kMerEdgeChain*>& sequencePositions_covered)
 {
+	assert(g != 0);
 	// this code has problems with first and last positions, might not catch these gaps!
 	// print statistics on chain coverage
 	long long positions_coveredByChain = 0;
@@ -7037,6 +7105,7 @@ void GraphAlignerUnique::printSequenceChainCoverageStats(std::string& sequence, 
 
 void GraphAlignerUnique::fixUniqueChains(std::string& sequence, bool thisIterationRandomization, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& uniquelyTrimmedChains_ordered, std::set<kMerEdgeChain*>& selectedChains, 	std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, int>& uniquelyTrimmedChains_doubleUniquekMers, bool rescueNonUnique)
 {
+	assert(g != 0);
 	if(verbose) std::cout << Utilities::timestamp() << "GraphAlignerUnique::fixUniqueChains(..): Fix chains, starting with " << uniquelyTrimmedChains_ordered.size() << " chains. Randomization = " << thisIterationRandomization << ".\n" << std::flush;
 
 	std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>> remainingChains = uniquelyTrimmedChains_ordered;
@@ -7114,6 +7183,7 @@ void GraphAlignerUnique::fixUniqueChains(std::string& sequence, bool thisIterati
 
 void GraphAlignerUnique::cleanChainsAccordingToSelectedChain(kMerEdgeChain* selectedChain, std::set<kMerEdgeChain*, std::function<bool(kMerEdgeChain*,kMerEdgeChain*)>>& availableChains)
 {
+	assert(g != 0);
 	std::set<kMerEdgeChain*> chainsToDelete;
 
 	Edge* selectedChainFirstEdge = selectedChain->traversedEdges.front();
@@ -7458,6 +7528,7 @@ void GraphAlignerUnique::cleanChainsAccordingToSelectedChain(kMerEdgeChain* sele
 
 void GraphAlignerUnique::selectedChainsConsistencyCheck(std::set<kMerEdgeChain*> selectedChains)
 {
+	assert(g != 0);
 	if(verbose) std::cout << Utilities::timestamp() << "GraphAlignerUnique::selectedChainsConsistencyCheck: Enter function on " << selectedChains.size() << " chains.\n" << std::flush;
 
 	std::vector<kMerEdgeChain*> selectedChains_in_order(selectedChains.begin(), selectedChains.end());
@@ -7589,6 +7660,7 @@ void GraphAlignerUnique::selectedChainsConsistencyCheck(std::set<kMerEdgeChain*>
 
 std::vector<std::pair<int, Edge*> > GraphAlignerUnique::_graph_get_previous_z_values_and_edges(int x, int z)
 {
+	assert(g != 0);
 	std::vector<std::pair<int, Edge*> > forReturn;
 	unsigned int uZ = (unsigned int)z;
 	assert(x > 0);
@@ -7612,6 +7684,7 @@ std::vector<std::pair<int, Edge*> > GraphAlignerUnique::_graph_get_previous_z_va
 
 std::vector<std::pair<int, Edge*> > GraphAlignerUnique::_graph_get_next_z_values_and_edges(int x, int z)
 {
+	assert(g != 0);
 	std::vector<std::pair<int, Edge*> > forReturn;
 	unsigned int uZ = (unsigned int)z;
 	assert(x >= 0);
@@ -7635,6 +7708,7 @@ std::vector<std::pair<int, Edge*> > GraphAlignerUnique::_graph_get_next_z_values
 
 std::vector<int> GraphAlignerUnique::_graph_get_previous_z_values(int x, int z)
 {
+	assert(g != 0);
 	std::vector<std::pair<int, Edge*> > previousZs = _graph_get_previous_z_values_and_edges(x, z);
 
 	std::set<int> forReturn;
@@ -7790,6 +7864,7 @@ double GraphAlignerUnique::score(std::string reconstructed_graph, std::vector<in
 
 std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_diagonal_extension(std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, int diagonal_stop_threshold, VirtualNWTable_Unique* blockedPathsTable, bool directionPositive, bool returnGlobalScore)
 {
+	assert(g != 0);
 	if(directionPositive)
 	{
 		if(!((maxLevel_graph == -1) || (maxLevel_graph > startLevel_graph)))
@@ -8766,6 +8841,7 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 
 int GraphAlignerUnique::countMatchesInSequence(std::string reconstructed_graph, std::vector<int> reconstructed_graph_levels, std::string reconstructed_sequence)
 {
+	assert(g != 0);
 	assert(reconstructed_graph.length() == reconstructed_sequence.length());
 	assert(reconstructed_graph_levels.size() == reconstructed_graph.length());
 

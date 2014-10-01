@@ -3,7 +3,7 @@ use Modern::Perl;
 use List::MoreUtils qw/mesh all/;
 use Data::Dumper;
 
-my $kMer_sharing_file = qq(/Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived/graph_kMersPerLevel_HLAGRAPH_31.txt);
+my $kMer_sharing_file = qq(/Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived/graph_kMersPerLevel_HLAGRAPH_25.txt);
 my $output_dir = qq(/Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived/kMerSharing);
 mkdir($output_dir) unless (-e $output_dir);
 my $plot_output_dir = $output_dir.'/plots';
