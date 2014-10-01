@@ -851,21 +851,73 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 				simpleAlignment.sequence = sequence;
 				simpleAlignment.fromString = regionID+":"+Utilities::ItoStr(alignmentMappedPosition);
 				simpleAlignment.fromReverse = al.IsReverseStrand();
-				simpleAlignment.fromID = regionID;
-				simpleAlignment.fromPosition = al.Position;
-				simpleAlignment.toPosition = al.GetEndPosition(false, true);
-
-				if(referenceGenome.size())
+				
+				if(al.IsMapped())
 				{
-					oneRead read_forLL("", "", "");
-					seedAndExtend_return_local alignment_forLL;
+					simpleAlignment.fromID = regionID;
+					simpleAlignment.fromPosition = al.Position;
+					simpleAlignment.toPosition = al.GetEndPosition(false, true);
 
-					if(transformBAMreadToInternalAlignment(referenceGenome, regionID, al, read_forLL, alignment_forLL))
+					if(referenceGenome.size())
 					{
-						int ignore;
-						double ll_score = gA_for_scoring.scoreOneAlignment(read_forLL, alignment_forLL, ignore);
+						oneRead read_forLL("", "", "");
+						seedAndExtend_return_local alignment_forLL;
 
-						simpleAlignment.likelihood_from_normalAlignment = exp(ll_score);
+						if(transformBAMreadToInternalAlignment(referenceGenome, regionID, al, read_forLL, alignment_forLL))
+						{
+							int ignore;
+							double ll_score = gA_for_scoring.scoreOneAlignment(read_forLL, alignment_forLL, ignore);
+
+							simpleAlignment.likelihood_from_normalAlignment = exp(ll_score);
+
+							int firstCoordinate_normalAlignment = -1;													
+							int i = 0;
+							while(alignment_forLL.graph_aligned_levels.at(i) == -1)
+							{
+								i++;
+								if(i >= alignment_forLL.graph_aligned_levels.size())
+								{
+									break;
+								}	
+							}
+							firstCoordinate_normalAlignment = alignment_forLL.graph_aligned_levels.at(i);											
+							assert(firstCoordinate_normalAlignment != -1);
+							
+							int lastCoordinate_normalAlignment = -1;
+							i = alignment_forLL.graph_aligned_levels.size() - 1;
+							while(alignment_forLL.graph_aligned_levels.at(i) == -1)
+							{
+								i--;
+								if(i < 0)
+								{
+									break;
+								}
+							}
+							lastCoordinate_normalAlignment = alignment_forLL.graph_aligned_levels.at(i);											
+							assert(lastCoordinate_normalAlignment != -1);
+							
+							simpleAlignment.likelihood_from_normalAlignment_from = firstCoordinate_normalAlignment;
+							simpleAlignment.likelihood_from_normalAlignment_to = lastCoordinate_normalAlignment;
+							
+							assert(alignment_forLL.graph_aligned.size() == alignment_forLL.sequence_aligned.size());
+							assert(alignment_forLL.graph_aligned.size() == alignment_forLL.graph_aligned_levels.size());
+							
+							/*
+							if((alignment_forLL.sequence_aligned.find("_") != std::string::npos) || (alignment_forLL.graph_aligned.find("_") != std::string::npos))
+							{
+								#pragma omp critical
+								{
+									std::cout << "Alignment:\n";
+									
+									std::cout << "\t" << Utilities::join(Utilities::ItoStr(alignment_forLL.graph_aligned_levels), ", ") << "\n";
+									std::cout << "\t" << alignment_forLL.graph_aligned << "\n";
+									std::cout << "\t" << alignment_forLL.sequence_aligned << "\n";
+									
+									std::cout << "\t" << simpleAlignment.likelihood_from_normalAlignment << "\n" << std::flush;
+								}
+							}
+							*/
+						}
 					}
 				}
 
@@ -1008,6 +1060,11 @@ std::vector<BAMRegionSpecifier> getBAMregions(std::string BAMfile)
 
 bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string>& referenceGenome, const std::string& regionID, const BamTools::BamAlignment& al, oneRead& read_forLL, seedAndExtend_return_local& alignment_forLL)
 {
+	if(! al.IsMapped())
+	{
+		return false;
+	}
+	
 	std::string modifiedRegionID = regionID;
 	if(regionID.substr(0, 3) == "chr")
 	{
@@ -1039,10 +1096,10 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 
 	if(useReferenceID.length())
 	{
+		assert(referenceGenome.count(useReferenceID));
 		const std::string& referenceSequence = referenceGenome.at(useReferenceID);
 
 		int readStart = al.Position;
-
 
 		std::vector< BamTools::CigarOp > CIGAR_Compressed = al.CigarData;
 		std::vector<char> CIGAR;
@@ -1086,12 +1143,13 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 		alignment_forLL.graph_aligned.reserve(CIGAR.size());
 		alignment_forLL.sequence_aligned.reserve(CIGAR.size());
 
-
 		int readLength = queryBases.length(); // should NOT include hard clipped bases!
 
 		// If we begin with hard clipping, we need to increment both readLength and index_along_unclipped_read...
+		assert(CIGAR_Compressed.size() >= 1);
 		if(CIGAR_Compressed.at(0).Type == 'H')
 		{
+			assert(CIGAR_Compressed.size() >= 2);
 			assert(CIGAR_Compressed.at(1).Type != 'H');
 			readLength += CIGAR_Compressed.at(0).Length;
 			index_along_unclipped_read += CIGAR_Compressed.at(0).Length;
@@ -1100,6 +1158,7 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 		// .. and if hard clipping at the end, we need to account for that by increasing read length...
 		if(CIGAR_Compressed.at(CIGAR_Compressed.size() - 1).Type == 'H')
 		{
+			assert(((int)CIGAR_Compressed.size() - 2) >= 0);
 			assert(CIGAR_Compressed.at(CIGAR_Compressed.size() - 2).Type != 'H');
 			readLength += CIGAR_Compressed.at(CIGAR_Compressed.size() - 1).Length;
 		}
@@ -1195,10 +1254,15 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 				else
 				{
 					alleleForPosition_allele = alignedBases.substr(index_along_read, 1);
+					
+						assert((index_along_unaligned_read >= 0) && (index_along_unaligned_read < qualitiesString.size()));
+						assert((index_along_unaligned_read >= 0) && (index_along_unaligned_read < queryBases.size()));
+						
 					alleleForPosition_qualities.push_back(qualitiesString.at(index_along_unaligned_read));
 					alleleForPosition_genome = referenceSequence.substr(index_into_genome, 1);
 					alleleForPosition_genome_graphLevel.push_back(index_into_genome);
 
+					assert(alleleForPosition_allele.size() > 0);
 					if(!(alleleForPosition_allele.at(0) == queryBases.at(index_along_unaligned_read)))
 					{
 						std::cout << "alleleForPosition_allele.at(0): " << alleleForPosition_allele.at(0) << "\n";
@@ -1291,6 +1355,7 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 				if(debug)
 				{
 					assert(index_into_results_vectorM1 >= -1);
+					assert((index_into_results_vectorM1 + 1) < debug_sequence_aligned.size());
 					debug_sequence_aligned.at(index_into_results_vectorM1+1).append(alleleForPositionM1_allele);
 				}
 
@@ -1326,6 +1391,8 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 
 				if(debug)
 				{
+					assert(index_into_results_vector >= -1);
+					assert((index_into_results_vector + 1) < debug_sequence_aligned.size());				
 					debug_sequence_aligned.at(index_into_results_vector+1).append(alleleForPosition_allele);
 				}
 			}

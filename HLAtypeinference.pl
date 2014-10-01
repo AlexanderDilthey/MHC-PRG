@@ -159,7 +159,7 @@ if($actions =~ /p/)
 			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
 		}
 		
-		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file);
+		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file --referenceGenome $referenceGenome);
 		
 		print "Now executing command:\n$command\n\n";
 		
@@ -198,7 +198,7 @@ if($actions =~ /n/)
 	my $fastQ_files = join(',', @fastQ_files);
 	my $output_files = join(',', @output_files);
 	
-	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files --referenceGenome $referenceGenome);
+	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files);
 	
 	print "Now executing command:\n$command\n\n";
 	
@@ -1334,7 +1334,8 @@ sub compatibleAlleles_individual
 	}
 	else
 	{
-		$components_validation = scalar(split(/\:/, $allele_validation));
+		my @_components = split(/\:/, $allele_validation);
+		$components_validation = scalar(@_components);
 	}
 	die unless(defined $components_validation);
 	
