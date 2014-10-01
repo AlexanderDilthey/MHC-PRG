@@ -69,6 +69,8 @@ public:
 		fromReverse = false;
 		fromPosition = -1;
 		toPosition = -1;
+		likelihood_from_normalAlignment_to = -1;
+		likelihood_from_normalAlignment_from = -1;
 	}
 	std::string readID;
 	std::string sequence;
@@ -76,12 +78,20 @@ public:
 	std::string fromString;
 
 	double likelihood_from_normalAlignment;
-
+	int likelihood_from_normalAlignment_from;
+	int likelihood_from_normalAlignment_to;
+	
 	bool fromReverse;
 
 	std::string fromID;
 	int fromPosition;
 	int toPosition;
+	
+	std::string getLikelihoodAndPositionString() const
+	{
+		assert(likelihood_from_normalAlignment != -1);
+		return Utilities::DtoStr(likelihood_from_normalAlignment) + "[" + fromID + ":" + Utilities::ItoStr(likelihood_from_normalAlignment_from) + "-" + Utilities::ItoStr(likelihood_from_normalAlignment_to) + "]";
+	}
 };
 
 class fastq_readPair;
@@ -154,8 +164,8 @@ public:
 	{
 		std::string forReturn = "normalAlignment=";
 		std::vector<std::string> fields;
-		fields.push_back( (a1.likelihood_from_normalAlignment != -1) ? Utilities::DtoStr(a1.likelihood_from_normalAlignment) : "NA");
-		fields.push_back( (a2.likelihood_from_normalAlignment != -1) ? Utilities::DtoStr(a2.likelihood_from_normalAlignment) : "NA");
+		fields.push_back( (a1.likelihood_from_normalAlignment != -1) ? a1.getLikelihoodAndPositionString() : "NA");
+		fields.push_back( (a2.likelihood_from_normalAlignment != -1) ? a2.getLikelihoodAndPositionString() : "NA");
 
 		std::string strandsOK = "NA";
 		std::string IS = "NA";
@@ -170,7 +180,7 @@ public:
 					{
 						if(a1.fromPosition < a2.fromPosition)
 						{
-							strandsOK = 1;
+							strandsOK = "1";
 							int ISint = a2.fromPosition - a1.toPosition;
 							IS = Utilities::ItoStr(ISint);
 						}
@@ -179,7 +189,7 @@ public:
 					{
 						if(a1.toPosition > a2.toPosition)
 						{
-							strandsOK = 1;
+							strandsOK = "1";
 							int ISint = a1.fromPosition - a2.toPosition;
 							IS = Utilities::ItoStr(ISint);
 						}
