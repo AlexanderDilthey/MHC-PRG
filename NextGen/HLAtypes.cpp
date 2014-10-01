@@ -96,6 +96,9 @@ public:
 
 	bool pairs_strands_OK;
 	double pairs_strands_distance;
+
+	double mapQ;
+	double mapQ_genomic;
 };
 
 
@@ -2049,6 +2052,9 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
 								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
 
+								thisPosition.mapQ = alignment.mapQ;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+
 								readAlignment_exonPositions.push_back(thisPosition);
 
 							}
@@ -2071,6 +2077,9 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 								thisPosition.pairs_strands_distance = pairs_strands_distance;
 								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
 								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+								thisPosition.mapQ = alignment.mapQ;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
 
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
@@ -2098,6 +2107,9 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
 								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
 
+								thisPosition.mapQ = alignment.mapQ;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
 							else
@@ -2116,6 +2128,9 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 								thisPosition.pairs_strands_distance = pairs_strands_distance;
 								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
 								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+								thisPosition.mapQ = alignment.mapQ;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
 
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
@@ -4111,6 +4126,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
 								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
 
+								thisPosition.mapQ = alignment.mapQ;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+
 								readAlignment_exonPositions.push_back(thisPosition);
 
 							}
@@ -4133,6 +4151,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 								thisPosition.pairs_strands_distance = pairs_strands_distance;
 								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
 								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+								thisPosition.mapQ = alignment.mapQ;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
 
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
@@ -4160,6 +4181,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
 								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
 
+								thisPosition.mapQ = alignment.mapQ;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
 							else
@@ -4178,6 +4202,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 								thisPosition.pairs_strands_distance = pairs_strands_distance;
 								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
 								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+								thisPosition.mapQ = alignment.mapQ;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
 
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
@@ -4346,6 +4373,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 						+ Utilities::DtoStr(piledPosition.pairedRead_fractionOK) + " | "
 						+ Utilities::ItoStr(piledPosition.pairs_strands_OK) + " "
 						+ Utilities::DtoStr(piledPosition.pairs_strands_distance) + " | "
+						+ Utilities::DtoStr(piledPosition.mapQ) + " "
+						+ Utilities::DtoStr(piledPosition.mapQ_genomic) + " | "
 						+ piledPosition.thisRead_ID + " "
 						+ piledPosition.pairedRead_ID
 						+ "]";

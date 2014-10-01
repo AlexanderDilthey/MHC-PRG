@@ -1274,7 +1274,7 @@ void Graph::readFromFile(string filename)
 
 	cout << "\n\n" << flush;
 	
-	
+	filename_last_read = filename;
 }
 
 
