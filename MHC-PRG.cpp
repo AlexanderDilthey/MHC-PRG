@@ -1150,6 +1150,8 @@ int main(int argc, char *argv[])
 		std::string positiveFilter;
 		std::string negativeFilter;
 
+		std::string referenceGenome;
+
 		double positiveThreshold = 0.3;
 		double negativeThreshold = 0.3;
 
@@ -1185,6 +1187,10 @@ int main(int argc, char *argv[])
 			if(arguments.at(i) == "--input_FASTQ")
 			{
 				input_FASTQ = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--referenceGenome")
+			{
+				referenceGenome = arguments.at(i+1);
 			}
 			if(arguments.at(i) == "--output_FASTQ")
 			{
@@ -1233,6 +1239,7 @@ int main(int argc, char *argv[])
 		F.positiveUnique = positiveUnique;
 		F.uniqueness_base = uniqueness_base;
 		F.uniqueness_subtract = uniqueness_subtract;
+		F.referenceGenomeFile = referenceGenome;
 
 		F.doFilter();
 

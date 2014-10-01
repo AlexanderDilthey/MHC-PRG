@@ -122,7 +122,6 @@ void affinelyCalculateGraphDistancesForVirtualNW_local(int fromLevel, int toLeve
 
 std::vector<localExtension_pathDescription> fullNeedleman_diagonal_extension(std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, int diagonal_stop_threshold, VirtualNWTable_Unique* blockedPathsTable, bool directionPositive,  bool returnGlobalScore);
 
-double scoreOneAlignment(oneRead& underlyingRead, seedAndExtend_return_local& alignment, int& totalMismatches);
 
 public:
 	GraphAlignerUnique(Graph* graph, int k);
@@ -131,6 +130,9 @@ public:
 	seedAndExtend_return_local seedAndExtend_short(std::string sequence, std::vector<seedAndExtend_return_local>& allBacktraces);
 
 	std::pair<seedAndExtend_return_local, seedAndExtend_return_local> seedAndExtend_local_paired_or_short(oneReadPair readPair, bool usePairing, bool use_short, double insertSize_mean, double insertSize_sd, bool estimateInsertSize, std::map<int, double>& insertSize_posterior_ret);
+
+	double scoreOneAlignment(oneRead& underlyingRead, seedAndExtend_return_local& alignment, int& totalMismatches);
+
 
 	GraphAndEdgeIndex& getGI()
 	{

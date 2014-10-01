@@ -45,12 +45,15 @@ my $T = 0;
 my $all_2_dig = 0;
 my $only_4_dig = 1;
 
+my $referenceGenome;
+
 GetOptions ('graph:s' => \$graph,
  'sampleIDs:s' => \$sampleIDs, 
  'BAMs:s' => \$BAMs, 
  'actions:s' => \$actions, 
  'trueHLA:s' => \$trueHLA,
  'trueHaplotypes:s' => \$trueHaplotypes, 
+ 'referenceGenome:s' => \$referenceGenome, 
  #'validation_round:s' => \$validation_round,
  'T:s' => \$T,
 );         
@@ -195,7 +198,7 @@ if($actions =~ /n/)
 	my $fastQ_files = join(',', @fastQ_files);
 	my $output_files = join(',', @output_files);
 	
-	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files);
+	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files --referenceGenome $referenceGenome);
 	
 	print "Now executing command:\n$command\n\n";
 	
