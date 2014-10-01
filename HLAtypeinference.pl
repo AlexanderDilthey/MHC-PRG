@@ -69,7 +69,7 @@ unless(-e $expected_kMer_file)
 }
 
 my $normal_bin = qq(../bin/MHC-PRG);
-my $cluster3_bin = qq(../bin_cluster3/MHC-PRG);
+my $cluster3_bin = qq(../bin/MHC-PRG);
 my $use_bin = ((hostname() =~ /cluster3/) or (hostname() =~ /^comp[AB]\d+$/)) ? $cluster3_bin : $normal_bin;
 unless(-e $use_bin)
 {
