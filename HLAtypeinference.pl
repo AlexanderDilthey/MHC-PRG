@@ -45,12 +45,15 @@ my $T = 0;
 my $all_2_dig = 0;
 my $only_4_dig = 1;
 
+my $referenceGenome;
+
 GetOptions ('graph:s' => \$graph,
  'sampleIDs:s' => \$sampleIDs, 
  'BAMs:s' => \$BAMs, 
  'actions:s' => \$actions, 
  'trueHLA:s' => \$trueHLA,
  'trueHaplotypes:s' => \$trueHaplotypes, 
+ 'referenceGenome:s' => \$referenceGenome, 
  #'validation_round:s' => \$validation_round,
  'T:s' => \$T,
 );         
@@ -69,7 +72,7 @@ unless(-e $expected_kMer_file)
 }
 
 my $normal_bin = qq(../bin/MHC-PRG);
-my $cluster3_bin = qq(../bin_cluster3/MHC-PRG);
+my $cluster3_bin = qq(../bin/MHC-PRG);
 my $use_bin = ((hostname() =~ /cluster3/) or (hostname() =~ /^comp[AB]\d+$/)) ? $cluster3_bin : $normal_bin;
 unless(-e $use_bin)
 {
@@ -156,7 +159,12 @@ if($actions =~ /p/)
 			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
 		}
 		
-		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file);
+		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file );
+		
+		if($referenceGenome)
+		{
+			$command .= qq( --referenceGenome $referenceGenome);
+		}	
 		
 		print "Now executing command:\n$command\n\n";
 		
@@ -1331,7 +1339,8 @@ sub compatibleAlleles_individual
 	}
 	else
 	{
-		$components_validation = scalar(split(/\:/, $allele_validation));
+		my @_components = split(/\:/, $allele_validation);
+		$components_validation = scalar(@_components);
 	}
 	die unless(defined $components_validation);
 	

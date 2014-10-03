@@ -73,6 +73,8 @@ public:
 
 	diploidEdgePointerPath simulateRandomDiploidPath();
 
+	std::string filename_last_read;
+
 
 };
 

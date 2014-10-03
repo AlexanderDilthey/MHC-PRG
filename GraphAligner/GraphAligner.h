@@ -73,6 +73,7 @@ public:
 	size_t kMers_unique_utilized;
 	bool reverse;
 	double mapQ;
+	double mapQ_genomic;
 
 	int alignment_firstLevel()
 	{
