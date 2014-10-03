@@ -455,7 +455,7 @@ void readFilter::doFilter()
 	
 		std::function<void(const fastq_readPair&)> printFunction = [&](const fastq_readPair& read) -> void {
 
-			std::string normalAlignmentInfoString = read.getNormalAlignmentString();
+			std::string normalAlignmentInfoString = ":"+read.getNormalAlignmentString();
 
 				std::string read1_readID = read.a1.readID;
 				
