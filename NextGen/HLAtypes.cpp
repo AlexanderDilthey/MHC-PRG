@@ -50,7 +50,8 @@ double log_likelihood_nonDeletion = log(1 - deletionP);
 // int max_mismatches_perRead = 2;
 double min_alignmentFraction_OK = 0.96; // measures all alignment positions but graph AND sequence gaps, separately for both reads
 double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downweighted by quality
-double min_bothReads_weightedCharactersOK = 0.985; // both reads, mismatches downweighted by quality
+// double min_bothReads_weightedCharactersOK = 0.985; // both reads, mismatches downweighted by quality
+double min_bothReads_weightedCharactersOK = 0.95;
 
 double minimumMappingQuality = 0.9;
 
@@ -4238,6 +4239,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				// std::cerr << "!!!!!!!!!!!!!!!!!" << "\n" << std::flush;
 			// }
 
+			/*
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
 					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
@@ -4248,6 +4250,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_oneRead_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_oneRead_weightedCharactersOK)) &&
 					(alignedReadPair.first.mapQ >= minimumMappingQuality)
 			)
+			*/
+			if(
+					alignedReadPair_strandsValid(alignedReadPair) &&
+					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
+					(alignedReadPair.first.mapQ >= minimumMappingQuality) &&
+					(!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
+					)  			
 			{
 				// good
 
