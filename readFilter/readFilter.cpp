@@ -457,7 +457,29 @@ void readFilter::doFilter()
 
 			std::string normalAlignmentInfoString = read.getNormalAlignmentString();
 
-				fastq_1_output << "@" << read.a1.readID << ":" << normalAlignmentInfoString << ":FROM:" << read.a1.fromString << "\n"
+				std::string read1_readID = read.a1.readID;
+				
+				{
+					assert((read1_readID.substr(read1_readID.length() - 2) == "/1") || (read1_readID.substr(read1_readID.length() - 2) == "/2"));
+					std::string read1_suffix = read1_readID.substr(read1_readID.length() - 2);
+					read1_readID = read1_readID.substr(0, read1_readID.length() - 2);
+					read1_readID.append(normalAlignmentInfoString);
+					read1_readID.append(read1_suffix);
+				}
+				
+				std::string read2_readID = read.a2.readID;
+				
+				{
+					assert((read2_readID.substr(read2_readID.length() - 2) == "/1") || (read2_readID.substr(read2_readID.length() - 2) == "/2"));
+					std::string read1_suffix = read2_readID.substr(read2_readID.length() - 2);
+					read2_readID = read2_readID.substr(0, read2_readID.length() - 2);
+					read2_readID.append(normalAlignmentInfoString);
+					read2_readID.append(read1_suffix);
+				}
+				
+				
+				
+				fastq_1_output << "@" << read1_readID << ":FROM:" << read.a1.fromString << "\n"
 						  << read.a1.sequence    << "\n"
 						  << "+"         << "\n"
 						  << read.a1.qualities   << "\n";
@@ -470,7 +492,7 @@ void readFilter::doFilter()
 				std::string read_2_sequence_forPrint = read.a2.sequence;
 				std::string read_2_qualities_forPrint = read.a2.qualities;
 				
-				fastq_2_output << "@" << read.a2.readID << ":" << normalAlignmentInfoString << ":FROM:" << read.a2.fromString << "\n"
+				fastq_2_output << "@" << read2_readID << ":FROM:" << read.a2.fromString << "\n"
 								  << read_2_sequence_forPrint    << "\n"
 								  << "+"         << "\n"
 								  << read_2_qualities_forPrint   << "\n";
@@ -1180,7 +1202,7 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 
 		int alleleForPositionM1_genomicPosition;
 
-		bool debug = true;
+		bool debug = false;
 		std::vector<std::string> debug_sequence_aligned;
 		if(debug)
 			debug_sequence_aligned.resize(CIGAR.size()+1);
