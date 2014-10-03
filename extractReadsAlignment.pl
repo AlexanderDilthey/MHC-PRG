@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
+use Data::Dumper;
 
 my $output_directory = '_displayReadsAlignmentOutput';
 unless(-e $output_directory)
@@ -19,11 +20,8 @@ my %interestingReadsBySample = (
 			'@@B819B8ABXX:2:2203:4373:99705#CGATGTAT/2:FROM:6:32489862:FROM:',
 			'@@B819B8ABXX:2:1203:10388:38266#CGATGTAT/2:FROM:6:32552015:FROM:',
 			'@@B819B8ABXX:2:1205:11083:89762#CATGTATC/2:FROM:6:32552024:FROM:',
-			'@@FCC00N2ABXX:8:1203:18982:24309#CGATGTAT/1:FROM:6:32489773:FROM:',
 			'@@A8176BABXX:1:1101:11794:63897#CGATGTAT/2:FROM:6:32489763:FROM:',
 			'@@B819B8ABXX:2:1205:11083:89762#CATGTATC/1:FROM:6:32551957:FROM:',
-			
-			
 		],
 		'trueHLAsaysThere' => [
 			'@@B819B8ABXX:2:1204:2500:66314#CGATGTAT/2:FROM:6:32552025:FROM:',
@@ -122,9 +120,9 @@ foreach my $sampleID (keys %interestingReadsBySample)
 		
 		if($reads_2_group{$read1_ID} or $reads_2_group{$read2_ID})
 		{
-			if($reads_2_group{$read1_ID} and $reads_2_group{$read2_ID})
+			if($reads_2_group{$read1_ID} and $reads_2_group{$read2_ID})  
 			{
-				die unless($reads_2_group{$read1_ID} eq $reads_2_group{$read2_ID});
+				die Dumper("Double group for reads $read1_ID and $read2_ID") unless($reads_2_group{$read1_ID} eq $reads_2_group{$read2_ID});
 			}
 			
 			if(exists $reads_2_group{$read1_ID})
@@ -170,7 +168,7 @@ foreach my $sampleID (keys %interestingReadsBySample)
 	{
 		print SEQUENCEONLY "\t", $groupName, "\n";
 		
-		foreach my $specifiedReadID (keys %{$interestingReadsBySample{$sampleID}{$groupName}})
+		foreach my $specifiedReadID (@{$interestingReadsBySample{$sampleID}{$groupName}})
 		{
 			if(exists $specifiedRead_2_firstReadID{$specifiedReadID})
 			{
