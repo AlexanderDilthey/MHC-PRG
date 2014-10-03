@@ -14,6 +14,11 @@
 #include <utility>
 #include <assert.h>
 #include <functional>
+#include "../Utilities.h"
+
+#include "api/BamAlignment.h"
+#include "../NextGen/readSimulator.h"
+#include "../GraphAligner/GraphAligner.h"
 
 
 class readFilter {
@@ -38,6 +43,8 @@ public:
 
 	std::string output_FASTQ;
 
+	std::string referenceGenomeFile;
+
 	int k;
 
 	int threads;
@@ -56,10 +63,35 @@ public:
 
 class BAMalignment {
 public:
+	BAMalignment()
+	{
+		likelihood_from_normalAlignment = -1;
+		fromReverse = false;
+		fromPosition = -1;
+		toPosition = -1;
+		likelihood_from_normalAlignment_to = -1;
+		likelihood_from_normalAlignment_from = -1;
+	}
 	std::string readID;
 	std::string sequence;
 	std::string qualities;
 	std::string fromString;
+
+	double likelihood_from_normalAlignment;
+	int likelihood_from_normalAlignment_from;
+	int likelihood_from_normalAlignment_to;
+	
+	bool fromReverse;
+
+	std::string fromID;
+	int fromPosition;
+	int toPosition;
+	
+	std::string getLikelihoodAndPositionString() const
+	{
+		assert(likelihood_from_normalAlignment != -1);
+		return Utilities::DtoStr(likelihood_from_normalAlignment) + "[" + fromID + ":" + Utilities::ItoStr(likelihood_from_normalAlignment_from) + "-" + Utilities::ItoStr(likelihood_from_normalAlignment_to) + "]";
+	}
 };
 
 class fastq_readPair;
@@ -127,13 +159,61 @@ public:
 			return false;
 		}
 	}
+
+	std::string getNormalAlignmentString() const
+	{
+		std::string forReturn = "normalAlignment=";
+		std::vector<std::string> fields;
+		fields.push_back( (a1.likelihood_from_normalAlignment != -1) ? a1.getLikelihoodAndPositionString() : "NA");
+		fields.push_back( (a2.likelihood_from_normalAlignment != -1) ? a2.getLikelihoodAndPositionString() : "NA");
+
+		std::string strandsOK = "NA";
+		std::string IS = "NA";
+		if(a1.fromID.length() && a2.fromID.length())
+		{
+			strandsOK = "0";
+			if(a1.fromID == a2.fromID)
+			{
+				if(a1.fromReverse != a2.fromReverse)
+				{
+					if(a1.fromReverse == false)
+					{
+						if(a1.fromPosition < a2.fromPosition)
+						{
+							strandsOK = "1";
+							int ISint = a2.fromPosition - a1.toPosition;
+							IS = Utilities::ItoStr(ISint);
+						}
+					}
+					else
+					{
+						if(a1.toPosition > a2.toPosition)
+						{
+							strandsOK = "1";
+							int ISint = a1.fromPosition - a2.toPosition;
+							IS = Utilities::ItoStr(ISint);
+						}
+					}
+				}
+			}
+		}
+
+		fields.push_back(strandsOK);
+		fields.push_back(IS);
+
+		forReturn += Utilities::join(fields, ";");
+
+		return forReturn;
+	}
 };
 
 
 std::vector<BAMRegionSpecifier> getBAMregions(std::string BAMfile);
 
-void filterBAM(int threads, std::string BAMfile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
+void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
 void filterFastQPairs(int threads, std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
 void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
+
+bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string>& referenceGenome, const std::string& regionID, const BamTools::BamAlignment& al, oneRead& read_forLL, seedAndExtend_return_local& alignment_forLL);
 
 #endif /* READFILTER_H_ */
