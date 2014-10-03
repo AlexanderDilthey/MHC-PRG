@@ -348,7 +348,7 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 						assert(reference_position > lastPrintedRealReferencePosition);
 						int missingReferencePositions = reference_position - lastPrintedRealReferencePosition - 1;
 						assert(missingReferencePositions > 0);
-						for(unsigned int j = 0; j < missingReferencePositions; j++)
+						for(unsigned int j = 0; (int)j < missingReferencePositions; j++)
 						{
 							CIGAR_uncompressed.push_back('D');
 						}
@@ -569,10 +569,21 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 			std::string str_originalSequence = lines.at(7).substr(2);
 			std::string str_qualities = lines.at(8).substr(2);
 
+			std::vector<std::string> mapQs = Utilities::split(str_mapQ, " ");
+
 			seedAndExtend_return_local a;
 			a.Score = Utilities::StrtoD(str_score);
 			a.reverse = Utilities::StrtoB(str_reverse);
-			a.mapQ = Utilities::StrtoD(str_mapQ);
+			if(mapQs.size() == 2)
+			{
+				a.mapQ = Utilities::StrtoD(mapQs.at(0));
+				a.mapQ_genomic = Utilities::StrtoD(mapQs.at(1));
+			}
+			else
+			{
+				a.mapQ = Utilities::StrtoD(mapQs.at(0));
+				a.mapQ_genomic = 2;
+			}
 			a.graph_aligned = str_graph_aligned;
 			a.sequence_aligned = str_sequence_aligned;
 			a.graph_aligned_levels = Utilities::StrtoI(Utilities::split(str_levels, " "));			
@@ -857,7 +868,7 @@ void alignShortReadsToHLAGraph(std::string FASTQs, std::string graphDir, std::st
 			outputStream << "\t" << "Read " << originalRead.name << "\n";
 			outputStream << "\t\t" << alignment.Score << "\n";
 			outputStream << "\t\t" << alignment.reverse << "\n";
-			outputStream << "\t\t" << alignment.mapQ << "\n";
+			outputStream << "\t\t" << alignment.mapQ << " " << alignment.mapQ_genomic << "\n";
 			outputStream << "\t\t" << alignment.graph_aligned << "\n";
 			outputStream << "\t\t" << alignment.sequence_aligned << "\n";
 			outputStream << "\t\t" << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), " ") << "\n";
@@ -914,7 +925,7 @@ void alignShortReadsToHLAGraph(std::string FASTQs, std::string graphDir, std::st
 
 		std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > withPairing_alignments;
 		std::vector< int > withPairing_alignments_readPairI;
-		for(unsigned int tI = 0; tI < outerThreads; tI++)
+		for(unsigned int tI = 0; (int)tI < outerThreads; tI++)
 		{
 			withPairing_alignments.insert(withPairing_alignments.end(), withPairing_alignments_perThread.at(tI).begin(), withPairing_alignments_perThread.at(tI).end());
 			withPairing_alignments_readPairI.insert(withPairing_alignments_readPairI.end(), withPairing_alignments_readPairI_perThread.at(tI).begin(), withPairing_alignments_readPairI_perThread.at(tI).end());
@@ -1710,7 +1721,7 @@ void alignContigsToAllChromotypes(std::string chromotypes_file, std::string amen
 						int correspondingReferencePosition = levels_separated_2_reference.at(levelI);
 						if(correspondingReferencePosition != -1)
 						{
-							if(! (((correspondingReferencePosition - 1) >= 0) && ((correspondingReferencePosition - 1) < genomeReference.at(chromosomeID).length())))
+							if(! (((correspondingReferencePosition - 1) >= 0) && ((correspondingReferencePosition - 1) < (int)genomeReference.at(chromosomeID).length())))
 							{
 								std::cerr << "chromosomeID" << ":" << chromosomeID << "\n";
 								std::cerr << "(correspondingReferencePosition - 1)" << ":" << (correspondingReferencePosition - 1) << "\n";
@@ -1718,7 +1729,7 @@ void alignContigsToAllChromotypes(std::string chromotypes_file, std::string amen
 							}
 							
 							assert((correspondingReferencePosition - 1) >= 0);
-							assert((correspondingReferencePosition - 1) < genomeReference.at(chromosomeID).length());
+							assert((correspondingReferencePosition - 1) < (int)genomeReference.at(chromosomeID).length());
 							
 							levels_referenceCharacters.push_back(genomeReference.at(chromosomeID).substr(correspondingReferencePosition - 1, 1));
 						}
@@ -1786,7 +1797,7 @@ void alignContigsToAllChromotypes(std::string chromotypes_file, std::string amen
 									assert(reference_position > lastPrintedRealReferencePosition);
 									int missingReferencePositions = reference_position - lastPrintedRealReferencePosition - 1;
 									assert(missingReferencePositions > 0);
-									for(unsigned int j = 0; j < missingReferencePositions; j++)
+									for(unsigned int j = 0; (int)j < missingReferencePositions; j++)
 									{
 										CIGAR_uncompressed.push_back('D');
 									}
