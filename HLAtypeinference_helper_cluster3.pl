@@ -15,6 +15,7 @@ my $iteration = 1;
 my $sampleIDs;
 
 my $referenceGenome = qq(/gpfs1/well/chimp/oa/ref/hs37d5.fasta);
+$referenceGenome = '';
 
 GetOptions ('graph:s' => \$graph,
  'action:s' => \$action, 
@@ -55,7 +56,13 @@ if($action eq 'qsub')
 		
 		my $qsub_filename = '../tmp/hla_qsub/'.$sampleID.'.bash';
 		
-		my $command_negative_filtering = qq(perl HLAtypeinference.pl --graph $graph --sampleIDs $sampleID --BAMs $BAM --actions p --referenceGenome $referenceGenome);
+		my $command_negative_filtering = qq(perl HLAtypeinference.pl --graph $graph --sampleIDs $sampleID --BAMs $BAM --actions p);
+		if($referenceGenome)
+		{
+			$command_negative_filtering .= qq( --referenceGenome $referenceGenome);
+		}
+		
+		print $command_negative_filtering, "\n";
 		open(QSUB, '>', $qsub_filename) or die "Cannot open $qsub_filename";
 print QSUB qq(#!/bin/bash
 #\$ -P mcvean.prjb -q long.qb

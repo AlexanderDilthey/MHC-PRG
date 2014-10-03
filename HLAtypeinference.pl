@@ -159,7 +159,12 @@ if($actions =~ /p/)
 			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
 		}
 		
-		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file --referenceGenome $referenceGenome);
+		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file );
+		
+		if($referenceGenome)
+		{
+			$command .= qq( --referenceGenome $referenceGenome);
+		}	
 		
 		print "Now executing command:\n$command\n\n";
 		
