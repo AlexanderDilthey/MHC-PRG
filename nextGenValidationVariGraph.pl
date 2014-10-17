@@ -21,6 +21,7 @@ my $sample;
 my $vcfPos;
 my $VCF_for_comparison = '';
 my $classical_VCF;
+my $VCF_genomeWide;
 my $contigs_file;
 my $cluster3 = 0;
 
@@ -54,6 +55,7 @@ GetOptions (
 	'original_alignment:s' => \$original_alignment,
 	'referenceGenome:s' => \$referenceGenome,	
 	'classical_VCF:s' => \$classical_VCF,
+	'VCF_genomeWide:s' => \$VCF_genomeWide,
 	'contigs_file:s' => \$contigs_file,
 	'cluster3:s' => \$cluster3,
 );         
@@ -205,6 +207,13 @@ unless(-e $kMer_validation_output_dir)
 {
 	mkdir($kMer_validation_output_dir) or die "Cannot mkdir $kMer_validation_output_dir";
 }
+
+my $output_dir_VCFgenomewide = $contig_dir_graph . '/genomeWide';
+unless(-e $output_dir_VCFgenomewide)
+{
+	mkdir($output_dir_VCFgenomewide) or die "Cannot mkdir $output_dir_VCFgenomewide";
+}
+
 die unless((-e $contig_general_dir) and (-e $contig_dir_graph) and (-e $kMer_validation_output_dir));
 my $contigFile_noSpecialCharacters = (fileparse($contigs_file))[0];
 $contigFile_noSpecialCharacters =~ s/\W/_/g;
@@ -556,6 +565,19 @@ else
 	print "And execute this for contig validation:\n\n";
 
 	print $command_align_chromotypes;
+	
+	if($VCF_genomeWide)
+	{
+		my $command_VCF_genomewide = qq(../bin/MHC-PRG domode validateCompleteVCF $VCF_genomeWide $referenceGenome $sample_deBruijn_graph_file $output_dir_VCFgenomewide);
+		
+		print "\n\nAnd this command for VCF genome-wide validation:\n";
+		
+		print $command_VCF_genomewide, "\n\n";	
+	}
+	else
+	{
+		print "No genome-wide VCF provided.\n";
+	}
 
 	print "\n\n";
 }
