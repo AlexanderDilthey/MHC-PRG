@@ -123,9 +123,9 @@ elsif($sampleIDs =~ /^all/)
 
 if(scalar(@sampleIDs) > 10)
 {
-	@sampleIDs = @sampleIDs[0 .. 9];
+	# @sampleIDs = @sampleIDs[0 .. 9];
 	
-	warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
+	#warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 }
 
 # @sampleIDs = $sampleIDs[7]; # todo remove

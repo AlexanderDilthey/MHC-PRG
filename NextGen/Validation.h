@@ -24,7 +24,7 @@ class oneReadPair;
 typedef std::vector< std::vector<std::string> > diploidGenomeString;
 
 Graph* genomeString2Graph(diploidGenomeString gS, bool verbose = false);
-diploidGenomeString VCF2GenomeString(std::string chromosomeID, int positionStart, int positionStop, std::string VCFpath, std::string referenceGenomePath, std::vector<std::vector<int> >& ret_graph_referencePositions, bool ignoreVCF = false);
+diploidGenomeString VCF2GenomeString(std::string chromosomeID, int positionStart, int positionStop, std::string VCFpath, std::string referenceGenomePath, std::vector<std::vector<int> >& ret_graph_referencePositions, bool ignoreVCF = false, bool onlyPASS = false);
 
 Graph* VCF2Graph(std::string chromosomeID, int positionStart, int positionStop, std::string VCFpath, std::string referenceGenomePath);
 void storeGenomeStringInFile(diploidGenomeString& gS, std::string filename);
