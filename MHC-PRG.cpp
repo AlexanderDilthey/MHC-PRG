@@ -323,6 +323,41 @@ int main(int argc, char *argv[])
 
 		//		validateAmendedChromotypesVsVCF(output_file_amendedHaplotypes, chromotypes_start, chromotypes_stop, vcfFile, vcf_start, vcf_stop, referenceGenome, deBruijnGraph, kMer_size, cortex_height, cortex_width);
 	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "validateCompleteVCF"))
+	{
+		bool labelOnly = false;
+		omp_set_num_threads(40);
+		CONFIG.threads=40;
+
+		int cortex_height = 26;
+		int cortex_width = 140;
+		int kMer_size = 31;
+
+		for(unsigned int i = 2; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--cortex_height")
+			{
+				cortex_height = Utilities::StrtoI(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--cortex_width")
+			{
+				cortex_width = Utilities::StrtoI(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--kmer")
+			{
+				kMer_size = Utilities::StrtoI(arguments.at(i+1));
+			}
+		}
+
+		string vcfFile = arguments.at(2);
+		string referenceGenome = arguments.at(3);
+		string deBruijnGraph = arguments.at(4);
+		string outputDirectory = arguments.at(5);
+
+		validateCompleteVCF(vcfFile, referenceGenome, deBruijnGraph, kMer_size, cortex_height, cortex_width, outputDirectory);
+	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "alignShortReadsToHLAGraph"))
 	{
 		bool labelOnly = false;
