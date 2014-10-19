@@ -1124,6 +1124,7 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 		int readStart = al.Position;
 
 		std::vector< BamTools::CigarOp > CIGAR_Compressed = al.CigarData;
+		bool softClipped = false;
 		std::vector<char> CIGAR;
 		CIGAR.reserve(al.AlignedBases.length()*1.1);
 		for(unsigned int cigarI = 0; cigarI < CIGAR_Compressed.size(); cigarI++)
@@ -1135,6 +1136,10 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 				{
 					CIGAR.push_back(thisOp.Type);
 				}
+			}
+			if(thisOp.Type == 'S')
+			{
+				softClipped = true;
 			}
 		}
 
@@ -1151,6 +1156,10 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 
 		// populate read_forLL
 		read_forLL.name = al.Name;
+		if(softClipped)
+		{
+			read_forLL.name = "SOFTCLIPPED";
+		}
 		read_forLL.sequence = queryBases;
 		read_forLL.quality = qualitiesString;
 		if ( al.IsReverseStrand() ) {
