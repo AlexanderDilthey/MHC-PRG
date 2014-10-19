@@ -3246,6 +3246,84 @@ void alignContigsToAllChromotypes(std::string chromotypes_file, std::string amen
 }
 
 
+void validateCompleteVCF(std::string VCFfile, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width, std::string outputDirectory)
+{
+	std::string configFileOutputPath= outputDirectory + "/validationDetails.txt";
+
+	ofstream configOutputStream;
+
+	configOutputStream.open(configFileOutputPath.c_str());
+	if(! configOutputStream.is_open())
+	{
+		throw std::runtime_error("validateCompleteVCF(..): Want top open config summary file for writing, but can't! Path:\n"+configFileOutputPath);
+	}
+	configOutputStream << "k = " << kMer_size << "\n";
+	configOutputStream << "deBruijnGraph" << " = " << deBruijnGraph << "\n";
+	configOutputStream << "VCF" << " = " << VCFfile << "\n";
+	configOutputStream << "referenceGenome" << " = " << referenceGenome << "\n";
+	configOutputStream.close();
+
+	std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
+	DeBruijnGraph<1, 31, 1> myGraph(cortex_height, cortex_width);
+	std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary...\n" << std::flush;
+	myGraph.loadMultiColourBinary(deBruijnGraph);
+	std::cout << Utilities::timestamp() << "\tdone\n" << std::flush;
+	std::cout << "\tTotal coverage: " << myGraph.totalCoverage() << "\n";
+
+	std::vector<std::string> chromosomes;
+	for(int i = 1; i < 22; i++)
+	{
+		chromosomes.push_back(Utilities::ItoStr(i));
+	}
+	chromosomes.push_back("X");
+	chromosomes.push_back("Y");
+
+	std::string summaryFilePath = outputDirectory + "/summaryPerChromosome.txt";
+	ofstream summaryFileStream;
+	summaryFileStream.open(summaryFilePath.c_str());
+	assert(summaryFileStream.is_open());
+
+	std::vector<std::string> headerFields;
+	headerFields.push_back("Method");
+	headerFields.push_back("Total characters");
+	headerFields.push_back("Total non-gap characters");
+	headerFields.push_back("# kMers");
+	headerFields.push_back("# kMers invalid");
+	headerFields.push_back("# kMers present");
+	headerFields.push_back("Unweighted optimality");
+	headerFields.push_back("Coverage-weighted optimality");
+
+	summaryFileStream << Utilities::join(headerFields, "\t") << "\n";
+
+	for(unsigned int chromosomeI = 0; chromosomeI < chromosomes.size(); chromosomeI++)
+	{
+		std::string chromosome = chromosomes.at(chromosomeI);
+
+		std::cout << "Chromosome " << chromosome << ", convert VCF to diploidGS...\n" << std::flush;
+		std::vector<std::vector<int> > VCF_chromotypes_referencePositions;
+		diploidGenomeString VCF_chromotypes = VCF2GenomeString(chromosome, -1, -1, VCFfile, referenceGenome, VCF_chromotypes_referencePositions);
+		std::cout << "\tdone\n" << std::flush;
+
+		std::cout << "Chromosome " << chromosome << ", compress VCF diploidGS...\n" << std::flush;
+		diploidGenomeString VCF_chromotypes_compressed = compressGenomeString(VCF_chromotypes);
+		std::cout << "\tdone\n" << std::flush;
+
+
+		std::cout << "Chromosome " << chromosome << ", resolve chromotypes from VCF..\n" << std::flush;
+		diploidGenomeString VCF_chromotypes_resolved = greedilyResolveDiploidKMerString<1, 31, 1>(VCF_chromotypes_compressed, &myGraph).second;
+		std::cout << "\tdone\n" << std::flush;
+
+		std::set<std::string> set_kMers_reference;
+		std::set<std::string> set_kMers_VCF;
+		std::set<std::string> set_kMers_VCF_present;
+		std::map<std::string, double> set_kMers_VCF_optimalities;
+
+		std::cout << "Chromosome " << chromosome << ", evaluate VCF chromotypes\n" << std::flush;
+		evaluate_dGS(VCF_chromotypes_resolved, VCF_chromotypes_compressed, set_kMers_reference, &myGraph, &set_kMers_VCF, &set_kMers_VCF_present, &set_kMers_VCF_optimalities, "VCF"+chromosome, summaryFileStream, outputDirectory, VCF_chromotypes_referencePositions);
+
+		std::cout << "\n\n" << std::flush;
+	}
+}
 
 void validateAllChromotypesVsVCF(std::string chromotypes_file, std::string amended_chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width, std::string outputDirectory, std::string graphDir)
 {
@@ -4977,7 +5055,16 @@ diploidGenomeString VCF2GenomeString(std::string chromosomeID, int positionStart
 		throw std::runtime_error("Cannot open VCF file: "+ VCFpath);
 	}
 
-	assert(positionStop > positionStart);
+	bool ignoreBoundaries = ((positionStart == -1) && (positionStop == -1));
+
+	if(!ignoreBoundaries)
+		assert(positionStop > positionStart);
+
+	if(ignoreBoundaries)
+	{
+		positionStart = 1;
+		positionStop = referenceGenome.at(chromosomeID).length();
+	}
 
 	std::vector< std::vector<std::string> > chars_2_graph;
 
