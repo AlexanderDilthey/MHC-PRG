@@ -15,7 +15,7 @@ my $iteration = 1;
 my $sampleIDs;
 
 my $referenceGenome = qq(/gpfs1/well/chimp/oa/ref/hs37d5.fasta);
-$referenceGenome = '';
+#$referenceGenome = '';
 
 GetOptions ('graph:s' => \$graph,
  'action:s' => \$action, 

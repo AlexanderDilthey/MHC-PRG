@@ -136,13 +136,30 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 			assert(indexIntoOriginalReadData_correctlyAligned >= 0);
 			assert(indexIntoOriginalReadData_correctlyAligned < (int)underlyingRead.sequence.length());;
 
-			std::string underlyingReadCharacter = underlyingRead.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
-			if(alignment.reverse)
+			if(underlyingRead.name != "SOFTCLIPPED")
 			{
-				underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+				std::string underlyingReadCharacter = underlyingRead.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
+				if(alignment.reverse)
+				{
+					underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+				}
+				if(!(underlyingReadCharacter == sequenceCharacter))
+				{
+					std::cerr << "!(underlyingReadCharacter == sequenceCharacter)" << "\n";
+					std::cerr << "underlyingReadCharacter" << ": " << underlyingReadCharacter << "\n";
+					std::cerr << "sequenceCharacter" << ": " << sequenceCharacter << "\n";
+					std::cerr << "cI" << ": " << cI << "/" << alignment.sequence_aligned.length() << "\n";
+					std::cerr << "alignment.reverse" << ": " << alignment.reverse << "\n";
+					std::cerr << "alignment.sequence_aligned" << ":\t" << alignment.sequence_aligned << "\n";
+					std::cerr << "alignment.graph_aligned" << ":\t" << alignment.graph_aligned << "\n";
+					std::cerr << "underlyingRead.sequence" << ":\t" << underlyingRead.sequence << "\n";
+					std::cerr << "underlyingRead.name" << ":\t" << underlyingRead.name << "\n";
+					
+					std::cerr << std::flush;
+				}
+				assert(underlyingReadCharacter == sequenceCharacter);
 			}
-			assert(underlyingReadCharacter == sequenceCharacter);
-
+			
 			if(graphCharacter == "_")
 			{
 				// sequence non gap, graph gap -- insertion
