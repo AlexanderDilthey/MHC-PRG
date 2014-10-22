@@ -576,7 +576,7 @@ else
 	}
 	else
 	{
-		print "No genome-wide VCF provided.\n";
+		print "\n\nNo genome-wide VCF provided.\n";
 	}
 
 	print "\n\n";
