@@ -35,7 +35,7 @@ Validation:
 
 	./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_Z2 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/moleculo/contigs_xMHC.fasta --cluster3 collect
 	
-	./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_Z2 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/moleculo/contigs_xMHC.fasta
+	./nextGenValidationVariGraph.pl --graph varigraph3 --sample AA02O9Q_Z2 --classical_VCF /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1_onlyMHC.vcf --contigs_file /Net/banyan/data1/projects/gsk/moleculo/contigs_xMHC.fasta --VCF_genomeWide /gpfs1/well/gsk_hla/Platypus/VCF_preUnion/AA02O9Q_Z1.vcf
 	
 	./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_A1 --kmer 31;./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_B1 --kmer 31;./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_C1 --kmer 31;./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_D1 --kmer 31;./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_E1 --kmer 31
 	
