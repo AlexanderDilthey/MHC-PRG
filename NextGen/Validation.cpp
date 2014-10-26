@@ -3303,6 +3303,8 @@ void validateCompleteVCF(std::string VCFfile, std::string referenceGenome, std::
 	{
 		std::string chromosome = chromosomes.at(chromosomeI);
 
+		// todo reactivate
+		/*
 		std::cout << Utilities::timestamp() << " " << "Chromosome " << chromosome << ", convert VCF to diploidGS...\n" << std::flush;
 		std::vector<std::vector<int> > VCF_chromotypes_referencePositions;
 		diploidGenomeString VCF_chromotypes = VCF2GenomeString(chromosome, -1, -1, VCFfile, referenceGenome, VCF_chromotypes_referencePositions);
@@ -3312,18 +3314,45 @@ void validateCompleteVCF(std::string VCFfile, std::string referenceGenome, std::
 		diploidGenomeString VCF_chromotypes_compressed = compressGenomeString(VCF_chromotypes);
 		std::cout << Utilities::timestamp() << " " <<  "\n\tdone\n" << std::flush;
 
-
 		std::cout << Utilities::timestamp() << " " <<  "Chromosome " << chromosome << ", resolve chromotypes from VCF..\n" << std::flush;
 		diploidGenomeString VCF_chromotypes_resolved = greedilyResolveDiploidKMerString<1, 31, 1>(VCF_chromotypes_compressed, &myGraph).second;
 		std::cout << Utilities::timestamp() << " " <<  "\n\tdone\n" << std::flush;
 
+		*/
+		
 		std::set<std::string> set_kMers_reference;
 		std::set<std::string> set_kMers_VCF;
 		std::set<std::string> set_kMers_VCF_present;
 		std::map<std::string, double> set_kMers_VCF_optimalities;
 
+		// todo reactivate
+		/*
 		std::cout << Utilities::timestamp() << " " << "Chromosome " << chromosome << ", evaluate VCF chromotypes\n" << std::flush;
 		evaluate_dGS(VCF_chromotypes_resolved, VCF_chromotypes_compressed, set_kMers_reference, &myGraph, 0, 0, 0, "VCF"+chromosome, summaryFileStream, outputDirectory, VCF_chromotypes_referencePositions);
+   
+		std::cout << Utilities::timestamp() << "\n\tdone" <<  "\n\n" << std::flush;
+		
+		*/
+		
+		std::cout << Utilities::timestamp() << " " << "Chromosome " << chromosome << ", convert VCF (reference-only) to diploidGS...\n" << std::flush;
+		
+			
+		std::vector<std::vector<int> > reference_chromotypes_referencePositions;
+		std::cout << "Get non-modified diploidGS for reference genome...\n" << std::flush;
+		diploidGenomeString gS_ref = VCF2GenomeString(chromosome, -1, -1, VCFfile, referenceGenome, reference_chromotypes_referencePositions, true);
+		std::cout << "\tdone\n" << std::flush;		
+		
+		std::cout << Utilities::timestamp() << " " <<  "Chromosome " << chromosome << ", compress VCF (reference-only) diploidGS...\n" << std::flush;
+		diploidGenomeString gS_ref_compressed = compressGenomeString(gS_ref);
+		std::cout << Utilities::timestamp() << " " <<  "\n\tdone\n" << std::flush;
+
+		set_kMers_reference.clear();
+		set_kMers_VCF.clear();
+		set_kMers_VCF_present.clear();
+		set_kMers_VCF_optimalities.clear();
+		
+		std::cout << Utilities::timestamp() << " " << "Chromosome " << chromosome << ", evaluate VCF (reference-only) chromotypes\n" << std::flush;
+		evaluate_dGS(gS_ref_compressed, gS_ref_compressed, set_kMers_reference, &myGraph, 0, 0, 0, "toReference"+chromosome, summaryFileStream, outputDirectory, reference_chromotypes_referencePositions);
    
 		std::cout << Utilities::timestamp() << "\n\tdone" <<  "\n\n" << std::flush;
 	}
