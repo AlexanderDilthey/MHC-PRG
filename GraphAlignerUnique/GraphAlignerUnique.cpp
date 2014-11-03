@@ -1463,24 +1463,11 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 	// this section here can be filles with output from extractReadsAlignment.pl
 
-	readID_2_group["@@B819B8ABXX:2:1204:2500:66314#CGATGTAT/2:FROM:6:32552025:FROM:"] = "trueHLAsaysThere";
-	readID_2_group["@@B81EP5ABXX:7:1107:20989:92286#GCCAATAT/1:FROM:6:32489739:FROM:"] = "trueHLAsaysThere";
-	readID_2_group["@@B81998ABXX:6:1207:2569:100263#GCCNATAT/2:FROM:6:32551912:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@B819B9ABXX:8:1105:13324:120581#CGCCNNNN/1:FROM:6:32551913:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@B819B9ABXX:8:2208:3453:9743#GCCAATAT/1:FROM:6:32551903:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@B81998ABXX:6:1108:16939:81798#GCCAATAT/2:FROM:6:32489698:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@A8176BABXX:1:1104:18107:177078#CGATGTAT/2:FROM:6:32525833:FROM:"] = "trueHLAsaysThere";
-	readID_2_group["@@B819B8ABXX:2:2203:4373:99705#CGATGTAT/2:FROM:6:32489862:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@B819B8ABXX:2:1205:11083:89762#CATGTATC/2:FROM:6:32552024:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@A8176BABXX:1:1206:2915:25661#CGATGTAT/1:FROM:6:32552024:FROM:"] = "trueHLAsaysThere";
-	readID_2_group["@@FCC00N2ABXX:8:1203:18982:24309#CGATGTAT/2:FROM:6:32489672:FROM:"] = "trueHLAsaysThere";
-	readID_2_group["@@B81998ABXX:6:1108:16939:81798#GCCAATAT/1:FROM:6:32489762:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@B819B8ABXX:2:1203:10388:38266#CGATGTAT/2:FROM:6:32552015:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@A819GPABXX:5:2107:18518:148281#GCCAATAT/1:FROM:6:32551968:FROM:"] = "trueHLAsaysThere";
-	readID_2_group["@@A8197TABXX:4:2208:4575:106554#GCCAATAT/1:FROM:6:31323963:FROM:"] = "Unknown";
-	readID_2_group["@@B819B8ABXX:2:1205:11083:89762#CATGTATC/1:FROM:6:32551957:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@A8176BABXX:1:1101:11794:63897#CGATGTAT/2:FROM:6:32489763:FROM:"] = "mapperSaysThere";
-	readID_2_group["@@B819B9ABXX:8:1108:4618:200340#GCCANNNN/1:FROM:6:32489707:FROM:"] = "trueHLAsaysThere";
+
+	readID_2_group["@@A819BJABXX:2:1205:8561:17512#ATCACGAT:normalAlignment=2.43113e-07[6:29856511-29856600];4.29519e-20[6:29856423-29856512];1;-1/2:FROM:6:29856423:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A819BJABXX:3:2206:5747:176757#ATCACGAT:normalAlignment=8.70858e-05[6:29856481-29856570];1.13446e-18[6:29856377-29856466];1;15/2:FROM:6:29856377:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A819GPABXX:4:2108:3436:12394#ATCACGAT:normalAlignment=1.17013e-29[6:29856451-29856540];2.70154e-08[6:29856537-29856626];1;-3/1:FROM:6:29856451:FROM:"] = "mapperSaysThere";
+
 
 	// end output from extractReadsAlignment.pl
 
@@ -1521,13 +1508,25 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 	if(use_short)
 	{
+		bool verbose_before = this->verbose;
+		if(verbose)
+		{
+			this->verbose = true;
+		}
 		read1_maxBacktrace = seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces);
 		read2_maxBacktrace = seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces);
+		this->verbose = verbose_before;
 	}
 	else
 	{
 		read1_maxBacktrace = seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
 		read2_maxBacktrace = seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
+	}
+	
+	if(verbose)
+	{
+		std::cout << "Pre-filtering read1_backtraces.size(): " << read1_backtraces.size() << "\n";
+		std::cout << "Pre-filtering read2_backtraces.size(): " << read2_backtraces.size() << "\n";
 	}
 
 	auto filterBacktraces = [](std::vector<seedAndExtend_return_local> backtraces) -> std::vector<seedAndExtend_return_local> {
@@ -1570,7 +1569,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 		for(unsigned int i = 0; i < v.size(); i++)
 		{
-			assert(v.at(i) <= v_max.first);
+			assert(v.at(i) <= 1);
 			v.at(i) = v.at(i) / v_exp_sum;
 		}
 	};
@@ -1598,6 +1597,14 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	read1_backtraces = filterBacktraces(read1_backtraces);
 	read2_backtraces = filterBacktraces(read2_backtraces);
 
+	if(verbose)
+	{
+		
+		std::cout << "Post-filtering read1_backtraces.size(): " << read1_backtraces.size() << "\n";
+		std::cout << "Post-filtering read2_backtraces.size(): " << read2_backtraces.size() << "\n";
+	}
+
+	
 	if(verbose) std::cout << "Read 1 alternatives:\n" << std::flush;
 	std::vector<double> likelihoods_read1_alternatives;
 	for(unsigned int i = 0; i < read1_backtraces.size(); i++)
@@ -1769,6 +1776,111 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			bool have_genomic_mapQ = false;
 			double genomic_mapQ;
 
+			if(readPair.reads.first.name.find("normalAlignment=") != std::string::npos)
+			{
+				std::string nA_string_start = "normalAlignment=";			
+				size_t start_nA_string = readPair.reads.first.name.find(nA_string_start);
+				assert(!((readPair.reads.first.name.find("/1:FROM:") != std::string::npos) && (readPair.reads.first.name.find("/2:FROM:") != std::string::npos)));
+				size_t stop_nA_string = (readPair.reads.first.name.find("/1:FROM:") != std::string::npos) ? readPair.reads.first.name.find("/1:FROM:") : readPair.reads.first.name.find("/2:FROM:");
+				assert((stop_nA_string != std::string::npos));
+				assert(stop_nA_string > 0);
+				stop_nA_string = stop_nA_string - 1;
+				assert(stop_nA_string >= start_nA_string);
+				
+				std::string nA_string = readPair.reads.first.name.substr(start_nA_string, stop_nA_string - start_nA_string + 1);
+				
+				std::string part_noNA = nA_string.substr(nA_string_start.length());
+
+				std::vector<std::string> normalAlignment_parts = Utilities::split(part_noNA, ";");
+				
+				if(!(normalAlignment_parts.size() == 4))
+				{
+					std::cerr << "normalAlignment_parts.size(): " << normalAlignment_parts.size() << "\n";
+					std::cerr << "part_noNA: " << part_noNA << "\n" << std::flush;
+				}	
+				assert(normalAlignment_parts.size() == 4);
+
+				if((normalAlignment_parts.at(0) != "NA") && (normalAlignment_parts.at(1) != "NA"))
+				{
+
+					auto extractAlignmentInfo = [](std::string input, double& ret_likelihood, std::string& ret_regionID, int& ret_start, int& ret_stop) {
+						std::vector<std::string> p = Utilities::split(input, "[");
+						assert(p.size() == 2);
+						ret_likelihood = Utilities::StrtoD(p.at(0));
+
+						std::string p_2 = p.at(1);
+						p_2 = p_2.substr(0, p_2.length() - 1);
+
+						std::vector<std::string> p2_parts = Utilities::split(p_2, ":");
+						assert(p2_parts.size() == 2);
+						ret_regionID = p2_parts.at(0);
+
+						std::vector<std::string> position_parts = Utilities::split(p2_parts.at(1), "-");
+						assert(position_parts.size() == 2);
+
+						ret_start = Utilities::StrtoI(position_parts.at(0));
+						ret_stop = Utilities::StrtoI(position_parts.at(1));
+					};
+
+					double read1_alignment_likelihood;
+					std::string read1_alignment_regionID;
+					int read1_alignment_start;
+					int read1_alignment_stop;
+
+					double read2_alignment_likelihood;
+					std::string read2_alignment_regionID;
+					int read2_alignment_start;
+					int read2_alignment_stop;
+
+					extractAlignmentInfo(normalAlignment_parts.at(0), read1_alignment_likelihood, read1_alignment_regionID, read1_alignment_start, read1_alignment_stop);
+					extractAlignmentInfo(normalAlignment_parts.at(1), read2_alignment_likelihood, read2_alignment_regionID, read2_alignment_start, read2_alignment_stop);
+
+					int strandsOK = Utilities::StrtoI(normalAlignment_parts.at(2));
+					int pair_distance = Utilities::StrtoI(normalAlignment_parts.at(3));
+
+					bool completelyInsideGraph = alignmentContainedWithinAreaCoveredByMyGraph(read1_alignment_regionID, read1_alignment_start, read1_alignment_stop) &&
+												 alignmentContainedWithinAreaCoveredByMyGraph(read2_alignment_regionID, read2_alignment_start, read2_alignment_stop);
+
+					// todo find out whether this alignment is inside graph
+
+					if((! completelyInsideGraph))
+					{
+						double combined_log_likelihood_BAMalignment = log(read1_alignment_likelihood) + log(read2_alignment_likelihood);
+  
+						if(strandsOK)
+						{
+							if(!(read1_alignment_regionID == read2_alignment_regionID))
+							{
+								std::cout << "!(read1_alignment_regionID == read2_alignment_regionID)" << "\n";								
+								std::cout << "part_noNA: " << part_noNA << "\n";
+								std::cout << "read1_alignment_regionID: " << read1_alignment_regionID << "\n";
+								std::cout << "read2_alignment_regionID: " << read2_alignment_regionID << "\n";
+								std::cout << std::flush;
+								
+							}
+							assert(read1_alignment_regionID == read2_alignment_regionID);
+							double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, pair_distance);
+							combined_log_likelihood_BAMalignment += log(distance_graph_levels_P);
+						}
+						else
+						{
+							combined_log_likelihood_BAMalignment += log(max_insertsize_penalty);
+						}
+
+						std::vector<double> combinedScores_with_genomicAlternative = combinedScores;
+						combinedScores_with_genomicAlternative.push_back(combined_log_likelihood_BAMalignment);
+						normalize_loglikelihoods(combinedScores_with_genomicAlternative);
+
+						genomic_mapQ = combinedScores_with_genomicAlternative.at(bestCombination.second);
+						assert(genomic_mapQ >= 0);
+						assert(genomic_mapQ <= 1);
+
+						have_genomic_mapQ = true;
+					}
+				}				
+				
+			}
+			/*
 			std::vector<std::string> readID_parts = Utilities::split(readPair.reads.first.name, ":");
 			for(unsigned int partI = 0; partI < readID_parts.size(); partI++)
 			{
@@ -1779,6 +1891,12 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					std::string part_noNA = part.substr(nA_string.length());
 
 					std::vector<std::string> normalAlignment_parts = Utilities::split(part_noNA, ";");
+					
+					if(!(normalAlignment_parts.size() == 4))
+					{
+						std::cerr << "normalAlignment_parts.size(): " << normalAlignment_parts.size() << "\n";
+						std::cerr << "part_noNA: " << part_noNA << "\n" << std::flush;
+					}	
 					assert(normalAlignment_parts.size() == 4);
 
 					if((normalAlignment_parts.at(0) != "NA") && (normalAlignment_parts.at(1) != "NA"))
@@ -1852,15 +1970,16 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					}
 				}
 			}
+			*/
 
 			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> forReturn;
 			forReturn.first = read1_backtraces.at(combinedScores_indices.at(bestCombination.second).first);
 			forReturn.first.mapQ = bestCombination.first;
-			forReturn.first.mapQ_genomic = (have_genomic_mapQ) ? genomic_mapQ : 2; // todo
+			forReturn.first.mapQ_genomic = (have_genomic_mapQ) ? genomic_mapQ : forReturn.first.mapQ; // todo
 			forReturn.second = read2_backtraces.at(combinedScores_indices.at(bestCombination.second).second);
 			forReturn.second.mapQ = bestCombination.first;
-			forReturn.second.mapQ_genomic = (have_genomic_mapQ) ? genomic_mapQ : 2; // todo
-
+			forReturn.second.mapQ_genomic = (have_genomic_mapQ) ? genomic_mapQ : forReturn.first.mapQ; // todo
+  
 			return forReturn;
 		}
 	}
@@ -2441,7 +2560,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 	seedAndExtend_return_local forReturn;
 
 	// verbose = true;
-	int seedAndExtend_short_maximumBacktraces = 5;
+	int seedAndExtend_short_maximumBacktraces = 200;  
 
 	// just to remind everyone that this is for short reads
 	assert(sequence_nonReverse.length() < 200);
@@ -2465,7 +2584,39 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 	if(verbose) std::cout << Utilities::timestamp() << "Find chains.\n" << std::flush;
 
 	std::vector<kMerEdgeChain*> chains_for_sequence = gI.findChains(sequence);
-
+	std::set<kMerEdgeChain*> chains_for_sequence_forDeletion(chains_for_sequence.begin(), chains_for_sequence.end());
+	
+	auto filterChains = [](std::vector<kMerEdgeChain*> chains) -> std::vector<kMerEdgeChain*> {
+		std::set<std::string> chains_present;
+		std::vector<kMerEdgeChain*> forReturn;
+		for(unsigned int i = 0; i < chains.size(); i++)
+		{
+			kMerEdgeChain* thisChain = chains.at(i);
+			std::string separator = "///!!!///";
+			
+			std::stringstream chain_serialization;
+			chain_serialization << thisChain->sequence_begin << separator << 
+								   thisChain->sequence_end << separator << 
+								   thisChain->traversedEdges.front() << separator << 
+								   thisChain->traversedEdges.back();
+			
+			std::string chain_serialization_str = chain_serialization.str();
+			
+			if(! chains_present.count(chain_serialization_str))
+			{
+				forReturn.push_back(thisChain);
+				chains_present.insert(chain_serialization_str);
+			}			
+		}
+		return forReturn;
+	};
+	
+	if(verbose) std::cout << "\tPre-filtering # chains: " << chains_for_sequence.size() << "\n" << std::flush;
+	
+	chains_for_sequence = filterChains(chains_for_sequence);
+	
+	if(verbose) std::cout << "\tPost-filtering # chains: " << chains_for_sequence.size() << "\n" << std::flush;
+	
 	if(chains_for_sequence.size() > 0)
 	{
 		std::function<bool(kMerEdgeChain*,kMerEdgeChain*)> cmpChainLength = [&](kMerEdgeChain* lhs, kMerEdgeChain* rhs) -> bool {
@@ -2521,6 +2672,11 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		double best_chain_subOptimality;
 		int best_chain_initialMatches;
 
+		if(verbose)   
+		{      
+			std::cout << "\tChains: " << chains_for_sequence.size() << "\n" << std::flush;
+		}
+			
 		for(int chainI = 0; chainI < (int)chains_for_sequence.size(); chainI++)
 		{
 			assert(currentChain != chains_orderedByLength.end());
@@ -2529,22 +2685,35 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 			int matches_this_chain = thisChain->sequence_end - thisChain->sequence_begin + 1;
 			assert(matches_this_chain > 0);
 
-			if(verbose)
-						std::cout << "\tChain " << chainI << "/" << chains_for_sequence.size() << ", going from " << thisChain->sequence_begin << " to " << thisChain->sequence_end << "\n" << std::flush;
-
+			if(verbose)   
+			{      
+				std::cout << "\tChain " << chainI << "/" << chains_for_sequence.size() << ", going from " << thisChain->sequence_begin << " to " << thisChain->sequence_end << "\n" << std::flush;
+				std::cout << "\t\t in graph: from " << thisChain->traversedEdges.front()->From->level << " to " << thisChain->traversedEdges.back()->To->level << "\n" << std::flush;
+			}
+			
 			if(chainI > 0)
 			{
 				int matches_less_than_best_chain = best_chain_initialMatches - matches_this_chain;
 				assert(matches_less_than_best_chain >= 0);
-				double forgone_score = matches_less_than_best_chain * S_match;
-				if((1*forgone_score) > best_chain_subOptimality)
+				
+				// double forgone_score = matches_less_than_best_chain * S_match;
+				// if((1*forgone_score) > best_chain_subOptimality)
+				// {
+					// if(verbose)
+					// {
+						// std::cout << "\t\tABORT. This chain has " << matches_this_chain << ", which is " << matches_less_than_best_chain << " less than the best chain. We assume that " << 0.5*forgone_score << " of this are lost, and the best chain is " << best_chain_subOptimality << " away from optimality.\n" << std::flush;
+					// }
+					// break;
+				// }  
+				
+				if(((double)matches_this_chain/(double)matches_less_than_best_chain) < 0.4)
 				{
 					if(verbose)
 					{
-						std::cout << "\t\tABORT. This chain has " << matches_this_chain << ", which is " << matches_less_than_best_chain << " less than the best chain. We assume that " << 0.5*forgone_score << " of this are lost, and the best chain is " << best_chain_subOptimality << " away from optimality.\n" << std::flush;
+						std::cout << "\t\tABORT. This chain has " << matches_this_chain << " vs " << matches_less_than_best_chain << "\n" << std::flush;
 					}
-					break;
 				}
+				
 			}
 			std::set<kMerEdgeChain*> selectedChains;
 			std::vector<kMerEdgeChain*> sequencePositions_covered;
@@ -2661,9 +2830,8 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		}
 		assert((possibleBacktraces_scores.size() == 0) || (selectedMaximum.first == possibleBacktraces_scores.at(backtraces_scores_and_positions.at(0).second)));
 
-		allBacktraces.clear();
-		unsigned int maxNumberReturnedBacktraces = ((int)backtraces_scores_and_positions.size() > seedAndExtend_short_maximumBacktraces) ? seedAndExtend_short_maximumBacktraces : backtraces_scores_and_positions.size();
-		for(unsigned int bI = 0; bI < maxNumberReturnedBacktraces; bI++)
+		std::vector<seedAndExtend_return_local> allBacktraces_preLimit;		
+		for(unsigned int bI = 0; bI < backtraces_scores_and_positions.size(); bI++)
 		{
 			seedAndExtend_return& possibleBacktrace = possibleBacktraces.at(backtraces_scores_and_positions.at(bI).second);
 			seedAndExtend_return_local possibleBacktrace_forReturn;
@@ -2675,7 +2843,43 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 			possibleBacktrace_forReturn.reverse = useReverse;
 			possibleBacktrace_forReturn.mapQ = -1;
 
-			allBacktraces.push_back(possibleBacktrace_forReturn);
+			allBacktraces_preLimit.push_back(possibleBacktrace_forReturn);
+		}
+		
+
+		
+		auto filterBacktraces = [](std::vector<seedAndExtend_return_local> backtraces) -> std::vector<seedAndExtend_return_local> {
+			std::set<std::string> backtraces_present;
+			std::vector<seedAndExtend_return_local> forReturn;
+			for(unsigned int i = 0; i < backtraces.size(); i++)
+			{
+				seedAndExtend_return_local& thisBacktrace = backtraces.at(i);
+				std::string separator = "///!!!///";
+				std::string serialization = thisBacktrace.graph_aligned + separator +
+											thisBacktrace.sequence_aligned + separator +
+											Utilities::join(Utilities::ItoStr(thisBacktrace.graph_aligned_levels), ";") + separator +
+											Utilities::ItoStr(thisBacktrace.reverse);
+
+				if(! backtraces_present.count(serialization))
+				{
+					backtraces_present.insert(serialization);
+					forReturn.push_back(backtraces.at(i));
+				}
+			}
+			return forReturn;
+		};		
+
+		if(verbose) std::cout << "\tPre-filtering # backtraces: " << allBacktraces_preLimit.size() << "\n" << std::flush;
+		
+		allBacktraces_preLimit = filterBacktraces(allBacktraces_preLimit);
+		
+		if(verbose) std::cout << "\tPost-filtering # backtraces: " << allBacktraces_preLimit.size() << "\n" << std::flush;
+			
+		allBacktraces.clear();
+		unsigned int maxNumberReturnedBacktraces = ((int)allBacktraces_preLimit.size() > seedAndExtend_short_maximumBacktraces) ? seedAndExtend_short_maximumBacktraces : allBacktraces_preLimit.size();
+		for(unsigned int bI = 0; bI < maxNumberReturnedBacktraces; bI++)
+		{
+			allBacktraces.push_back(allBacktraces_preLimit.at(bI));
 		}
 
 		seedAndExtend_return_local selectedBacktrace_forReturn;
@@ -2686,12 +2890,17 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		selectedBacktrace_forReturn.reverse = useReverse;
 		selectedBacktrace_forReturn.mapQ = -1;
 
-		for(unsigned int i = 0; i < chains_for_sequence.size(); i++)
+		for(std::set<kMerEdgeChain*>::iterator chainIt = chains_for_sequence_forDeletion.begin(); chainIt != chains_for_sequence_forDeletion.end(); chainIt++)
 		{
-			kMerEdgeChain* c = chains_for_sequence.at(i);
+			kMerEdgeChain* c = *chainIt;
 			delete(c);
 		}
 
+		if(verbose)
+		{
+			std::cout << "allBacktraces.size(): " << allBacktraces.size() << "\n" << std::flush;
+		}
+		
 		return selectedBacktrace_forReturn;
 	}
 	else
@@ -2707,6 +2916,10 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		allBacktraces.clear();
 		allBacktraces.push_back(selectedBacktrace_forReturn);
 		
+		if(verbose)
+		{
+			std::cout << "allBacktraces.size(): " << allBacktraces.size() << "\n" << std::flush;
+		}
 		return selectedBacktrace_forReturn;
 	}
 }
@@ -9057,7 +9270,7 @@ bool GraphAlignerUnique::alignmentContainedWithinAreaCoveredByMyGraph(std::strin
 
 	if(forReturn)
 	{
-		std::cout << "Interval " << regionID << ":" << start << "-" << stop << " (" << useRegionID << ") covered by graph.\n" << std::flush;
+		// std::cout << "Interval " << regionID << ":" << start << "-" << stop << " (" << useRegionID << ") covered by graph.\n" << std::flush;
 	}
 
 	return forReturn;

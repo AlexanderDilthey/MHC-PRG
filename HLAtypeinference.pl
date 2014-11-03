@@ -123,9 +123,8 @@ elsif($sampleIDs =~ /^all/)
 
 if(scalar(@sampleIDs) > 10)
 {
-	# @sampleIDs = @sampleIDs[0 .. 9];
-	
-	#warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
+	@sampleIDs = @sampleIDs[0 .. 9];
+	warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 }
 
 # @sampleIDs = $sampleIDs[7]; # todo remove
@@ -658,6 +657,8 @@ if($actions =~ /v/)
 			
 			if(($thisIndiv_problems > 0))
 			{
+				my %readIDs;
+				
 				my $indivID_withI = $sample_noI_toI{$indivID};
 				die unless(defined $indivID_withI);
 				
@@ -758,17 +759,63 @@ if($actions =~ /v/)
 							die unless(defined $pileup_href->{$indivID_withI}{'HLA'.$locus}[$exon-2]);
 							# next unless(defined $pileUpString);
 							
+							
 							# die Dumper("Pileup too short", $length, scalar(@{$pileup_href->{$indivID_withI}{'HLA'.$locus}[$exon-2]})) unless(defined $pileUpString);
 							unless(($chars_for_print[5] eq '!') or ($chars_for_print[6] eq '!'))
 							{
-								$pileUpString =~ s/\[.+?\]//g;
+								# $pileUpString =~ s/\[.+?\]//g;
 							}
-							push(@chars_for_print, $pileUpString);
+							
+							my $printPileUpDetails = (1 or (($chars_for_print[5] eq '!') or ($chars_for_print[6] eq '!')));
+			
+							my $getShortRead = sub {
+								my $read = shift;
+								my $rE = shift;
+								
+								my @readIDs = split(/ /, $read);
+								die unless($#readIDs == 1);
+								
+								
+								
+								my $rI; 
+								if(exists $readIDs{$readIDs[0]})
+								{
+									$rI = $readIDs{$readIDs[0]};
+								}
+								else
+								{
+									my $nR = scalar(keys %readIDs);
+									$nR++;
+									$rI = "Read${nR}X";
+									$readIDs{$readIDs[0]} = $rI;
+									$readIDs{$readIDs[1]} = $rI;
+								}
+								
+								if($printPileUpDetails)
+								{
+									return $rI.$rE;
+								}
+								else
+								{
+									return $rE;
+								}
+							};
+							
+							$pileUpString =~ s/(\@\@.+?)(\](\,|$))/$getShortRead->($1, $2);/ge;
+							
+							if(($chars_for_print[5] eq '!') or ($chars_for_print[6] eq '!'))
+							{
+								push(@chars_for_print, $pileUpString);
+							}
 						}
 						print {$output_fh} join("\t", @chars_for_print), "\n";
 					}	
 				}
 				
+				foreach my $readID (keys %readIDs)
+				{
+					print {$output_fh} $readIDs{$readID}, "\t", $readID, "\n";
+				}
 				close($output_fh);					
 			}
 		}

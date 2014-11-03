@@ -3272,13 +3272,18 @@ void validateCompleteVCF(std::string VCFfile, std::string referenceGenome, std::
 	std::cout << "\tTotal coverage: " << myGraph.totalCoverage() << "\n";
 
 	std::vector<std::string> chromosomes;
-	for(int i = 1; i < 22; i++)
+	for(int i = 1; i <= 22; i++)
 	{
 		chromosomes.push_back(Utilities::ItoStr(i));
 	}
 	chromosomes.push_back("X");
 	chromosomes.push_back("Y");
 
+	
+	// todo remove
+	// chromosomes.clear();   
+	// chromosomes.push_back("22");
+	
 	// chromosomes.clear();
 	// chromosomes.push_back("6");
 	
@@ -3303,8 +3308,6 @@ void validateCompleteVCF(std::string VCFfile, std::string referenceGenome, std::
 	{
 		std::string chromosome = chromosomes.at(chromosomeI);
 
-		// todo reactivate
-		/*
 		std::cout << Utilities::timestamp() << " " << "Chromosome " << chromosome << ", convert VCF to diploidGS...\n" << std::flush;
 		std::vector<std::vector<int> > VCF_chromotypes_referencePositions;
 		diploidGenomeString VCF_chromotypes = VCF2GenomeString(chromosome, -1, -1, VCFfile, referenceGenome, VCF_chromotypes_referencePositions);
@@ -3318,22 +3321,19 @@ void validateCompleteVCF(std::string VCFfile, std::string referenceGenome, std::
 		diploidGenomeString VCF_chromotypes_resolved = greedilyResolveDiploidKMerString<1, 31, 1>(VCF_chromotypes_compressed, &myGraph).second;
 		std::cout << Utilities::timestamp() << " " <<  "\n\tdone\n" << std::flush;
 
-		*/
+	
 		
 		std::set<std::string> set_kMers_reference;
 		std::set<std::string> set_kMers_VCF;
 		std::set<std::string> set_kMers_VCF_present;
 		std::map<std::string, double> set_kMers_VCF_optimalities;
 
-		// todo reactivate
-		/*
+
 		std::cout << Utilities::timestamp() << " " << "Chromosome " << chromosome << ", evaluate VCF chromotypes\n" << std::flush;
 		evaluate_dGS(VCF_chromotypes_resolved, VCF_chromotypes_compressed, set_kMers_reference, &myGraph, 0, 0, 0, "VCF"+chromosome, summaryFileStream, outputDirectory, VCF_chromotypes_referencePositions);
    
 		std::cout << Utilities::timestamp() << "\n\tdone" <<  "\n\n" << std::flush;
-		
-		*/
-		
+				
 		std::cout << Utilities::timestamp() << " " << "Chromosome " << chromosome << ", convert VCF (reference-only) to diploidGS...\n" << std::flush;
 		
 			
@@ -3503,10 +3503,10 @@ void validateAllChromotypesVsVCF(std::string chromotypes_file, std::string amend
 	std::cout << "\nEvaluate VCF (filtered) chromotypes\n" << std::flush;
 	evaluate_dGS(VCF_filtered_chromotypes_resolved, VCF_filtered_chromotypes_compressed, set_kMers_reference, &myGraph, &set_kMers_VCF_filtered, &set_kMers_VCF_filtered_present, &set_kMers_VCF_filtered_optimalities, "toFilteredVCF", summaryFileStream, outputDirectory, VCF_filtered_chromotypes_referencePositions);
 	std::cout << "\n\n" << std::flush;
-	set_names.push_back("FilteredVCF");
-	sets_kMers.push_back(&set_kMers_VCF_filtered);
-	sets_kMers_present.push_back(&set_kMers_VCF_filtered_present);
-	sets_kMers_optimalities.push_back(&set_kMers_VCF_filtered_optimalities);
+	// set_names.push_back("FilteredVCF");
+	// sets_kMers.push_back(&set_kMers_VCF_filtered);
+	// sets_kMers_present.push_back(&set_kMers_VCF_filtered_present);
+	// sets_kMers_optimalities.push_back(&set_kMers_VCF_filtered_optimalities);
 	
 	std::set<std::string> set_kMers_viterbiPRG;
 	std::set<std::string> set_kMers_viterbiPRG_present;
@@ -3536,11 +3536,13 @@ void validateAllChromotypesVsVCF(std::string chromotypes_file, std::string amend
 	sets_kMers_present.push_back(&set_kMers_amendedPRG_present);
 	sets_kMers_optimalities.push_back(&set_kMers_amendedPRG_optimalities);
 
+	summaryFileStream.close();
+
+		
 	std::string vennDiagramsOutputFile = outputDirectory + "/vennDiagrams.txt";
 
 	vennDiagrams(set_names, sets_kMers, sets_kMers_present, sets_kMers_optimalities, vennDiagramsOutputFile);
 
-	summaryFileStream.close();
 }
 
 void validateAmendedChromotypesVsVCF(std::string amended_chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width)

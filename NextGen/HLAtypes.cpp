@@ -61,7 +61,7 @@ using namespace boost::math;
 typedef boost::math::poisson_distribution< double, policy < discrete_quantile < integer_round_inwards> > > poisson_up;
 poisson_up poisson1(1);
 
-bool veryConservativeReadLikelihoods = false;
+bool veryConservativeReadLikelihoods = true;
 
 std::map<std::string, std::string> codon2AS;
 std::map<std::string, std::vector<std::string> > AS2codon;
@@ -4278,11 +4278,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					(alignedReadPair.first.mapQ >= minimumMappingQuality)
 			)
 			*/
+			
+			double mapQ_thisAlignment = (alignedReadPair.first.mapQ_genomic != 2) ? alignedReadPair.first.mapQ_genomic : alignedReadPair.first.mapQ;
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
-					(alignedReadPair.first.mapQ >= minimumMappingQuality) &&
-					(!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
+					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))
+					// (mapQ_thisAlignment >= minimumMappingQuality) &&
+					// (!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
 					)  			
 			{
 				// good
@@ -4305,7 +4307,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				if(alignedReadPair_strandsValid(alignedReadPair) &&
 				(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)))
 				{
-					std::cout << "REJECTED MAPQ " << alignedReadPair.first.mapQ << "\n" << std::flush;
+					std::cout << "REJECTED MAPQ " << alignedReadPair.first.mapQ << " GENOMIC " << alignedReadPair.first.mapQ_genomic << "\n" << std::flush;
 				}
 
 				// (countMismatchesInExon(read1_exonPositions) < max_mismatches_perRead) &&
@@ -4444,6 +4446,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				if(individualPositions.size() > 0)
 				{
 					readID = individualPositions.at(0).thisRead_ID;
+					double mapQ_thisAlignment = (individualPositions.at(0).mapQ_genomic != 2) ? individualPositions.at(0).mapQ_genomic : individualPositions.at(0).mapQ;
+					log_likelihood_read += log(mapQ_thisAlignment); // todo: think about: is this correct?
+	
 				}
 
 				// bool verbose = ((clusterI == 1127) && (readID == "@@B81EP5ABXX:8:2208:11879:23374#GATCAGAT/2") && 0);
