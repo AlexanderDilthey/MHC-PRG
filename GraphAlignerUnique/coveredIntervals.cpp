@@ -122,11 +122,12 @@ void coveredIntervals::removeIntervalFromIndices(oneInterval* i)
 
 void coveredIntervals::addIntervalToIndices(oneInterval* i)
 {
-	assert(intervals_start.at(i->regionID).count(i->from) == 0);
-	intervals_start.at(i->regionID)[i->from] = i;
-	assert(intervals_stop.at(i->regionID).count(i->to) == 0);
-	intervals_stop.at(i->regionID)[i->to] = i;
-}
+	std::string regionID = i->regionID;
+	assert((intervals_start.count(regionID) == 0) || (intervals_start.at(regionID).count(i->from) == 0));
+	intervals_start[i->regionID][i->from] = i;
+	assert((intervals_stop.count(i->regionID) == 0) || (intervals_stop.at(i->regionID).count(i->to) == 0));
+	intervals_stop[i->regionID][i->to] = i;
+}    
 
 size_t coveredIntervals::getNumIntervals()
 {

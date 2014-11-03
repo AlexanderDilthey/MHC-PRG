@@ -273,6 +273,7 @@ void describeGraph_25(string graph_file, string temp_dir, string temp_label, boo
 	MultiGraph* multiG = multiBeautifyForAlpha2(&kMerG, "", false, false);
 
 	vector< vector<string> > level_categories = kMerG.categorizeEdgeLevels();
+	
 	set<string> possible_categories;
 	for(int i = 0; i < (int)level_categories.size(); i++)
 	{
@@ -287,11 +288,19 @@ void describeGraph_25(string graph_file, string temp_dir, string temp_label, boo
 	vector<string> ordered_categories(possible_categories.begin(), possible_categories.end());
 
 	vector<levelInfo> levelInformation = kMerG.getLevelInfo();
-
+	vector<std::string> levelNames;
+	levelNames.resize(levelInformation.size());
+	for(unsigned int l = 0; l < level_categories.size(); l++)
+	{
+		std::string levelName = nucleotideGraph.getOneLocusIDforLevel(l);
+		levelNames.at(l) = levelName;
+	}	
+	
 	string fn_globalstats = temp_dir + "/graph_globalstats_" + temp_label + ".txt";
 	ofstream output_stats;
 	output_stats.open (fn_globalstats.c_str(), ios::out | ios::trunc);
-
+	assert(output_stats.is_open());
+	
 	std::string fn_kMers_perLevel = temp_dir + "/graph_kMersPerLevel_" + temp_label + ".txt";
 	ofstream kMersPerLevelStream;
 
@@ -310,12 +319,13 @@ void describeGraph_25(string graph_file, string temp_dir, string temp_label, boo
 
 	if (output_stats.is_open())
 	{
-		output_stats << "Level\tNodes\tEdges\tSymbols\tSymbols_CODE\t" << Utilities::join(ordered_categories, "\t") << "\n";
-		for(int i = 0; i < (int)level_categories.size(); i++)
+		output_stats << "Level\tID\tNodes\tEdges\tSymbols\tSymbols_CODE\t" << Utilities::join(ordered_categories, "\t") << "\n";
+		for(int i = 0; i < (int)level_categories.size(); i++)       
 		{
 			set<string> categories(level_categories.at(i).begin(), level_categories.at(i).end());
 			vector<string> fields;
 			fields.push_back(Utilities::ItoStr(i));
+			fields.push_back(levelNames.at(i));
 			fields.push_back(Utilities::ItoStr(levelInformation.at(i).nodes));
 			fields.push_back(Utilities::ItoStr(levelInformation.at(i).edges));
 			fields.push_back(Utilities::ItoStr(levelInformation.at(i).symbols));
@@ -374,6 +384,8 @@ void describeGraph_25(string graph_file, string temp_dir, string temp_label, boo
 		kMersPerLevelStream.close();
 	}
 	output_stats.close();
+	
+	std::cout << "\nWritten file: " << fn_globalstats << "\n" << std::flush;
 }
 
 void simulationSuite(string graph_file, string temp_dir, string temp_label, int genotypingMode)
