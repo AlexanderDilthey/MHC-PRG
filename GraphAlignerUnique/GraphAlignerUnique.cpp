@@ -1445,6 +1445,337 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 }   
 
 
+std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > GraphAlignerUnique::seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd)
+{
+	assert(g != 0);
+
+	// bool verbose = ((readPair.reads.first.name == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2") || (readPair.reads.second.name  == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2"));
+	bool verbose = false;
+	
+
+	std::map<std::string, std::string> readID_2_group;
+
+	// this section here can be filled with output from extractReadsAlignment.pl
+	// there are two of those - here and in seedAndExtend_local_paired_or_short
+	readID_2_group["@@A819BJABXX:2:1205:8561:17512#ATCACGAT:normalAlignment=2.43113e-07[6:29856511-29856600];4.29519e-20[6:29856423-29856512];1;-1/2:FROM:6:29856423:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A819BJABXX:3:2206:5747:176757#ATCACGAT:normalAlignment=8.70858e-05[6:29856481-29856570];1.13446e-18[6:29856377-29856466];1;15/2:FROM:6:29856377:FROM:"] = "mapperSaysThere";
+	readID_2_group["@@A819GPABXX:4:2108:3436:12394#ATCACGAT:normalAlignment=1.17013e-29[6:29856451-29856540];2.70154e-08[6:29856537-29856626];1;-3/1:FROM:6:29856451:FROM:"] = "mapperSaysThere";
+
+	// end output from extractReadsAlignment.pl
+
+	verbose = ( readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name) );
+
+	std::string GROUP;
+
+	if(readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name))
+	{
+		GROUP = readID_2_group.count(readPair.reads.first.name) ? readID_2_group.at(readPair.reads.first.name) : readID_2_group.at(readPair.reads.second.name);
+	}
+
+	if(verbose)
+	{
+		std::cout << "=======================================================================================\n";
+		std::cout << "[" << GROUP << "] Alignment of " << readPair.reads.first.name << " / " << readPair.reads.second.name << "\n";
+		std::cout << "=======================================================================================\n\n";
+
+	}
+	
+	seedAndExtend_return_local read1_maxBacktrace;
+	seedAndExtend_return_local read2_maxBacktrace;
+	std::vector<seedAndExtend_return_local> read1_backtraces;
+	std::vector<seedAndExtend_return_local> read2_backtraces;
+
+	boost::math::normal rnd_InsertSize(insertSize_mean, insertSize_sd);
+
+	bool verbose_before = this->verbose;
+	if(verbose)
+	{
+		this->verbose = true;
+	}
+	read1_maxBacktrace = seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces);
+	read2_maxBacktrace = seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces);
+	this->verbose = verbose_before;
+
+	
+	if(verbose)
+	{
+		std::cout << "Pre-filtering read1_backtraces.size(): " << read1_backtraces.size() << "\n";
+		std::cout << "Pre-filtering read2_backtraces.size(): " << read2_backtraces.size() << "\n";
+	}
+
+	auto filterBacktraces = [](std::vector<seedAndExtend_return_local> backtraces) -> std::vector<seedAndExtend_return_local> {
+		std::set<std::string> backtraces_present;
+		std::vector<seedAndExtend_return_local> forReturn;
+		for(unsigned int i = 0; i < backtraces.size(); i++)
+		{
+			seedAndExtend_return_local& thisBacktrace = backtraces.at(i);
+			std::string separator = "///!!!///";
+			std::string serialization = thisBacktrace.graph_aligned + separator +
+										thisBacktrace.sequence_aligned + separator +
+										Utilities::join(Utilities::ItoStr(thisBacktrace.graph_aligned_levels), ";") + separator +
+										Utilities::ItoStr(thisBacktrace.reverse);
+
+			if(! backtraces_present.count(serialization))
+			{
+				backtraces_present.insert(serialization);
+				forReturn.push_back(backtraces.at(i));
+			}
+		}
+		return forReturn;
+	};
+
+	auto normalize_loglikelihoods = [](std::vector<double>& v) -> void {
+		std::pair<double, unsigned int> v_max = Utilities::findVectorMax(v);
+		double v_exp_sum = 0;
+		for(unsigned int i = 0; i < v.size(); i++)
+		{
+			assert(v.at(i) <= v_max.first);
+			v.at(i) = exp(v.at(i) - v_max.first);
+			if(!(v.at(i) >= 0))
+			{
+				std::cerr << "! (v.at(i) >= 0)" << "\n" << std::flush;
+				std::cerr << v.at(i) << "\n" << std::flush;
+			}
+			assert(v.at(i) >= 0);
+			assert(v.at(i) <= 1);
+			v_exp_sum += v.at(i);
+		}
+
+		for(unsigned int i = 0; i < v.size(); i++)
+		{
+			assert(v.at(i) <= 1);
+			v.at(i) = v.at(i) / v_exp_sum;
+		}
+	};
+
+	read1_backtraces = filterBacktraces(read1_backtraces);
+	read2_backtraces = filterBacktraces(read2_backtraces);
+
+	if(verbose)
+	{
+		std::cout << "GraphAlignerUnique::seedAndExtend_short_allAlignments(..): Post-filtering read1_backtraces.size(): " << read1_backtraces.size() << "\n";
+		std::cout << "GraphAlignerUnique::seedAndExtend_short_allAlignments(..): Post-filtering read2_backtraces.size(): " << read2_backtraces.size() << "\n";
+	}
+	
+	if(verbose) std::cout << "GraphAlignerUnique::seedAndExtend_short_allAlignments(..): Read 1 alternatives:\n" << std::flush;
+	std::vector<double> likelihoods_read1_alternatives;
+	for(unsigned int i = 0; i < read1_backtraces.size(); i++)
+	{
+		seedAndExtend_return_local& thisBacktrace = read1_backtraces.at(i);
+		int ignore;
+		double LL = scoreOneAlignment(readPair.reads.first, thisBacktrace, ignore);
+		likelihoods_read1_alternatives.push_back(LL);
+
+		if(verbose) std::cout << "\t" << i << " " << LL << " [" << thisBacktrace.graph_aligned_levels.front() << " - " << thisBacktrace.graph_aligned_levels.back() << "]\n" << std::flush;
+	}
+	assert(likelihoods_read1_alternatives.size() == read1_backtraces.size());
+
+	if(verbose) std::cout << "GraphAlignerUnique::seedAndExtend_short_allAlignments(..):  Read 2 alternatives:\n" << std::flush;
+	std::vector<double> likelihoods_read2_alternatives;
+	for(unsigned int i = 0; i < read2_backtraces.size(); i++)
+	{
+		seedAndExtend_return_local& thisBacktrace = read2_backtraces.at(i);
+		int ignore;
+		double LL = scoreOneAlignment(readPair.reads.second, thisBacktrace, ignore);
+		likelihoods_read2_alternatives.push_back(LL);
+
+		if(verbose) std::cout << "\t" << i << " " << LL << " [" << thisBacktrace.graph_aligned_levels.front() << " - " << thisBacktrace.graph_aligned_levels.back() << "]\n" << std::flush;
+	}
+	assert(likelihoods_read2_alternatives.size() == read2_backtraces.size());
+
+	double max_insertsize_penalty = boost::math::pdf(rnd_InsertSize, insertSize_mean + 8 * insertSize_sd);
+	assert(max_insertsize_penalty > 0);
+	assert(max_insertsize_penalty <= 1);
+
+	std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > forReturn;
+	std::vector<double> combinedScores;
+	std::vector<std::pair<unsigned int, unsigned int> > combinedScores_indices;
+	if(verbose) std::cout << "Read combinations alternatives:\n" << std::flush;
+	for(unsigned int aI1 = 0; aI1 < read1_backtraces.size(); aI1++)
+	{
+		for(unsigned int aI2 = 0; aI2 < read2_backtraces.size(); aI2++)
+		{
+			double combinedScore = likelihoods_read1_alternatives.at(aI1) + likelihoods_read2_alternatives.at(aI2);
+			double combinedScore_noTermForPairDistance = combinedScore;
+				
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> rP = make_pair(read1_backtraces.at(aI1), read2_backtraces.at(aI2));
+				
+			if(verbose)
+			{
+				std::cout << "\t" << aI1 << "/" << aI2 << ": ";
+				std::cout << "\t\tLL1: " << likelihoods_read1_alternatives.at(aI1) << " LL2: " << likelihoods_read2_alternatives.at(aI2) << " ";
+				std::cout << "\t\tStrands valid: " << alignedReadPair_strandsValid(rP) << "\n";
+			}
+				
+			if(alignedReadPair_strandsValid(rP))
+			{
+				int distance_graph_levels = alignedReadPair_pairsDistanceInGraphLevels(rP);
+				double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
+
+				if(verbose)
+					std::cout << "\t\tDistance graph levels (and likelihood): " <<  distance_graph_levels << " " << distance_graph_levels_P << "\n";
+
+				if(!(distance_graph_levels_P > 0))
+				{
+					distance_graph_levels_P = max_insertsize_penalty;
+				}
+				assert((distance_graph_levels_P > 0) && (distance_graph_levels_P <= 1));
+
+				combinedScore += log(distance_graph_levels_P);
+
+			}
+			else
+			{
+				if(verbose)
+					std::cout << "\t\tPenalty: " <<  max_insertsize_penalty << "\n";
+
+				combinedScore += log(max_insertsize_penalty);
+			}
+
+			if(verbose)
+				std::cout << "\t\tCombined log likelihood: " <<  combinedScore << "\n";
+
+			combinedScores.push_back(combinedScore);
+			combinedScores_indices.push_back(std::make_pair(aI1, aI2));
+			forReturn.push_back(std::make_pair(read1_backtraces.at(aI1), read2_backtraces.at(aI2)));
+		}
+	}
+
+	std::vector<double> combinedScores_nonGenomic = combinedScores;
+	std::vector<double> combinedScores_withGenomic = combinedScores;
+	combinedScores.clear();
+
+	double sum_LL = 0;
+	normalize_loglikelihoods(combinedScores_nonGenomic);
+	for(unsigned int i = 0; i < combinedScores_nonGenomic.size(); i++)
+	{
+		double q = combinedScores_nonGenomic.at(i);
+		forReturn.at(i).first.mapQ = q;
+		forReturn.at(i).second.mapQ = q;
+
+		forReturn.at(i).first.mapQ_genomic = q;
+		forReturn.at(i).second.mapQ_genomic = q;
+
+		sum_LL += q;
+	}
+	assert(abs(sum_LL - 1) <= 1e-5);
+
+	bool have_combined_log_likelihood_BAMalignment = false;
+	double combined_log_likelihood_BAMalignment = 0;
+
+	if(readPair.reads.first.name.find("normalAlignment=") != std::string::npos)
+	{
+		std::string nA_string_start = "normalAlignment=";
+		size_t start_nA_string = readPair.reads.first.name.find(nA_string_start);
+		assert(!((readPair.reads.first.name.find("/1:FROM:") != std::string::npos) && (readPair.reads.first.name.find("/2:FROM:") != std::string::npos)));
+		size_t stop_nA_string = (readPair.reads.first.name.find("/1:FROM:") != std::string::npos) ? readPair.reads.first.name.find("/1:FROM:") : readPair.reads.first.name.find("/2:FROM:");
+		assert((stop_nA_string != std::string::npos));
+		assert(stop_nA_string > 0);
+		stop_nA_string = stop_nA_string - 1;
+		assert(stop_nA_string >= start_nA_string);
+
+		std::string nA_string = readPair.reads.first.name.substr(start_nA_string, stop_nA_string - start_nA_string + 1);
+
+		std::string part_noNA = nA_string.substr(nA_string_start.length());
+
+		std::vector<std::string> normalAlignment_parts = Utilities::split(part_noNA, ";");
+
+		if(!(normalAlignment_parts.size() == 4))
+		{
+			std::cerr << "normalAlignment_parts.size(): " << normalAlignment_parts.size() << "\n";
+			std::cerr << "part_noNA: " << part_noNA << "\n" << std::flush;
+		}
+		assert(normalAlignment_parts.size() == 4);
+
+		if((normalAlignment_parts.at(0) != "NA") && (normalAlignment_parts.at(1) != "NA"))
+		{
+			auto extractAlignmentInfo = [](std::string input, double& ret_likelihood, std::string& ret_regionID, int& ret_start, int& ret_stop) {
+				std::vector<std::string> p = Utilities::split(input, "[");
+				assert(p.size() == 2);
+				ret_likelihood = Utilities::StrtoD(p.at(0));
+
+				std::string p_2 = p.at(1);
+				p_2 = p_2.substr(0, p_2.length() - 1);
+
+				std::vector<std::string> p2_parts = Utilities::split(p_2, ":");
+				assert(p2_parts.size() == 2);
+				ret_regionID = p2_parts.at(0);
+
+				std::vector<std::string> position_parts = Utilities::split(p2_parts.at(1), "-");
+				assert(position_parts.size() == 2);
+
+				ret_start = Utilities::StrtoI(position_parts.at(0));
+				ret_stop = Utilities::StrtoI(position_parts.at(1));
+			};
+
+			double read1_alignment_likelihood;
+			std::string read1_alignment_regionID;
+			int read1_alignment_start;
+			int read1_alignment_stop;
+
+			double read2_alignment_likelihood;
+			std::string read2_alignment_regionID;
+			int read2_alignment_start;
+			int read2_alignment_stop;
+
+			extractAlignmentInfo(normalAlignment_parts.at(0), read1_alignment_likelihood, read1_alignment_regionID, read1_alignment_start, read1_alignment_stop);
+			extractAlignmentInfo(normalAlignment_parts.at(1), read2_alignment_likelihood, read2_alignment_regionID, read2_alignment_start, read2_alignment_stop);
+
+			int strandsOK = Utilities::StrtoI(normalAlignment_parts.at(2));
+			int pair_distance = Utilities::StrtoI(normalAlignment_parts.at(3));
+
+			bool completelyInsideGraph = alignmentContainedWithinAreaCoveredByMyGraph(read1_alignment_regionID, read1_alignment_start, read1_alignment_stop) &&
+										 alignmentContainedWithinAreaCoveredByMyGraph(read2_alignment_regionID, read2_alignment_start, read2_alignment_stop);
+
+			if((! completelyInsideGraph))
+			{
+				double combined_log_likelihood_BAMalignment = log(read1_alignment_likelihood) + log(read2_alignment_likelihood);
+
+				if(strandsOK)
+				{
+					if(!(read1_alignment_regionID == read2_alignment_regionID))
+					{
+						std::cout << "!(read1_alignment_regionID == read2_alignment_regionID)" << "\n";
+						std::cout << "part_noNA: " << part_noNA << "\n";
+						std::cout << "read1_alignment_regionID: " << read1_alignment_regionID << "\n";
+						std::cout << "read2_alignment_regionID: " << read2_alignment_regionID << "\n";
+						std::cout << std::flush;
+
+					}
+					assert(read1_alignment_regionID == read2_alignment_regionID);
+					double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, pair_distance);
+					combined_log_likelihood_BAMalignment += log(distance_graph_levels_P);
+				}
+				else
+				{
+					combined_log_likelihood_BAMalignment += log(max_insertsize_penalty);
+				}
+
+				have_combined_log_likelihood_BAMalignment = true;
+			}
+		}
+	}
+
+	if(have_combined_log_likelihood_BAMalignment)
+	{
+		combinedScores_withGenomic.push_back(combined_log_likelihood_BAMalignment);
+		normalize_loglikelihoods(combinedScores_withGenomic);
+		for(unsigned int i = 0; i < combinedScores_withGenomic.size(); i++)
+		{
+			double q = combinedScores_withGenomic.at(i);
+
+			forReturn.at(i).first.mapQ_genomic = q;
+			forReturn.at(i).second.mapQ_genomic = q;
+		}
+	}
+
+	return forReturn;
+}
+
+
+
+
+
 std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired_or_short(oneReadPair readPair, bool usePairing, bool use_short, double insertSize_mean, double insertSize_sd, bool estimateInsertSize, std::map<int, double>& insertSize_posterior_ret)
 {
 	assert(g != 0);
@@ -1454,15 +1785,15 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	}
 
 	// bool verbose = true;
-	   
+
 	// bool verbose = ((readPair.reads.first.name == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2") || (readPair.reads.second.name  == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2"));
 	bool verbose = false;
-	
+
 
 	std::map<std::string, std::string> readID_2_group;
 
-	// this section here can be filles with output from extractReadsAlignment.pl
-
+	// this section here can be filled with output from extractReadsAlignment.pl
+	// there are two of those - here and in seedAndExtend_short_allAlignments
 
 	readID_2_group["@@A819BJABXX:2:1205:8561:17512#ATCACGAT:normalAlignment=2.43113e-07[6:29856511-29856600];4.29519e-20[6:29856423-29856512];1;-1/2:FROM:6:29856423:FROM:"] = "mapperSaysThere";
 	readID_2_group["@@A819BJABXX:3:2206:5747:176757#ATCACGAT:normalAlignment=8.70858e-05[6:29856481-29856570];1.13446e-18[6:29856377-29856466];1;15/2:FROM:6:29856377:FROM:"] = "mapperSaysThere";
@@ -1487,7 +1818,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		std::cout << "=======================================================================================\n\n";
 
 	}
-	
+
 	// assert(readPair.reads.first.sequence.find("_") == std::string::npos);
 	// assert(readPair.reads.first.sequence.find("*") == std::string::npos);
 	// assert(readPair.reads.first.sequence.find("N") == std::string::npos);
@@ -1522,7 +1853,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		read1_maxBacktrace = seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
 		read2_maxBacktrace = seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
 	}
-	
+
 	if(verbose)
 	{
 		std::cout << "Pre-filtering read1_backtraces.size(): " << read1_backtraces.size() << "\n";
@@ -1585,7 +1916,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			{
 				std::cerr << "! (v.at(i) >= 0)" << "\n" << std::flush;
 				std::cerr << v.at(i) << "\n" << std::flush;
-			}	
+			}
 			assert(v.at(i) >= 0);
 			assert(v.at(i) <= 1);
 			v_exp_sum += v.at(i);
@@ -1599,12 +1930,12 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 	if(verbose)
 	{
-		
+
 		std::cout << "Post-filtering read1_backtraces.size(): " << read1_backtraces.size() << "\n";
 		std::cout << "Post-filtering read2_backtraces.size(): " << read2_backtraces.size() << "\n";
 	}
 
-	
+
 	if(verbose) std::cout << "Read 1 alternatives:\n" << std::flush;
 	std::vector<double> likelihoods_read1_alternatives;
 	for(unsigned int i = 0; i < read1_backtraces.size(); i++)
@@ -1664,28 +1995,28 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 				// combinedScores.push_back(combinedScore);
 				// combinedScores_indices.push_back(std::make_pair(aI1, aI2));
-				
+
 				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> rP = make_pair(read1_backtraces.at(aI1), read2_backtraces.at(aI2));
-				
+
 				if(verbose)
 				{
 					std::cout << "\t" << aI1 << "/" << aI2 << ": ";
 					std::cout << "\t\tLL1: " << likelihoods_read1_alternatives.at(aI1) << " LL2: " << likelihoods_read2_alternatives.at(aI2) << " ";
 					std::cout << "\t\tStrands valid: " << alignedReadPair_strandsValid(rP) << "\n";
-					
+
 					// std::cout << "REV1: " << read1_backtraces.at(aI1).reverse << " REV2:" << read2_backtraces.at(aI2).reverse << " ";
 					// std::cout << "Distance: " <<  read1_backtraces.at(aI1).graph_aligned_levels.back() << " to " << read2_backtraces.at(aI2).graph_aligned_levels.front() << ", i.e. " << distance_graph_levels << " (" << log(distance_graph_levels_P) << ")" << "  == > " << combinedScore <<  "\n" << std::flush;
-				}   
-				
+				}
+
 				if(alignedReadPair_strandsValid(rP))
 				{
 					int distance_graph_levels = alignedReadPair_pairsDistanceInGraphLevels(rP);
 					double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, distance_graph_levels);
 
-					if(verbose)					
+					if(verbose)
 						std::cout << "\t\tDistance graph levels (and likelihood): " <<  distance_graph_levels << " " << distance_graph_levels_P << "\n";
 
-					
+
 					if(!(distance_graph_levels_P > 0))
 					{
 						// std::cerr << "!(distance_graph_levels_P > 0)" << "\n";
@@ -1697,7 +2028,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					assert((distance_graph_levels_P > 0) && (distance_graph_levels_P <= 1));
 
 					combinedScore += log(distance_graph_levels_P);
-					
+
 					if(estimateInsertSize)
 					{
 						pairDistances_and_logLikelihood.push_back(make_pair(distance_graph_levels, combinedScore_noTermForPairDistance));
@@ -1706,17 +2037,17 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 				}
 				else
 				{
-					if(verbose)									
+					if(verbose)
 						std::cout << "\t\tPenalty: " <<  max_insertsize_penalty << "\n";
-				
+
 					combinedScore += log(max_insertsize_penalty);
 				}
-				
-				if(verbose)									
+
+				if(verbose)
 					std::cout << "\t\tCombined log likelihood: " <<  combinedScore << "\n";
-									
+
 				combinedScores.push_back(combinedScore);
-				combinedScores_indices.push_back(std::make_pair(aI1, aI2));			
+				combinedScores_indices.push_back(std::make_pair(aI1, aI2));
 			}
 		}
 
@@ -1778,7 +2109,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 			if(readPair.reads.first.name.find("normalAlignment=") != std::string::npos)
 			{
-				std::string nA_string_start = "normalAlignment=";			
+				std::string nA_string_start = "normalAlignment=";
 				size_t start_nA_string = readPair.reads.first.name.find(nA_string_start);
 				assert(!((readPair.reads.first.name.find("/1:FROM:") != std::string::npos) && (readPair.reads.first.name.find("/2:FROM:") != std::string::npos)));
 				size_t stop_nA_string = (readPair.reads.first.name.find("/1:FROM:") != std::string::npos) ? readPair.reads.first.name.find("/1:FROM:") : readPair.reads.first.name.find("/2:FROM:");
@@ -1786,18 +2117,18 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 				assert(stop_nA_string > 0);
 				stop_nA_string = stop_nA_string - 1;
 				assert(stop_nA_string >= start_nA_string);
-				
+
 				std::string nA_string = readPair.reads.first.name.substr(start_nA_string, stop_nA_string - start_nA_string + 1);
-				
+
 				std::string part_noNA = nA_string.substr(nA_string_start.length());
 
 				std::vector<std::string> normalAlignment_parts = Utilities::split(part_noNA, ";");
-				
+
 				if(!(normalAlignment_parts.size() == 4))
 				{
 					std::cerr << "normalAlignment_parts.size(): " << normalAlignment_parts.size() << "\n";
 					std::cerr << "part_noNA: " << part_noNA << "\n" << std::flush;
-				}	
+				}
 				assert(normalAlignment_parts.size() == 4);
 
 				if((normalAlignment_parts.at(0) != "NA") && (normalAlignment_parts.at(1) != "NA"))
@@ -1846,17 +2177,17 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					if((! completelyInsideGraph))
 					{
 						double combined_log_likelihood_BAMalignment = log(read1_alignment_likelihood) + log(read2_alignment_likelihood);
-  
+
 						if(strandsOK)
 						{
 							if(!(read1_alignment_regionID == read2_alignment_regionID))
 							{
-								std::cout << "!(read1_alignment_regionID == read2_alignment_regionID)" << "\n";								
+								std::cout << "!(read1_alignment_regionID == read2_alignment_regionID)" << "\n";
 								std::cout << "part_noNA: " << part_noNA << "\n";
 								std::cout << "read1_alignment_regionID: " << read1_alignment_regionID << "\n";
 								std::cout << "read2_alignment_regionID: " << read2_alignment_regionID << "\n";
 								std::cout << std::flush;
-								
+
 							}
 							assert(read1_alignment_regionID == read2_alignment_regionID);
 							double distance_graph_levels_P = boost::math::pdf(rnd_InsertSize, pair_distance);
@@ -1877,8 +2208,8 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 						have_genomic_mapQ = true;
 					}
-				}				
-				
+				}
+
 			}
 			/*
 			std::vector<std::string> readID_parts = Utilities::split(readPair.reads.first.name, ":");
@@ -1891,12 +2222,12 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					std::string part_noNA = part.substr(nA_string.length());
 
 					std::vector<std::string> normalAlignment_parts = Utilities::split(part_noNA, ";");
-					
+
 					if(!(normalAlignment_parts.size() == 4))
 					{
 						std::cerr << "normalAlignment_parts.size(): " << normalAlignment_parts.size() << "\n";
 						std::cerr << "part_noNA: " << part_noNA << "\n" << std::flush;
-					}	
+					}
 					assert(normalAlignment_parts.size() == 4);
 
 					if((normalAlignment_parts.at(0) != "NA") && (normalAlignment_parts.at(1) != "NA"))
@@ -1979,7 +2310,7 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 			forReturn.second = read2_backtraces.at(combinedScores_indices.at(bestCombination.second).second);
 			forReturn.second.mapQ = bestCombination.first;
 			forReturn.second.mapQ_genomic = (have_genomic_mapQ) ? genomic_mapQ : forReturn.first.mapQ; // todo
-  
+
 			return forReturn;
 		}
 	}
@@ -2875,6 +3206,17 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		
 		if(verbose) std::cout << "\tPost-filtering # backtraces: " << allBacktraces_preLimit.size() << "\n" << std::flush;
 			
+
+		std::sort(allBacktraces_preLimit.begin(), allBacktraces_preLimit.end(), [](const seedAndExtend_return_local& a, const seedAndExtend_return_local& b){
+			return (a.Score < b.Score);
+		});
+
+		std::reverse(allBacktraces_preLimit.begin(), allBacktraces_preLimit.end());
+		if(allBacktraces_preLimit.size() > 1)
+		{
+			assert(allBacktraces_preLimit.at(0).Score >= allBacktraces_preLimit.at(1).Score);
+		}
+
 		allBacktraces.clear();
 		unsigned int maxNumberReturnedBacktraces = ((int)allBacktraces_preLimit.size() > seedAndExtend_short_maximumBacktraces) ? seedAndExtend_short_maximumBacktraces : allBacktraces_preLimit.size();
 		for(unsigned int bI = 0; bI < maxNumberReturnedBacktraces; bI++)
@@ -2911,7 +3253,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		selectedBacktrace_forReturn.sequence_aligned = sequence;
 		selectedBacktrace_forReturn.reverse = false;		
 		selectedBacktrace_forReturn.Score = score(selectedBacktrace_forReturn.graph_aligned, selectedBacktrace_forReturn.graph_aligned_levels, selectedBacktrace_forReturn.sequence_aligned);
-		selectedBacktrace_forReturn.mapQ = -1;
+		selectedBacktrace_forReturn.mapQ = 1;
 
 		allBacktraces.clear();
 		allBacktraces.push_back(selectedBacktrace_forReturn);
