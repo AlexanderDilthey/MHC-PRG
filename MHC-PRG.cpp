@@ -394,7 +394,7 @@ int main(int argc, char *argv[])
 		std::vector<std::pair<double, double>> inserSize_mean_sd_perFile;
 		estimateInsertSizeFromGraph(input_FASTQ, graph_dir, inserSize_mean_sd_perFile);
 
-		alignShortReadsToHLAGraph(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile);
+		alignShortReadsToHLAGraph_multipleAlignments(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "simulateHLAreads"))
 	{

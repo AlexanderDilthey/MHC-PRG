@@ -54,6 +54,8 @@ double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downwei
 double min_bothReads_weightedCharactersOK = 0.95;
 
 double minimumMappingQuality = 0.9;
+bool combineReadAndBaseLikelihoods = false;
+
 
 using namespace boost::math::policies;
 using namespace boost::math;
@@ -4447,7 +4449,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				{
 					readID = individualPositions.at(0).thisRead_ID;
 					double mapQ_thisAlignment = (individualPositions.at(0).mapQ_genomic != 2) ? individualPositions.at(0).mapQ_genomic : individualPositions.at(0).mapQ;
-					log_likelihood_read += log(mapQ_thisAlignment); // todo: think about: is this correct?
+					log_likelihood_read += log(mapQ_thisAlignment);
+					assert(! combineReadAndBaseLikelihoods); // this would not make sense, or at least one would have to think more about it
 	
 				}
 
@@ -4611,8 +4614,6 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		std::vector<double> Mismatches_min;
 
 		std::vector<std::pair<unsigned int, unsigned int> > LLs_clusterIs;
-
-		bool combineReadAndBaseLikelihoods = false;
 
 		std::cout << "Threads: " << omp_get_num_threads() << "\n";
 		
