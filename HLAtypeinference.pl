@@ -121,9 +121,9 @@ elsif($sampleIDs =~ /^all/)
 	}
 }
 
-if(scalar(@sampleIDs) > 10)
+if(scalar(@sampleIDs) > 5)
 {
-	@sampleIDs = @sampleIDs[0 .. 9];
+	@sampleIDs = @sampleIDs[0 .. 4];
 	warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 }
 

@@ -3672,7 +3672,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 	// define loci
 	std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
-	// std::vector<std::string> loci = {"DQB1"}; // nodo remove
+	// std::vector<std::string> loci = {"A"}; // todo remove
 
 	forReturn_lociString = Utilities::join(loci, ",");
 
@@ -4380,11 +4380,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					std::string pileUpString = piledPosition.genotype
 						+ " (" + Utilities::join(qualities_as_strings, ", ") + ")"
 						+ " ["
-						+ Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
-						+ Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "
-						+ Utilities::DtoStr(piledPosition.thisRead_fractionOK) + " "
-						+ Utilities::DtoStr(piledPosition.pairedRead_fractionOK) + " | "
-						+ Utilities::ItoStr(piledPosition.pairs_strands_OK) + " "
+						// + Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
+						// + Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "
+						// + Utilities::DtoStr(piledPosition.thisRead_fractionOK) + " "
+						// + Utilities::DtoStr(piledPosition.pairedRead_fractionOK) + " | "
+						// + Utilities::ItoStr(piledPosition.pairs_strands_OK) + " "
 						+ Utilities::DtoStr(piledPosition.pairs_strands_distance) + " | "
 						+ Utilities::DtoStr(piledPosition.mapQ) + " "
 						+ Utilities::DtoStr(piledPosition.mapQ_genomic) + " | "
@@ -4449,6 +4449,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				{
 					readID = individualPositions.at(0).thisRead_ID;
 					double mapQ_thisAlignment = (individualPositions.at(0).mapQ_genomic != 2) ? individualPositions.at(0).mapQ_genomic : individualPositions.at(0).mapQ;
+					assert((mapQ_thisAlignment >= 0) && (mapQ_thisAlignment <= 1));
 					log_likelihood_read += log(mapQ_thisAlignment);
 					assert(! combineReadAndBaseLikelihoods); // this would not make sense, or at least one would have to think more about it
 	

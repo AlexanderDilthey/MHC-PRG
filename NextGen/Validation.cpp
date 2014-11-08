@@ -545,9 +545,20 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 	};
 
 
-	auto getAlignment = [&](std::ifstream& inputStream, bool& fail, seedAndExtend_return_local& ret_alignment, oneRead& ret_originalRead) -> void {
+	auto getAlignment = [&](std::ifstream& inputStream, bool& fail, seedAndExtend_return_local& ret_alignment, oneRead& ret_originalRead, std::string insertFirstLine) -> void {
 		fail = false;
-		std::vector<std::string> lines = getLines(inputStream, 9);
+		int readLines = 9;
+		if(insertFirstLine.length())
+		{
+			readLines = 8;
+		}
+		std::vector<std::string> lines = getLines(inputStream, readLines);
+		
+		if(insertFirstLine.length())
+		{
+			lines.insert(lines.begin(), insertFirstLine);
+		}
+		
 		if(lines.size() != 9)
 		{
 			fail = true;
@@ -613,15 +624,25 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 		if(line.length())
 		{
 
-			assert(line.substr(0, std::string("Aligned pair").length()) == "Aligned pair");
+			std::string lineForInsertion;
+			
+			assert( (line.substr(0, std::string("Aligned pair").length()) == "Aligned pair") ||
+					(line.substr(0, std::string("\tRead").length()) == "\tRead")
+			);
+			
+			if(line.substr(0, std::string("\tRead").length()) == "\tRead")
+			{
+				lineForInsertion = line;
+			}
+			
 			bool fail_1; bool fail_2;
 
 			seedAndExtend_return_local a1;
 			seedAndExtend_return_local a2;
 			oneRead r1("", "", "");
 			oneRead r2("", "", "");
-			getAlignment(inputStream, fail_1, a1, r1);
-			getAlignment(inputStream, fail_2, a2, r2);
+			getAlignment(inputStream, fail_1, a1, r1, lineForInsertion);
+			getAlignment(inputStream, fail_2, a2, r2, "");
 			oneReadPair rP(r1, r2, 0);			 
 			if(fail_1 || fail_2)
 			{
@@ -808,8 +829,8 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 	omp_set_num_threads(outerThreads);
 
 	std::vector<std::map<int, int>> printedAlignments_perRead_perThread;
-	std::vector<std::map<int, int>> printedAlignments_perRead_combinedLL_perRread;
-
+	std::vector<std::map<int, int>> printedAlignments_perRead_combinedLL_perThread;
+	std::vector<std::map<int, int>> printedAlignments_perRead_combinedGenomicLL_perThread;
 
 	std::vector<Graph*> graphs;
 	std::vector<GraphAlignerUnique::GraphAlignerUnique*> graphAligners;
@@ -832,7 +853,8 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 	}
 
 	printedAlignments_perRead_perThread.resize(outerThreads);
-	printedAlignments_perRead_combinedLL_perRread.resize(outerThreads);
+	printedAlignments_perRead_combinedLL_perThread.resize(outerThreads);
+	printedAlignments_perRead_combinedGenomicLL_perThread.resize(outerThreads);
 
 	auto alignReadPairs = [&](std::vector<oneReadPair>& readPairs, std::vector< std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> > >& alignments_perThread, std::vector< std::vector<int> >& alignments_readPairI_perThread, bool usePairing, double insertSize_mean, double insertSize_sd) -> void
 	{
@@ -853,13 +875,21 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 			std::map<int, double> _IS_ignore;
 			std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignment_pairs = graphAligners.at(tI)->seedAndExtend_short_allAlignments(rP, insertSize_mean, insertSize_sd);
 
+			if(alignment_pairs.size() > 1)
+			{
+				assert(alignment_pairs.at(0).first.mapQ_genomic >= alignment_pairs.at(1).first.mapQ_genomic);
+				assert(alignment_pairs.at(0).first.mapQ >= alignment_pairs.at(1).first.mapQ);
+			}
+			
 			std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignment_pairs_forPrint;
 			unsigned int max_print_index = (alignment_pairs.size() > print_max_alignments) ? print_max_alignments : alignment_pairs.size();
 			double accumulated_LL = 0;
+			double accumulated_genomic_LL = 0;
 			for(unsigned int i = 0; i < max_print_index; i++)
 			{
 				alignment_pairs_forPrint.push_back(alignment_pairs.at(i));
 				accumulated_LL += alignment_pairs.at(i).first.mapQ;
+				accumulated_genomic_LL += alignment_pairs.at(i).first.mapQ_genomic;
 			}
 
 			if(printedAlignments_perRead_perThread.at(tI).count(max_print_index) == 0)
@@ -869,11 +899,18 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 			printedAlignments_perRead_perThread.at(tI).at(max_print_index)++;
 
 			int accumulated_LL_asInt = int(accumulated_LL * 10.0);
-			if(printedAlignments_perRead_combinedLL_perRread.at(tI).count(accumulated_LL_asInt) == 0)
+			if(printedAlignments_perRead_combinedLL_perThread.at(tI).count(accumulated_LL_asInt) == 0)
 			{
-				printedAlignments_perRead_combinedLL_perRread.at(tI)[accumulated_LL_asInt] = 0;
+				printedAlignments_perRead_combinedLL_perThread.at(tI)[accumulated_LL_asInt] = 0;
 			}
-			printedAlignments_perRead_combinedLL_perRread.at(tI).at(accumulated_LL_asInt)++;
+			printedAlignments_perRead_combinedLL_perThread.at(tI).at(accumulated_LL_asInt)++;
+			
+			int accumulated_genomic_LL_asInt = int(accumulated_genomic_LL * 10.0);
+			if(printedAlignments_perRead_combinedGenomicLL_perThread.at(tI).count(accumulated_genomic_LL_asInt) == 0)
+			{
+				printedAlignments_perRead_combinedGenomicLL_perThread.at(tI)[accumulated_genomic_LL_asInt] = 0;
+			}
+			printedAlignments_perRead_combinedGenomicLL_perThread.at(tI).at(accumulated_genomic_LL_asInt)++;
 
 
 			alignments_perThread.at(tI).push_back(alignment_pairs_forPrint);
@@ -890,6 +927,9 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 
 	// auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs) -> void {
 	auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > >& alignments, std::vector<oneReadPair>& originalReads, double insertSize_mean, double insertSize_sd) -> void {
+	
+		double printingThreshold = 0.01;
+		
 		std::ofstream outputStream;
 		outputStream.open(outputFilename.c_str());
 		assert(outputStream.is_open());
@@ -910,11 +950,27 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 
 		for(unsigned int pairI = 0; pairI < alignments.size(); pairI++)
 		{
-			outputStream << "Aligned pair " << pairI << "\n";
+			bool printAtLeastOneAlignment = false;
 			for(unsigned int aI = 0; aI < alignments.at(pairI).size(); aI++)
 			{
-				printOneRead(alignments.at(pairI).at(aI).first, originalReads.at(pairI).reads.first, aI);
-				printOneRead(alignments.at(pairI).at(aI).second, originalReads.at(pairI).reads.second, aI);
+				if(alignments.at(pairI).at(aI).first.mapQ_genomic > printingThreshold)
+				{
+					printAtLeastOneAlignment = true;
+					break;
+				}					
+			}			
+			
+			if(printAtLeastOneAlignment)
+			{
+				outputStream << "Aligned pair " << pairI << "\n";   
+				for(unsigned int aI = 0; aI < alignments.at(pairI).size(); aI++)
+				{
+					if(alignments.at(pairI).at(aI).first.mapQ_genomic > printingThreshold)
+					{
+						printOneRead(alignments.at(pairI).at(aI).first, originalReads.at(pairI).reads.first, aI);
+						printOneRead(alignments.at(pairI).at(aI).second, originalReads.at(pairI).reads.second, aI);
+					}
+				}
 			}
 		}
 		outputStream.close();
@@ -926,9 +982,16 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 	
 	for(unsigned int fI = 0; fI < FASTQ_files.size(); fI++)
 	{
+		for(int tI = 0; tI < outerThreads; tI++)
+		{
+			printedAlignments_perRead_perThread.at(tI).clear();
+			printedAlignments_perRead_combinedLL_perThread.at(tI).clear();
+			printedAlignments_perRead_combinedGenomicLL_perThread.at(tI).clear();
+		}
+
 		std::string FASTQ = FASTQ_files.at(fI);
 
-		std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph(..): Loading reads from " << FASTQ << ".\n" << std::flush;
+		std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph_multipleAlignments(..): Loading reads from " << FASTQ << ".\n" << std::flush;
 		std::vector<oneReadPair> combinedPairs_for_alignment = getReadsFromFastQ(FASTQ);
 
 		if(skipPairs_MOD != 1)
@@ -986,6 +1049,61 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 
 		printAlignmentsToFile(alignments_output_file, withPairing_alignments, combinedPairs_for_alignment_inAlignmentOrder, inserSize_mean_sd_perFile.at(fI).first, inserSize_mean_sd_perFile.at(fI).second);
 
+		
+
+		std::map<int, int> printedAlignments_perRead;
+		std::map<int, int> printedAlignments_perRead_combinedLL;
+		std::map<int, int> printedAlignments_perRead_combinedGenomicLL;
+
+	
+		for(int tI = 0; tI < outerThreads; tI++)
+		{
+			for(std::map<int, int>::iterator printedAlignmentsIt = printedAlignments_perRead_perThread.at(tI).begin(); printedAlignmentsIt != printedAlignments_perRead_perThread.at(tI).end(); printedAlignmentsIt++)
+			{
+				if(printedAlignments_perRead.count(printedAlignmentsIt->first) == 0)
+				{
+					printedAlignments_perRead[printedAlignmentsIt->first] = 0;
+				}
+				printedAlignments_perRead.at(printedAlignmentsIt->first) += printedAlignmentsIt->second;
+			}
+			
+			for(std::map<int, int>::iterator alignmentPrintedProbabilityIt = printedAlignments_perRead_combinedLL_perThread.at(tI).begin(); alignmentPrintedProbabilityIt != printedAlignments_perRead_combinedLL_perThread.at(tI).end(); alignmentPrintedProbabilityIt++)
+			{
+				if(printedAlignments_perRead_combinedLL.count(alignmentPrintedProbabilityIt->first) == 0)
+				{
+					printedAlignments_perRead_combinedLL[alignmentPrintedProbabilityIt->first] = 0;
+				}
+				printedAlignments_perRead_combinedLL.at(alignmentPrintedProbabilityIt->first) += alignmentPrintedProbabilityIt->second;
+			}			
+
+			for(std::map<int, int>::iterator alignmentPrintedGenomicProbabilityIt = printedAlignments_perRead_combinedGenomicLL_perThread.at(tI).begin(); alignmentPrintedGenomicProbabilityIt != printedAlignments_perRead_combinedGenomicLL_perThread.at(tI).end(); alignmentPrintedGenomicProbabilityIt++)
+			{
+				if(printedAlignments_perRead_combinedGenomicLL.count(alignmentPrintedGenomicProbabilityIt->first) == 0)
+				{
+					printedAlignments_perRead_combinedGenomicLL[alignmentPrintedGenomicProbabilityIt->first] = 0;
+				}
+				printedAlignments_perRead_combinedGenomicLL.at(alignmentPrintedGenomicProbabilityIt->first) += alignmentPrintedGenomicProbabilityIt->second;
+			}	
+		}
+
+		std::cout  << Utilities::timestamp() << "\t\t\t" << "Print multi-alignment statistics\n" << std::flush;
+		std::cout << "\t\t\t\t" << "Printed alingments per read:\n";
+		for(std::map<int, int>::iterator printedAlignmentsIt = printedAlignments_perRead.begin(); printedAlignmentsIt != printedAlignments_perRead.end(); printedAlignmentsIt++)
+		{
+			std::cout << "\t\t\t\t\t" << printedAlignmentsIt->first << " => " << (int)printedAlignmentsIt->second << "\n";
+		}		
+
+		std::cout << "\t\t\t\t" << "Accumulated mapping quality per read (x 10):\n";
+		for(std::map<int, int>::iterator alignmentPrintedProbabilityIt = printedAlignments_perRead_combinedLL.begin(); alignmentPrintedProbabilityIt != printedAlignments_perRead_combinedLL.end(); alignmentPrintedProbabilityIt++)
+		{
+			std::cout << "\t\t\t\t\t" << alignmentPrintedProbabilityIt->first << " => " << (int)alignmentPrintedProbabilityIt->second << "\n";
+		}
+
+		std::cout << "\t\t\t\t" << "Accumulated genomic mapping quality per read (x 10):\n";
+		for(std::map<int, int>::iterator alignmentPrintedGenomicProbabilityIt = printedAlignments_perRead_combinedGenomicLL.begin(); alignmentPrintedGenomicProbabilityIt != printedAlignments_perRead_combinedGenomicLL.end(); alignmentPrintedGenomicProbabilityIt++)
+		{
+			std::cout << "\t\t\t\t\t" << alignmentPrintedGenomicProbabilityIt->first << " => " << (int)alignmentPrintedGenomicProbabilityIt->second << "\n";
+		}		
 
 		// Produce SAM -- deactivated
 		continue;
