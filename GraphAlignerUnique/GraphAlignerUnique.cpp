@@ -1511,7 +1511,7 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 			seedAndExtend_return_local& thisBacktrace = backtraces.at(i);
 			std::string separator = "///!!!///";
 			std::string serialization = thisBacktrace.graph_aligned + separator +
-										thisBacktrace.sequence_aligned + separator +
+										thisBacktrace.sequence_aligned + separator + 
 										Utilities::join(Utilities::ItoStr(thisBacktrace.graph_aligned_levels), ";") + separator +
 										Utilities::ItoStr(thisBacktrace.reverse);
 
@@ -1760,7 +1760,7 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 	{
 		combinedScores_withGenomic.push_back(combined_log_likelihood_BAMalignment);
 		normalize_loglikelihoods(combinedScores_withGenomic);
-		for(unsigned int i = 0; i < combinedScores_withGenomic.size(); i++)
+		for(unsigned int i = 0; i < combinedScores_nonGenomic.size(); i++)
 		{
 			double q = combinedScores_withGenomic.at(i);
 
@@ -1768,8 +1768,14 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 			forReturn.at(i).second.mapQ_genomic = q;
 		}
 	}
+	
+	std::sort(forReturn.begin(), forReturn.end(), [](const std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& a, const std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& b){
+		return (a.first.mapQ < b.first.mapQ);
+	});	
 
-	return forReturn;
+	std::reverse(forReturn.begin(), forReturn.end());
+	
+	return forReturn;   
 }
 
 
