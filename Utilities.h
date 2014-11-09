@@ -47,7 +47,7 @@ public:
 
 	static std::string timestamp();
 
-	static std::pair<double, unsigned int> findVectorMax(std::vector<double>& v);
+	static std::pair<double, unsigned int> findVectorMax(const std::vector<double>& v);
 	static std::pair<double, int> findIntMapMax(std::map<int, double>& m);
 	static std::pair<double, int> findIntMapMaxP_nonCritical(std::map<int, double>& m, unsigned int* thisSeed);
 	static std::pair<double, unsigned int> findVectorMaxP(std::vector<double>& v);
@@ -97,6 +97,8 @@ public:
 
 	static std::string removeFROM(std::string readID);
 		
+	static double LogSumLogPs (const std::vector<double>& v);
+
 };
 
 extern unsigned int globalRandRSeed;
