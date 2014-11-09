@@ -111,6 +111,30 @@ std::string Utilities::JoinMapUInt2Str(std::map<std::string, unsigned int> M)
 	return join(forReturn_parts, ",");
 }
 
+
+double Utilities::LogSumLogPs (const std::vector<double>& v)
+{
+	std::pair<double, unsigned int> maxPair = findVectorMax(v);
+	double max = maxPair.first;
+	double secondTerm = 0;
+	for(size_t i = 0; i < v.size(); i++)
+	{
+		if(i == maxPair.second)
+		{
+			continue;
+		}
+		else
+		{
+			secondTerm += exp(v.at(i) - max);
+		}
+	}
+
+	double forReturn = (max + log(1 + secondTerm));
+	return forReturn;
+}
+
+
+
 std::pair<double, int> Utilities::findIntMapMax(std::map<int, double>& m)
 {
 	assert(m.size() > 0);
@@ -163,7 +187,7 @@ bool Utilities::extractBit(unsigned int number, unsigned int bit)
 	return bitValue;
 }
 
-std::pair<double, unsigned int> Utilities::findVectorMax(std::vector<double>& v)
+std::pair<double, unsigned int> Utilities::findVectorMax(const std::vector<double>& v)
 {
 	assert(v.size() > 0);
 	double max;
