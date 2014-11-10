@@ -30,6 +30,11 @@ The MHC-PRG data package (http://birch.well.ox.ac.uk/MHC-PRG.tar.gz - c. 213GB) 
 
   VCFs.zip
 
+### Wiggle files for UCSC
+
+We provide the results from our genome-wide VCF evaluation in bigWig format for use in the UCSC genome browser (computed in 200bp windows). Include the following URL as 'custom track':
+
+http://oxfordhla.well.ox.ac.uk/VCF.bw
 
 ## Installation
 
