@@ -626,8 +626,8 @@ if($collect eq '3')
 		}	
 		
 	
-		die "Cannot find file for chromosome 6 [1]"  unless ($chromosome_6_file_1);
-		die "Cannot find file for chromosome 6 [2]" unless ($chromosome_6_file_2);	
+		die Dumper("Cannot find file for chromosome 6 [1]", \@chromosomal_files_1)   unless ($chromosome_6_file_1);
+		die Dumper("Cannot find file for chromosome 6 [2]", \@chromosomal_files_2) unless ($chromosome_6_file_2);	
 		
 		foreach my $files ([$chromosome_6_file_1, $remapping_dir_rawGenome_1, $haplotype_1], [$chromosome_6_file_2, $remapping_dir_rawGenome_2, $haplotype_2])
 		{

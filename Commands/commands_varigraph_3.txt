@@ -7,6 +7,9 @@
 ./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31
 
 ./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31 --collect 2viterbi --vcfPos ../data/VCFsnpRefData.txt
+
+./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31 --collect 3 --vcfPos ../data/VCFsnpRefData.txt --mapping_display_only_instructions 1
+
 ./nextGenInferenceVariGraph.pl --graph ../tmp2/GS_nextGen/varigraph3 --sample AA02O9Q_Z2 --kmer 31 --collect 3 --vcfPos ../data/VCFsnpRefData.txt
 
 
