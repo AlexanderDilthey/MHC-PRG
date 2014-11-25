@@ -1854,6 +1854,117 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 		}
 	}
 	
+	auto alignedSequence2SequenceIndex = [](std::string sequence_aligned, bool reverse) -> std::vector<int> {
+		std::vector<int> forReturn;
+		forReturn.reserve(sequence_aligned.length());
+		int i_noGap = -1;
+		int sequenceLength_noGap = 0;
+		for(unsigned int i = 0; i < sequence_aligned.length(); i++)
+		{
+			char sequenceAlignmentChar = sequence_aligned.at(i);
+			if(sequenceAlignmentChar != '_')
+			{
+				sequenceLength_noGap++;
+			}
+		}
+
+		for(unsigned int i = 0; i < sequence_aligned.length(); i++)
+		{
+			char sequenceAlignmentChar = sequence_aligned.at(i);
+			int sequenceIndex;
+			if(sequenceAlignmentChar == '_')
+			{
+				sequenceIndex = -1;
+			}
+			else
+			{
+				i_noGap++;
+				if(reverse)
+				{
+					sequenceIndex = sequenceLength_noGap - i_noGap - 1;
+				}
+				else
+				{
+					sequenceIndex = i_noGap;
+				}
+				assert(sequenceIndex >= 0);
+				assert(sequenceIndex < sequenceLength_noGap);
+			}
+
+			forReturn.push_back(sequenceIndex);
+		}
+
+		return forReturn;
+	};
+
+	std::map<std::string, double> alignmentPositionConfidences;
+	for(unsigned int i = 0; i < forReturn.size(); i++)
+	{
+		std::vector<int> first_sequence_index = alignedSequence2SequenceIndex(forReturn.at(i).first.sequence_aligned, forReturn.at(i).first.reverse);
+		std::vector<int> second_sequence_index = alignedSequence2SequenceIndex(forReturn.at(i).second.sequence_aligned, forReturn.at(i).second.reverse);
+
+		assert(forReturn.at(i).first.mapQ_genomic == forReturn.at(i).second.mapQ_genomic);
+
+		for(unsigned int j = 0; j < forReturn.at(i).first.graph_aligned.length(); j++)
+		{
+			std::string c_graph = forReturn.at(i).first.graph_aligned.substr(j, 1);
+			int l_graph = forReturn.at(i).first.graph_aligned_levels.at(j);
+			int idx_sequence = first_sequence_index.at(j);
+			std::string positionID = c_graph + ":" + Utilities::ItoStr(l_graph) + ":" +"r1" + ":" + Utilities::ItoStr(idx_sequence);
+			if(alignmentPositionConfidences.count(positionID) == 0)
+			{
+				alignmentPositionConfidences[positionID] = 0;
+			}
+			alignmentPositionConfidences.at(positionID) += forReturn.at(i).first.mapQ_genomic;
+		}
+
+
+		for(unsigned int j = 0; j < forReturn.at(i).second.graph_aligned.length(); j++)
+		{
+			std::string c_graph = forReturn.at(i).second.graph_aligned.substr(j, 1);
+			int l_graph = forReturn.at(i).second.graph_aligned_levels.at(j);
+			int idx_sequence = second_sequence_index.at(j);
+			std::string positionID = c_graph + ":" + Utilities::ItoStr(l_graph) + ":" +"r2" + ":" + Utilities::ItoStr(idx_sequence);
+			if(alignmentPositionConfidences.count(positionID) == 0)
+			{
+				alignmentPositionConfidences[positionID] = 0;
+			}
+			alignmentPositionConfidences.at(positionID) += forReturn.at(i).first.mapQ_genomic;
+		}
+	}
+
+	for(unsigned int i = 0; i < forReturn.size(); i++)
+	{
+		std::vector<int> first_sequence_index = alignedSequence2SequenceIndex(forReturn.at(i).first.sequence_aligned, forReturn.at(i).first.reverse);
+		std::vector<int> second_sequence_index = alignedSequence2SequenceIndex(forReturn.at(i).second.sequence_aligned, forReturn.at(i).second.reverse);
+
+		assert(forReturn.at(i).first.mapQ_genomic == forReturn.at(i).second.mapQ_genomic);
+
+		forReturn.at(i).first.mapQ_genomic_perPosition.reserve(forReturn.at(i).first.graph_aligned.length());
+		for(unsigned int j = 0; j < forReturn.at(i).first.graph_aligned.length(); j++)
+		{
+			std::string c_graph = forReturn.at(i).first.graph_aligned.substr(j, 1);
+			int l_graph = forReturn.at(i).first.graph_aligned_levels.at(j);
+			int idx_sequence = first_sequence_index.at(j);
+			std::string positionID = c_graph + ":" + Utilities::ItoStr(l_graph) + ":" +"r1" + ":" + Utilities::ItoStr(idx_sequence);
+
+			double Q = alignmentPositionConfidences.at(positionID);
+			forReturn.at(i).first.mapQ_genomic_perPosition.push_back(Utilities::PCorrectToPhred(Q));
+		}
+
+
+		forReturn.at(i).second.mapQ_genomic_perPosition.reserve(forReturn.at(i).second.graph_aligned.length());
+		for(unsigned int j = 0; j < forReturn.at(i).second.graph_aligned.length(); j++)
+		{
+			std::string c_graph = forReturn.at(i).second.graph_aligned.substr(j, 1);
+			int l_graph = forReturn.at(i).second.graph_aligned_levels.at(j);
+			int idx_sequence = second_sequence_index.at(j);
+			std::string positionID = c_graph + ":" + Utilities::ItoStr(l_graph) + ":" +"r2" + ":" + Utilities::ItoStr(idx_sequence);
+			double Q = alignmentPositionConfidences.at(positionID);
+			forReturn.at(i).second.mapQ_genomic_perPosition.push_back(Utilities::PCorrectToPhred(Q));
+		}
+	}
+
 	std::sort(forReturn.begin(), forReturn.end(), [](const std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& a, const std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& b){
 		return (a.first.mapQ < b.first.mapQ);
 	});	

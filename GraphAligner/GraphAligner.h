@@ -68,12 +68,14 @@ public:
 	std::vector<int> graph_aligned_levels;
 	std::vector<double> certainty_sequence2Graph;
 	std::string sequence_aligned;
+
 	size_t kMers_total;
 	size_t kMers_unique_total;
 	size_t kMers_unique_utilized;
 	bool reverse;
 	double mapQ;
 	double mapQ_genomic;
+	std::string mapQ_genomic_perPosition;
 
 	int alignment_firstLevel()
 	{

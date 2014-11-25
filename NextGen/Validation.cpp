@@ -590,6 +590,13 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 				a.mapQ = Utilities::StrtoD(mapQs.at(0));
 				a.mapQ_genomic = Utilities::StrtoD(mapQs.at(1));
 			}
+			else if(mapQs.size() == 3)
+			{
+				a.mapQ = Utilities::StrtoD(mapQs.at(0));
+				a.mapQ_genomic = Utilities::StrtoD(mapQs.at(1));
+				a.mapQ_genomic_perPosition = mapQs.at(2);
+				assert(a.mapQ_genomic_perPosition.length() == str_graph_aligned.length());
+			}
 			else
 			{
 				a.mapQ = Utilities::StrtoD(mapQs.at(0));
@@ -814,7 +821,7 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 	int skipPairs_MOD = 1;
 	bool useShort = true;
 
-	unsigned int print_max_alignments = 10;
+	unsigned int print_max_alignments = 1;
 
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));
@@ -924,6 +931,8 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 	};
 
 
+	int totalPrintedBases = 0;
+	int totalPrintedBases_recovered = 0;
 
 	// auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<std::pair<std::string, std::string> > alignments_readIDs) -> void {
 	auto printAlignmentsToFile = [&](std::string outputFilename, std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > >& alignments, std::vector<oneReadPair>& originalReads, double insertSize_mean, double insertSize_sd) -> void {
@@ -940,12 +949,27 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 			outputStream << "\t" << "Read " << originalRead.name << "A" << aI << "\n";
 			outputStream << "\t\t" << alignment.Score << "\n";
 			outputStream << "\t\t" << alignment.reverse << "\n";
-			outputStream << "\t\t" << alignment.mapQ << " " << alignment.mapQ_genomic << "\n";
+			outputStream << "\t\t" << alignment.mapQ << " " << alignment.mapQ_genomic << " " << alignment.mapQ_genomic_perPosition << "\n";
 			outputStream << "\t\t" << alignment.graph_aligned << "\n";
 			outputStream << "\t\t" << alignment.sequence_aligned << "\n";
 			outputStream << "\t\t" << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), " ") << "\n";
 			outputStream << "\t\t" << originalRead.sequence << "\n";
 			outputStream << "\t\t" << originalRead.quality << "\n";
+
+			totalPrintedBases += alignment.graph_aligned.length();
+			if((alignment.mapQ_genomic < 0.9) && (alignment.mapQ_genomic_perPosition.length()))
+			{
+				assert(alignment.mapQ_genomic_perPosition.length() == alignment.graph_aligned.length());
+				for(unsigned int i = 0; i < alignment.mapQ_genomic_perPosition.length(); i++)
+				{
+					char c = alignment.mapQ_genomic_perPosition.at(i);
+					if(Utilities::PhredToPCorrect(c) > 0.9)
+					{
+						totalPrintedBases_recovered++;
+					}
+				}
+			}
+
 		};
 
 		for(unsigned int pairI = 0; pairI < alignments.size(); pairI++)
@@ -1149,6 +1173,9 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 
 		std::cout  << Utilities::timestamp() << "\t\t\t" << "Done. Output in " << SAM_output_file << ".\n" << std::flush;
 	}
+
+	std::cout << "\ntotalPrintedBases: " << totalPrintedBases << "\n";
+	std::cout << "totalPrintedBases_recovered: " << totalPrintedBases_recovered << "\n\n" << std::flush;
 
 	std::cout  << Utilities::timestamp() << "\t\t\t" << "All alignments done, free memory.\n" << std::flush;
 	for(int tI = 0; tI < outerThreads; tI++)
