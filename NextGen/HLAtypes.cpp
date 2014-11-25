@@ -4291,11 +4291,12 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			)
 			*/
 			
-			double mapQ_thisAlignment = (alignedReadPair.first.mapQ_genomic != 2) ? alignedReadPair.first.mapQ_genomic : alignedReadPair.first.mapQ;
+			assert(alignedReadPair.first.mapQ_genomic != 2);
+			double mapQ_thisAlignment = alignedReadPair.first.mapQ_genomic;
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))
-					// (mapQ_thisAlignment >= minimumMappingQuality) &&
+					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
+					(mapQ_thisAlignment >= minimumMappingQuality)
 					// (!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
 					)  			
 			{
@@ -4611,7 +4612,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 				// std::cout << "cluster " << clusterI << ", position sequence " << positionSpecifierI << ": " << log_likelihood << "\n";
 
+				assert(exp(log_likelihood_read) >= 0);
+				assert(exp(log_likelihood_read) <= 1);
+				
 				likelihoods_perCluster_perRead.at(clusterI).push_back(log_likelihood_read);
+				
 				mismatches_perCluster_perRead.at(clusterI).push_back(mismatches);
 
 			}
@@ -4620,8 +4625,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			assert(mismatches_perCluster_perRead.at(clusterI).size() == exonPositions_fromReads.size());
 		}
 
-		std::cout << Utilities::timestamp() << "Compute normalized likelihoods (over multiple alignments, if there are any)." << std::flush;
-
+		// std::cout << Utilities::timestamp() << "Compute normalized likelihoods (over multiple alignments, if there are any)." << std::flush;
+		//  std::cout << "\t" << "exonPositions_fromReads.size(): " << exonPositions_fromReads.size() << "\n" << std::flush;
+		
 		std::map<std::string, std::set<unsigned int> > readID_noAlignment_2_readIndex;
 		std::map<std::string, unsigned int > readID_noAlignment_2_idx;
 		for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
@@ -4637,7 +4643,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 				std::string readID_noA = Utilities::join(readID_components_noA, ":");
 				readID_noAlignment_2_readIndex[readID_noA].insert(readI);
-
+			
 				if(readID_noAlignment_2_idx.count(readID_noA) == 0)
 				{
 					unsigned int newIndex = readID_noAlignment_2_idx.size();
@@ -4645,17 +4651,22 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				}
 			}
 		}
+		
+		// std::cout << Utilities::timestamp() << "\tProcessed " << readID_noAlignment_2_idx.size() << " reads (no alignment)\n" << std::flush;
+
 
 		unsigned maxNoAlignmentReadIdx = readID_noAlignment_2_idx.size() - 1;
 
 		int reads_summed_more_than_1_alignment = 0;
 
 		std::vector<std::vector<double> > likelihoods_perCluster_perReads_allAlignments;
+		
+		/*
 		likelihoods_perCluster_perReads_allAlignments.resize(HLAtype_clusters.size());
 
 		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
 		{
-			likelihoods_perCluster_perReads_allAlignments.at(clusterI).resize(maxNoAlignmentReadIdx, 0);
+			likelihoods_perCluster_perReads_allAlignments.at(clusterI).resize(maxNoAlignmentReadIdx + 1, 0);
 
 			std::vector<std::string> typesInCluster(HLAtype_clusters.at(clusterI).begin(), HLAtype_clusters.at(clusterI).end());
 			std::string clusterName = Utilities::join(typesInCluster, "|");
@@ -4665,25 +4676,35 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				const std::set<unsigned int>& alignments_for_read = readIDit->second;
 				double summed_mapQ = 0;
 				std::vector<double> ll_across_alignments;
-				for(std::set<unsigned int>::iterator readIndexit = alignments_for_read.begin(); readIndexit != alignments_for_read.end(); readIDit++)
+				ll_across_alignments.reserve(ll_across_alignments.size() + 1);
+				// std::cout << "(ll_across_alignments.size() + 1)" << ": " << (ll_across_alignments.size() + 1) << "}
+				for(std::set<unsigned int>::iterator readIndexit = alignments_for_read.begin(); readIndexit != alignments_for_read.end(); readIndexit++)
 				{
 					std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(*readIndexit);
 					assert(individualPositions.at(0).mapQ_genomic != 2);
 
 					double mapQ_genomic = individualPositions.at(0).mapQ_genomic;
-					assert((mapQ_genomic >= 0) && (mapQ_genomic <= 1));
+					assert((mapQ_genomic > 0) && (mapQ_genomic <= 1));
 
-					summed_mapQ += mapQ_genomic;
+					summed_mapQ += mapQ_genomic; 
 
 					ll_across_alignments.push_back(log(mapQ_genomic) + likelihoods_perCluster_perRead.at(clusterI).at(*readIndexit));
 				}
 
-				assert((summed_mapQ >= 0) && (summed_mapQ <= 1));
+				if(!((summed_mapQ >= 0) && (summed_mapQ <= (1+1e-5))))
+				{
+					std::cerr << "! ((summed_mapQ >= 0) && (summed_mapQ <= (1+1e-5)))" << "\n";
+					std::cerr << "summed_mapQ: " << summed_mapQ << "\n" << std::flush;
+				}
+				assert((summed_mapQ > 0) && (summed_mapQ <= (1+1e-5)));
 
 				double component_outside = (1 - summed_mapQ) * 1; // likelihood is 1 for all non-captured regions
 
-				if(component_outside != 0)
+				if(component_outside > 0)
 				{
+					assert(component_outside > 0);
+					assert(component_outside <= 1);
+					
 					ll_across_alignments.push_back(log(component_outside));
 				}
 
@@ -4692,8 +4713,20 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				likelihoods_perCluster_perReads_allAlignments.at(clusterI).at(idx_for_readID) = Utilities::LogSumLogPs(ll_across_alignments);
 
 				double nonLog_P = exp(likelihoods_perCluster_perReads_allAlignments.at(clusterI).at(idx_for_readID));
+				
+				if(!((nonLog_P >= 0) && (nonLog_P <= (1+1e-5))))
+				{
+					std::cerr << "!((nonLog_P >= 0) && (nonLog_P <= 1))" << "\n";
+					std::cerr << "nonLog_P" << ": " << nonLog_P << "\n";
+					std::cerr << "likelihoods_perCluster_perReads_allAlignments.at(clusterI).at(idx_for_readID)" << ": " << likelihoods_perCluster_perReads_allAlignments.at(clusterI).at(idx_for_readID) << "\n";
+					for(unsigned int i = 0; i < ll_across_alignments.size(); i++)
+					{	
+						std::cerr << "\t" << "ll_across_alignments" << " " << i << ": " << ll_across_alignments.at(i) << "\n";
+					}		
+					std::cerr << std::flush;
+				}
 				assert(nonLog_P >= 0);
-				assert(nonLog_P <= 1);
+				assert(nonLog_P <= (1+1e-5));
 			}
 
 			if(readID_noAlignment_2_readIndex.size() > 1)
@@ -4701,8 +4734,10 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				reads_summed_more_than_1_alignment++;
 			}
 		}
+		*/
+		
 
-		std::cout << Utilities::timestamp() << "\tdone. " << reads_summed_more_than_1_alignment << " of " << readID_noAlignment_2_readIndex.size() << " original reads summed over more than 1 alignment.\n" << std::flush;
+		// std::cout << Utilities::timestamp() << "\tdone. " << reads_summed_more_than_1_alignment << " of " << exonPositions_fromReads.size() << " original reads summed over more than 1 alignment.\n" << std::flush;
 
 
 		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon cluster pairs (" << HLAtype_clusters.size() << "**2/2)\n" << std::flush;
@@ -4745,6 +4780,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				double mismatches_sum_averages = 0;
 				double mismatches_sum_min = 0;
 
+				double pair_log_likelihood = 0;
+
 				for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
 				{
 					// now use allAlignments likelihoods instead!
@@ -4755,13 +4792,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 //					}
 
 
-//					double LL_thisRead_cluster1 = likelihoods_perCluster_perRead.at(clusterI1).at(readI);
-//					double LL_thisRead_cluster2 = likelihoods_perCluster_perRead.at(clusterI2).at(readI);
+					double LL_thisRead_cluster1 = likelihoods_perCluster_perRead.at(clusterI1).at(readI);
+					double LL_thisRead_cluster2 = likelihoods_perCluster_perRead.at(clusterI2).at(readI);
 
 					// double LL_average = log( (1 + (exp(LL_thisPositionSpecifier_cluster2+log(0.5)))/exp(LL_thisPositionSpecifier_cluster1+log(0.5)) )) + (LL_thisPositionSpecifier_cluster1+log(0.5));
 
 					// double LL_average_2 = log(0.5 * exp(LL_thisRead_cluster1) + 0.5 * exp(LL_thisRead_cluster2));
-//					double LL_average_2_2 = logAvg(LL_thisRead_cluster1, LL_thisRead_cluster2);
+					double LL_average_2_2 = logAvg(LL_thisRead_cluster1, LL_thisRead_cluster2);
 					// if(! (abs(LL_average_2 - LL_average_2_2) < 1e-5))
 					// {
 						// std::cerr << "Cluster 1: " << LL_thisRead_cluster1 << " " << exp(LL_thisRead_cluster1) << "\n";
@@ -4777,7 +4814,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					mismatches_sum_averages += ((double)(mismatches_cluster1 + mismatches_cluster2) / 2.0);
 					mismatches_sum_min += ((mismatches_cluster1 < mismatches_cluster2) ? mismatches_cluster1 : mismatches_cluster2);
 
-//					 pair_log_likelihood += LL_average_2_2;
+					 pair_log_likelihood += LL_average_2_2;
 
 					// if ( ((clusterI1 == 1160) && (clusterI2 == 1640)) || ((clusterI1 == 1127) && (clusterI2 == 1640)))
 					// {
@@ -4785,8 +4822,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					// }
 				}
 
-				double pair_log_likelihood = 0;
-
+				/*
 				assert(! combineReadAndBaseLikelihoods);
 				for(std::map<std::string, std::set<unsigned int> >::const_iterator readIDit = readID_noAlignment_2_readIndex.begin(); readIDit != readID_noAlignment_2_readIndex.end(); readIDit++)
 				{
@@ -4798,6 +4834,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 					pair_log_likelihood += LL_average_2_2;
 				}
+				
+				*/
+				
 
 				LLs_completeReads_perThread.push_back(pair_log_likelihood);
 

@@ -997,10 +997,11 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 			}
 		}
 
-		print_threaded_reads();
-
 		#pragma omp critical
 		{
+		
+			print_threaded_reads();
+
 			for(std::map<std::string, fastq_readPair>::iterator danglingReadIt = thread_reads.begin(); danglingReadIt != thread_reads.end(); danglingReadIt++)
 			{
 				const std::string& name = danglingReadIt->first;

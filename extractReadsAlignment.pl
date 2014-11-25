@@ -52,10 +52,7 @@ my %interestingReadsBySample = (
 	# },
 	'I1_AA02O9Q_A4' => {
 		'mapperSaysThere' => [
-			'@@A819BJABXX:3:2206:5747:176757#ATCACGAT:normalAlignment=8.70858e-05[6:29856481-29856570];1.13446e-18[6:29856377-29856466];1;15/2:FROM:6:29856377:FROM:',
-			'@@A819BJABXX:2:1205:8561:17512#ATCACGAT:normalAlignment=2.43113e-07[6:29856511-29856600];4.29519e-20[6:29856423-29856512];1;-1/2:FROM:6:29856423:FROM:',
-			'@@A819GPABXX:4:2108:3436:12394#ATCACGAT:normalAlignment=1.17013e-29[6:29856451-29856540];2.70154e-08[6:29856537-29856626];1;-3/1:FROM:6:29856451:FROM:',
-			
+			'@@B819A2ABXX:8:1207:13886:194936#ATCACGAT:normalAlignment=1.41234e-08[6:31324085-31324174];6.94743e-18[6:31323989-31324078];1;7/1:FROM:6:31324085:FROM:A0',			
 		],
 		'trueHLAsaysThere' => [	
 		],
@@ -84,7 +81,9 @@ foreach my $sampleID (keys %interestingReadsBySample)
 	print CPP qq(std::map<std::string, std::string> readID_2_group;), "\n";			
 	foreach my $readID (keys %reads_2_group)
 	{
-		print CPP qq(readID_2_group["$readID"] = "$reads_2_group{$readID}";), "\n";
+		my $printValue = $reads_2_group{$readID};
+		$printValue =~ s/\:A\d+$/\:/;
+		print CPP qq(readID_2_group["$readID"] = "$printValue";), "\n";
 	}
 	close(CPP);
 }  
@@ -119,12 +118,27 @@ foreach my $sampleID (keys %interestingReadsBySample)
 		
 		my $alignment_startLine = $.;
 		
-		die "Cannot parse (first) line $. of file $input_filename\n\n$alignedPair_firstLine\n\n" unless($alignedPair_firstLine =~ /Aligned pair (\d+)/);
+		# die "Cannot parse (first) line $. of file $input_filename\n\n$alignedPair_firstLine\n\n" unless($alignedPair_firstLine =~ /Aligned pair (\d+)/);
 		
-		my @p1_lines = getNlines($input_fh, 9);
-		my @p2_lines = getNlines($input_fh, 9);
+		my @add_p1_lines;
 		
-		die "Cannot parse first line of first read of alignment starting line $alignment_startLine of $input_filename" unless($p1_lines[0] =~ /\s+Read (.+)/); 
+		if($alignedPair_firstLine =~ /Aligned pair (\d+)/)
+		{
+			next;
+		}
+		else
+		{
+			push(@add_p1_lines, $alignedPair_firstLine);
+		}
+		
+		my @p1_lines = getNlines($input_fh, 9 - scalar(@add_p1_lines));
+		my @p2_lines = getNlines($input_fh, 9);		
+		if(@add_p1_lines)
+		{
+			@p1_lines = (@add_p1_lines, @p1_lines);
+		}
+		
+		die "Cannot parse first line of first read of alignment starting line $alignment_startLine of $input_filename\n$p1_lines[0]" unless($p1_lines[0] =~ /\s+Read (.+)/); 
 		my $read1_ID = $1;
 		
 		die "Cannot parse first line of second read of alignment starting line $alignment_startLine of $input_filename" unless($p2_lines[0] =~ /\s+Read (.+)/); 
