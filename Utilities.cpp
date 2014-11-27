@@ -88,14 +88,31 @@ std::vector<int> Utilities::StrtoI(std::vector<std::string> s)
 	return forReturn;
 }
 
-char Utilities::PCorrectToPhred(double PCorrect)
+unsigned char Utilities::PCorrectToPhred(double PCorrect)
 {
-	assert(PCorrect > 0);
+	assert(PCorrect >= 0);
 	assert(PCorrect <= 1);
 
-	double phred1 = -10.0 * log10(PCorrect);
-
-	return (char)(phred1 + 33);
+	double pWrong = 1 - PCorrect;
+	if(pWrong == 0)
+	{
+		pWrong = 1e-100;
+	}
+	
+	double phred1 = -10.0 * log10(pWrong);
+	
+	if((phred1 + 33) > 255)
+	{
+		phred1 = 255 - 33;
+	}
+	
+	assert((phred1 + 33) >= 0);
+	
+	int forReturn = round(phred1 + 33);
+	assert(forReturn >= 0);
+	assert(forReturn <= 255);
+	
+	return (unsigned char)(forReturn);
 }
 
 std::string Utilities::JoinMapUInt2Str(std::map<std::string, unsigned int> M)
@@ -235,13 +252,13 @@ std::pair<double, unsigned int> Utilities::findVectorMaxP(std::vector<double>& v
 }
 
 // Converts char to probability of correct genotype, according to Illumina scheme
-double Utilities::PhredToPCorrect(char nucleotideQuality)
+double Utilities::PhredToPCorrect(unsigned char nucleotideQuality)
 {
 	if(nucleotideQuality == 0)
 	{
 		return -1;
 	}
-	char illuminaPhred = nucleotideQuality - 33;
+	int illuminaPhred = nucleotideQuality - 33;
 	assert(illuminaPhred >= 0);
 
 	//char illuminaPhred = nucleotideQuality;

@@ -1692,10 +1692,11 @@ if($collect eq '3')
 	} 
 	close(AMENDEDHAPLOTYPESPOS);	
 	
-	
-	# generate VCF
-	my $output_amendedVCF = $kMer_count_sample.'.amendedHaplotypes.VCF';
-	haplotypesToVCF($ameneded_haplotype_alignment_fields_1, $ameneded_haplotype_alignment_fields_2, $sample, \@loci_in_graph, $pgf_ref_seq, $output_amendedVCF, $aligment_positions_to_haplotypes);
+	my $output_file = $kMer_count_sample.".amendedHaplotypes.VCF";			
+	haplotypesToVCF2($ameneded_haplotype_alignment_fields_1, $ameneded_haplotype_alignment_fields_2, $sample, \@loci_in_graph, $pgf_ref_seq, $output_file);
+
+	my $output_amendedVCF_pseudoVCF = $kMer_count_sample.'.amendedHaplotypes.IGV_info';
+	haplotypesToVCF($ameneded_haplotype_alignment_fields_1, $ameneded_haplotype_alignment_fields_2, $sample, \@loci_in_graph, $pgf_ref_seq, $output_amendedVCF_pseudoVCF, $aligment_positions_to_haplotypes);
 
 	exit;
 }
@@ -2270,11 +2271,13 @@ elsif($collect eq '2viterbi')
 				@haplotype_2_alignment_fields = @fields[2 .. ($#fields-2)];
 			}
 		}
-		close(HAPLOTYPES);
+		close(HAPLOTYPES);    
 		
-	
 		my $output_file = $expected_output_filename.".viterbiVCF";		
-		haplotypesToVCF(\@haplotype_1_alignment_fields, \@haplotype_2_alignment_fields, $sample, \@loci_in_graph, $pgf_ref_seq, $output_file);
+		haplotypesToVCF2(\@haplotype_1_alignment_fields, \@haplotype_2_alignment_fields, $sample, \@loci_in_graph, $pgf_ref_seq, $output_file);
+			
+		my $output_file_pseudoVCF = $expected_output_filename.".viterbi_IGV_info";		
+		haplotypesToVCF(\@haplotype_1_alignment_fields, \@haplotype_2_alignment_fields, $sample, \@loci_in_graph, $pgf_ref_seq, $output_file_pseudoVCF);
 	}
 	else
 	{
@@ -3302,23 +3305,7 @@ sub haplotypesToVCF
 ##fileDate=27/04/12
 ##phasing=none, though some calls involve phasing clustered variants
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=COV,Number=2,Type=Integer,Description="Number of reads on ref and alt alleles">
-##FORMAT=<ID=GT_CONF,Number=1,Type=Float,Description="Genotype confidence. Difference in log likelihood of most likely and next most likely genotype">
-##FORMAT=<ID=SITE_CONF,Number=1,Type=Float,Description="Probabilitic site classification confidence. Difference in log likelihood of most likely and next most likely model (models are variant, repeat and error)">
-##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Difference in length between REF and ALT alleles">
-##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of variant">
-##ALT=<ID=SNP,Description="SNP">
-##ALT=<ID=SNP_FROM_COMPLEX,Description="SNP called from a cluster of phased SNPs or complex SNP/indel , split out for easier comparison with other SNP call sets">
-##ALT=<ID=DEL,Description="Deletion">
-##ALT=<ID=INS,Description="Insertion of novel sequence">
-##ALT=<ID=INDEL,Description="Insertion-deletion">
-##ALT=<ID=INV,Description="Inversion">
-##ALT=<ID=INV_INDEL,Description="Inversion+indel - this script overcalls these, so worth checking">
-##ALT=<ID=DEL_INV,Description="Deletion + Inversion">
-##ALT=<ID=INS_INV,Description="Insertion + Inversion">
-##ALT=<ID=PH_SNPS,Description="Phased SNPs">
-##ALT=<ID=COMPLEX,Description="Complex variant, collection of SNPs and indels">
-##FILTER=<ID=MAPQ,Description="5prime flank maps to reference with mapping quality below 40">);
+);
 	my @header_fields_VCF = qw/CHROM POS ID REF ALT QUAL FILTER INFO FORMAT/;
 	
 	my @individualIDs = sort (keys %inference_firstAllele);
@@ -3438,7 +3425,7 @@ sub haplotypesToVCF
 		my @positions_in_alignments = (join('-', @{$taken_alignment_positions{$pgfPos}[0]}), join('-', @{$taken_alignment_positions{$pgfPos}[1]}));
 		
 		# warnings seem to be normal if reading Viterbi haplotypes
-		push(@output_fields, 'SVTYPE=SNP;SVLEN=0;'.qq(POS_IN_PGF=${real_pgfPos};H1_ALIGNMENT=${positions_in_alignments[0]};H2_ALIGNMENT=${positions_in_alignments[1]};H1_STRING=${positions_in_string_haplotypes[0]};H2_STRING=${positions_in_string_haplotypes[1]};H1_IGV=${positions_in_IGV_haplotypes[0]};H2_IGV=${positions_in_IGV_haplotypes[1]};H1_PREDELETION_IGV=${preDeletion_IGV_positions[0]};H2_PREDELETION_IGV=${preDeletion_IGV_positions[1]};));
+		push(@output_fields, ''.qq(POS_IN_PGF=${real_pgfPos};H1_ALIGNMENT=${positions_in_alignments[0]};H2_ALIGNMENT=${positions_in_alignments[1]};H1_STRING=${positions_in_string_haplotypes[0]};H2_STRING=${positions_in_string_haplotypes[1]};H1_IGV=${positions_in_IGV_haplotypes[0]};H2_IGV=${positions_in_IGV_haplotypes[1]};H1_PREDELETION_IGV=${preDeletion_IGV_positions[0]};H2_PREDELETION_IGV=${preDeletion_IGV_positions[1]};));
 		push(@output_fields, 'GT');
 		
 		foreach my $indivID (@individualIDs)
@@ -3450,6 +3437,226 @@ sub haplotypesToVCF
 		}
 		
 		print VCF join("\t", @output_fields), "\n";
+	}
+	
+	close(VCF);
+}
+
+
+
+sub haplotypesToVCF2
+{
+	my $haplo1_fields_aref = shift;
+	my $haplo2_fields_aref = shift;
+	my $individualID = shift;
+	my $loci_in_graph_aref = shift;
+	my $pgf_ref_seq = shift;
+	my $output_file = shift;
+	
+	my @loci_in_graph = @$loci_in_graph_aref;
+	 
+	my %identifier_to_position;   
+	my %identifier_to_refalleles;
+	
+	die "Please suppy parameter --vcfPos" unless ((defined $vcfPos));
+	die "Specified --vcfPos ($vcfPos) not existing" unless(-e $vcfPos);
+
+	open(VCFSNPS, '<', $vcfPos) or die "Cannot open $vcfPos";
+	my $header_line = <VCFSNPS>;
+	chomp($header_line);
+	$header_line =~ s/\n//g;
+	$header_line =~ s/\r//g;	
+	
+	my @header_fields = split(/\t/, $header_line);
+	while(<VCFSNPS>)
+	{
+		my $line = $_;
+		chomp($line);
+		$line =~ s/\n//g;
+		$line =~ s/\r//g;	
+	
+		my @line_fields = split(/\t/, $line);
+		my %line = (mesh @header_fields, @line_fields);
+	
+		die unless(defined $line{Position});
+		
+		die unless($line{RefAllele});
+		
+		my $reference_charPos_PGF = $line{Position} - $pgf_start;
+		
+		next if($reference_charPos_PGF < 0);
+		next if($reference_charPos_PGF > (length($pgf_ref_seq) - 1));
+		
+		$identifier_to_position{$line{ID}} = $line{Position};
+		$identifier_to_refalleles{$line{ID}} = $line{RefAllele};
+					
+		my $reference_char = substr($pgf_ref_seq, $reference_charPos_PGF, length($line{RefAllele}));
+		
+		die "$reference_char ne $line{RefAllele}, $reference_charPos_PGF, line $." unless($reference_char eq $line{RefAllele});
+	}			
+	close(VCFSNPS);
+	
+	my %inference;
+	
+	my %inference_PP;
+	my %inference_seen_pairs;
+	
+	my %inference_firstAllele;
+	my %inference_secondAllele; 
+	my %firstAllele_called;
+	my %secondAllele_called;		
+	my %bestguess_exist_alleles;
+	
+	my %seen_PGF_positions;
+	my %pgf_genotypes_labels;
+	
+	my %taken_alignment_positions;
+	my %taken_haplotype_positions;
+	
+	my $haplotype_maxIndex = $#{$haplo1_fields_aref};
+	die unless($#{$haplo2_fields_aref} == $haplotype_maxIndex);
+	
+	open(VCF, '>', $output_file) or die "Cannot open $output_file";
+	my $VCF_header = qq(##fileformat=VCFv4.1
+##phasing=none - DO NOT TRUST PHASE BETWEEN ALLELES MORE THAN 31 CHARACTERS AWAY FROM EACH OTHER
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+);
+	print VCF $VCF_header;
+	
+	my @header_fields_VCF = qw/CHROM POS ID REF ALT QUAL FILTER INFO FORMAT/;
+	push(@header_fields_VCF, $individualID);
+	print VCF '#'.join("\t", @header_fields_VCF), "\n";
+	
+	my @open_haplotypes;
+	my $open_haplotypes_startPGF;
+	
+	my $print_open_haplotypes = sub {
+		my $lastPGFPosPlusOne = shift;
+		die unless(defined $lastPGFPosPlusOne);
+		die unless(defined $open_haplotypes_startPGF);
+		
+		my $referenceStretch_firstPos = $open_haplotypes_startPGF - $pgf_start;
+		my $referenceStretch_lastPos = $lastPGFPosPlusOne - $pgf_start - 1;
+		die unless($referenceStretch_firstPos >= 0);
+		die unless($referenceStretch_lastPos >= $referenceStretch_firstPos);
+		
+		# print join("\t", 'reference_stretch', $referenceStretch_firstPos, $referenceStretch_lastPos), "\n";
+		
+		my $reference_stretch = substr($pgf_ref_seq, $referenceStretch_firstPos, $referenceStretch_lastPos - $referenceStretch_firstPos + 1);
+		die unless($reference_stretch);
+		
+		my @output_fields;
+		push(@output_fields, '6');
+		push(@output_fields, $open_haplotypes_startPGF);
+		push(@output_fields, '.');
+		push(@output_fields, $reference_stretch);
+		
+		my $allele_1 = join('', @{$open_haplotypes[0]});
+		my $allele_2 = join('', @{$open_haplotypes[1]});
+		die unless(length($allele_1) == length($allele_2));
+		
+		$allele_1 =~ s/_//g;
+		$allele_2 =~ s/_//g;
+		$allele_1 =~ s/\*/N/g;
+		$allele_2 =~ s/\*/N/g;
+		
+		my @alleles = ($reference_stretch);
+		my %allele_indices = ($reference_stretch => 0);
+		if(not exists $allele_indices{$allele_1})
+		{
+			my $new_index = scalar(keys %allele_indices);
+			$allele_indices{$allele_1} = $new_index;
+			push(@alleles, $allele_1);
+			die unless($#alleles == $new_index);
+		}	
+		if(not exists $allele_indices{$allele_2})
+		{
+			my $new_index = scalar(keys %allele_indices);
+			$allele_indices{$allele_2} = $new_index;
+			push(@alleles, $allele_2);
+			die unless($#alleles == $new_index);			
+		}	
+		
+		my @alternative_alleles;
+		if($#alleles >= 1)
+		{
+			@alternative_alleles = @alleles[1 .. $#alleles];
+		}
+		
+		push(@output_fields, join(',', @alternative_alleles));
+		push(@output_fields, '.');
+		push(@output_fields, 'PASS');
+		push(@output_fields, '.');
+		push(@output_fields, 'GT');
+		
+		my $allele_1_code = $allele_indices{$allele_1};
+		my $allele_2_code = $allele_indices{$allele_2};
+		die unless(defined $allele_1_code);
+		die unless(defined $allele_2_code);
+		
+		push(@output_fields, join('/', $allele_1_code, $allele_2_code));
+		
+		if(scalar(@alternative_alleles) > 0)
+		{
+			print VCF join("\t", @output_fields), "\n";
+		}
+		
+		# ~/vcftools/vcftools_0.1.11/perl$ ./vcf-validator /Net/birch/data/dilthey/MHC-PRG/tmp/kMerCount__GS_nextGen_varigraph3_AA02O9Q_Z2_31_required.binaryCount.viterbiHaplotypes.viterbiVCF
+
+		@open_haplotypes = ([], []);
+		$open_haplotypes_startPGF = $lastPGFPosPlusOne;			
+	};
+	
+	my $last_seen_PGFposition;
+	
+	for(my $pI = 0; $pI <= $haplotype_maxIndex; $pI++)
+	{
+		my $locusID = $loci_in_graph[$pI];
+		my @locusID_fields = split(/_/, $locusID);
+		die unless($#locusID_fields == 2);
+		my $pgf_position = $pgf_start + $locusID_fields[2];		
+		$last_seen_PGFposition = $pgf_position;
+		
+		if($pI == 0)
+		{
+			die unless(defined $pgf_position);
+			@open_haplotypes = ([], []);		
+			$open_haplotypes_startPGF = $pgf_position;
+		}
+		my $allele_1 = $haplo1_fields_aref->[$pI];
+		my $allele_2 = $haplo2_fields_aref->[$pI];
+		my $noGap = (($allele_1 !~ /_/) and ($allele_2 !~ /_/));
+		
+		if((defined $open_haplotypes_startPGF) and ($pgf_position != $open_haplotypes_startPGF) and $noGap and ($allele_1 eq $allele_2))
+		{	
+			$print_open_haplotypes->($pgf_position);
+		}
+		
+		if(length($allele_1) < length($allele_2))
+		{
+			my $missing_characters = length($allele_2) - length($allele_1);
+			die unless($missing_characters > 0);
+			my $gapString = ('_' x $missing_characters);
+			$allele_1 .= $gapString;
+		}
+
+		if(length($allele_2) < length($allele_1))
+		{
+			my $missing_characters = length($allele_1) - length($allele_2);
+			die unless($missing_characters > 0);
+			my $gapString = ('_' x $missing_characters);
+			$allele_2 .= $gapString;
+		}
+		
+		die unless(length($allele_1) == length($allele_2));
+		push(@{$open_haplotypes[0]}, $allele_1);
+		push(@{$open_haplotypes[1]}, $allele_2);
+	}
+	
+	if((scalar(@{$open_haplotypes[0]})) or (scalar(@{$open_haplotypes[1]})))
+	{
+		die unless(defined $last_seen_PGFposition);
+		$print_open_haplotypes->($last_seen_PGFposition+1);
 	}
 	
 	close(VCF);

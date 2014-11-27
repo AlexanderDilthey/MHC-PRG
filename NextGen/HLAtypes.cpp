@@ -54,6 +54,8 @@ double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downwei
 double min_bothReads_weightedCharactersOK = 0.95;
 
 double minimumMappingQuality = 0.9;
+double minimumPerPositionMappingQuality = 0.9;
+
 bool combineReadAndBaseLikelihoods = false;
 
 
@@ -104,6 +106,7 @@ public:
 
 	double mapQ;
 	double mapQ_genomic;
+	double mapQ_position;
 };
 
 
@@ -1965,7 +1968,10 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
 					std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
 					int graphLevel = alignment.graph_aligned_levels.at(cI);
-
+					
+					unsigned char alignmentQualityCharacter_thisPosition = alignment.mapQ_genomic_perPosition.at(cI);
+					double alignmentQuality_thisPosition = Utilities::PhredToPCorrect(alignmentQualityCharacter_thisPosition);
+								
 					if(graphLevel == -1)
 					{
 						// insertion relative to the graph - we need to extend last character
@@ -2059,6 +2065,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
 
 								readAlignment_exonPositions.push_back(thisPosition);
 
@@ -2085,7 +2092,8 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+	
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
 
@@ -2114,6 +2122,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
 
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
@@ -2135,6 +2144,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
 
 								thisPosition.mapQ = alignment.mapQ;
+								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
 
 								readAlignment_exonPositions.push_back(thisPosition);
@@ -4042,7 +4052,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
 					std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
 					int graphLevel = alignment.graph_aligned_levels.at(cI);
-
+					unsigned char alignmentQualityCharacter_thisPosition = alignment.mapQ_genomic_perPosition.at(cI);
+					double alignmentQuality_thisPosition = Utilities::PhredToPCorrect(alignmentQualityCharacter_thisPosition);
+					
 					if(graphLevel == -1)
 					{
 						// insertion relative to the graph - we need to extend last character
@@ -4133,7 +4145,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-
+								thisPosition.mapQ_position = alignmentQuality_thisPosition;
+								
 								thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
 
 								readAlignment_exonPositions.push_back(thisPosition);
@@ -4161,6 +4174,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+								thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
 								thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
 
@@ -4192,6 +4206,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+								thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
 								thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
 
@@ -4216,7 +4231,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+								thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
+								
 								thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
 
 								readAlignment_exonPositions.push_back(thisPosition);
@@ -4295,8 +4312,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			double mapQ_thisAlignment = alignedReadPair.first.mapQ_genomic;
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
-					(mapQ_thisAlignment >= minimumMappingQuality)
+					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))
+					// (mapQ_thisAlignment >= minimumMappingQuality)
 					// (!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
 					)  			
 			{
@@ -4347,7 +4364,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
 			{
 				oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
-
+				
+				assert((onePositionSpecifier.mapQ_position >= 0) && (onePositionSpecifier.mapQ_position <= 1));
+				if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
+				{
+					continue;
+				}
+					
 				int individualExon = graphLevel_2_exonPosition_individualExon.at(onePositionSpecifier.graphLevel);
 				int individualExonPosition = graphLevel_2_exonPosition_individualExonPosition.at(onePositionSpecifier.graphLevel);
 
@@ -4480,6 +4503,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				{
 					oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
 
+					assert((onePositionSpecifier.mapQ_position >= 0) && (onePositionSpecifier.mapQ_position <= 1));
+					if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
+					{
+						continue;
+					}
 					double log_likelihood_position = 0;
 
 					std::string exonGenotype = clusterSequence.substr(onePositionSpecifier.positionInExon, 1);
