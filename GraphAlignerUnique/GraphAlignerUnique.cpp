@@ -108,11 +108,11 @@ GraphAlignerUnique::GraphAlignerUnique(Graph* graph, int k) : g(graph), kMerSize
 double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExtend_return_local& alignment, int& totalMismatches)
 {
 	int indexIntoOriginalReadData = -1;
-
-	bool conservativeReadQualities = false;
+ 
+	bool conservativeReadQualities = true;
 	
-	double rate_deletions = log(0.01);
-	double rate_insertions = log(0.01);
+	double rate_deletions = log(0.00005);
+	double rate_insertions = log(0.00005);
 	double combined_log_likelihood = 0;
 
 	totalMismatches = 0;

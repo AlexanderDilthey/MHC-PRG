@@ -40,8 +40,8 @@
 
 void fillAS();
 
-double insertionP = 0.01;
-double deletionP = 0.1;
+double insertionP = 0.00005;  
+double deletionP = 0.00005;
 double log_likelihood_insertion = log(insertionP);
 double log_likelihood_deletion = log(deletionP);
 double log_likelihood_nonInsertion = log(1 - insertionP);
@@ -51,10 +51,11 @@ double log_likelihood_nonDeletion = log(1 - deletionP);
 double min_alignmentFraction_OK = 0.96; // measures all alignment positions but graph AND sequence gaps, separately for both reads
 double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downweighted by quality
 // double min_bothReads_weightedCharactersOK = 0.985; // both reads, mismatches downweighted by quality
-double min_bothReads_weightedCharactersOK = 0.95;
+// double min_bothReads_weightedCharactersOK = 0.95; // todo reinstate
+double min_bothReads_weightedCharactersOK = 0.0;
 
 double minimumMappingQuality = 0.9;
-double minimumPerPositionMappingQuality = 0.9;
+double minimumPerPositionMappingQuality = 0.7;
 
 bool combineReadAndBaseLikelihoods = false;
 
@@ -3692,6 +3693,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	std::map<std::string, std::vector<std::string> > loci_2_exons;
 	fill_loci_2_exons(loci_2_exons);
 
+	int HLATypeInference_totalBases_used = 0;
+	int HLAtypeInference_totalColumns = 0;
+	
 	// function to find right exon file
 	std::vector<std::string> files_in_graphDir = filesInDirectory(graphDir);
 	auto find_file_for_exon = [&](std::string locus, std::string exon) -> std::string
@@ -3835,7 +3839,10 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
 	{
+
 		std::string locus = loci.at(locusI);
+
+		int HLATypeInference_thisLocus_bases_used = 0;
 
 		std::string outputFN_allPairs = outputDirectory + "/R1_PP_"+locus+"_pairs.txt";
 
@@ -3854,6 +3861,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			completeDefinedTypes = getCompletelyDefinedHLAAlleles(graphDir, locus);
 			std::cout << Utilities::timestamp() << "HLATypeInference(..): restrictToFullHaplotypes in force, restrict to " << completeDefinedTypes.size() << " types.\n" << std::flush;
 		}
+
+		int thisLocus_totalColumns = 0;
+
 		for(unsigned int exonI = 0; exonI < loci_2_exons.at(locus).size(); exonI++)
 		{
 			std::string exonID = loci_2_exons.at(locus).at(exonI);
@@ -3909,6 +3919,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			}
 			assert(exon_level_names.size() == expected_allele_length);
 
+			thisLocus_totalColumns += exon_level_names.size();
+			
 			combined_exon_sequences_locusIDs.insert(combined_exon_sequences_locusIDs.end(), exon_level_names.begin(), exon_level_names.end());
 			for(unsigned int lI = 0; lI < expected_allele_length; lI++)
 			{
@@ -3967,6 +3979,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		}
 
 		std::cout << Utilities::timestamp() << "Have collected " << combined_exon_sequences.size() << " sequences -- first level " << combined_exon_sequences_graphLevels.front() << ", last level " << combined_exon_sequences_graphLevels.back() << ".\n" << std::flush;
+		
+		HLAtypeInference_totalColumns += thisLocus_totalColumns;
+		
 
 		std::map<std::string, unsigned int> HLAtype_2_clusterID;
 		std::vector<std::set<std::string>> HLAtype_clusters;
@@ -4312,9 +4327,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			double mapQ_thisAlignment = alignedReadPair.first.mapQ_genomic;
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))
+					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
 					// (mapQ_thisAlignment >= minimumMappingQuality)
-					// (!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
+					(!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
 					)  			
 			{
 				// good
@@ -4420,6 +4435,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 						// + Utilities::DtoStr(piledPosition.pairedRead_fractionOK) + " | "
 						// + Utilities::ItoStr(piledPosition.pairs_strands_OK) + " "
 						+ Utilities::DtoStr(piledPosition.pairs_strands_distance) + " | "
+						+ Utilities::DtoStr(piledPosition.mapQ_position) + " | "
 						+ Utilities::DtoStr(piledPosition.mapQ) + " "
 						+ Utilities::DtoStr(piledPosition.mapQ_genomic) + " | "
 						+ piledPosition.thisRead_ID + " "
@@ -4473,7 +4489,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 			// this is really readI
 			for(unsigned int positionSpecifierI = 0; positionSpecifierI < exonPositions_fromReads.size(); positionSpecifierI++)
-			{
+			{			
 				std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(positionSpecifierI);
 				double log_likelihood_read = 0;
 				int mismatches = 0;
@@ -4508,6 +4524,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					{
 						continue;
 					}
+					
+					if(clusterI == 0)
+					{
+						HLATypeInference_thisLocus_bases_used++;
+						HLATypeInference_totalBases_used++;
+					}
+				
 					double log_likelihood_position = 0;
 
 					std::string exonGenotype = clusterSequence.substr(onePositionSpecifier.positionInExon, 1);
@@ -5127,6 +5150,10 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		{
 			assert(LLs_completeReads.at(LLs_completeReads_indices.at(0)) >= LLs_completeReads.at(LLs_completeReads_indices.at(1)));
 		}
+		
+		double locus_coverage = (double)HLATypeInference_thisLocus_bases_used / (double)thisLocus_totalColumns;;
+		std::cout << "Locus " << locus << " " << HLATypeInference_thisLocus_bases_used << " bases across " << thisLocus_totalColumns << " columns utilized." << "\n";
+		std::cout << "\tCoverage " << locus_coverage << "\n";
 	}
 
 	bestGuess_outputStream.close();
@@ -5137,11 +5164,15 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	std::string outputFN_parameters = outputDirectory + "/R1_parameters.txt";
 	std::ofstream outputFN_parameters_outputStream;
 	outputFN_parameters_outputStream.open(outputFN_parameters.c_str());
-	assert(outputFN_parameters_outputStream.is_open());
+	assert(outputFN_parameters_outputStream.is_open());  
 	outputFN_parameters_outputStream << "Loci" << " = " << forReturn_lociString << "\n";
 	outputFN_parameters_outputStream << "restrictToFullHaplotypes" << " = " << restrictToFullHaplotypes << "\n";
 	outputFN_parameters_outputStream << "veryConservativeReadLikelihoods" << " = " << veryConservativeReadLikelihoods << "\n";
 	outputFN_parameters_outputStream.close();
+	
+	double coverage = (double)HLATypeInference_totalBases_used / (double) HLAtypeInference_totalColumns;
+	std::cout << "Sample " << sampleName << " " << HLATypeInference_totalBases_used << " bases utilized (total) across" << HLAtypeInference_totalColumns <<  "columns\n" << std::flush;
+	std::cout << "\tCoverage " << coverage << "\n" << std::flush;
 }
 
 
