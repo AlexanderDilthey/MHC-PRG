@@ -110,6 +110,7 @@ public:
 	}
 
 	std::vector<oneReadPair> simulate_paired_reads_from_string(std::string S, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly = false);
+	std::vector<oneRead> simulate_unpaired_reads_from_string(std::string S, double expected_haploid_coverage, bool perfectly = false);
 	std::vector<oneReadPair> simulate_paired_reads_from_edgePath(std::vector<Edge*> edgePath, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly = false);
 };
 
