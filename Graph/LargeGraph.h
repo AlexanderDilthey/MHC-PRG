@@ -108,6 +108,7 @@ public:
 	void assignEdgeNodeIndices();
 	diploidEdgePath simulateRandomPath();
 	readSimulationResults simulateReadsForPath(diploidEdgePath& path);
+	readSimulationResults simulateReadsForPathWithError(diploidEdgePath& path, std::string qualityMatrixFile, bool error = true);
 
 	vector<string> haploidPathToNucleotides(vector<int> path);
 	diploidNucleotidePath diploidPathToNucleotides(diploidEdgePath& path);

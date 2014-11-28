@@ -183,6 +183,7 @@ int main(int argc, char *argv[])
 	{
 		int threads = 40;
 		int genotypingMode = -1;
+		bool error = true;
 
 		for(unsigned int i = 2; i < arguments.size(); i++)
 		{
@@ -194,6 +195,10 @@ int main(int argc, char *argv[])
 			{
 				genotypingMode = Utilities::StrtoI(arguments.at(i+1));
 			}
+			if(arguments.at(i) == "--error")
+			{
+				error = (bool)Utilities::StrtoI(arguments.at(i+1));
+			}
 		}
 
 		omp_set_num_threads(threads);
@@ -204,7 +209,9 @@ int main(int argc, char *argv[])
 		string temp_dir = arguments.at(3);
 		string temp_label = arguments.at(4);
 
-		simulationSuite(graph_file, temp_dir, temp_label, genotypingMode);
+		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I100.txt";
+
+		simulationSuite(graph_file, temp_dir, temp_label, genotypingMode, error, filename_qualityMatrix);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "testGraphAligner"))
 	{

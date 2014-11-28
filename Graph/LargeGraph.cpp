@@ -28,6 +28,8 @@
 #include <vector>
 #include <utility>
 
+#include "../NextGen/readSimulator.h"
+
 using namespace boost;
 using namespace boost::algorithm;
 
@@ -1705,6 +1707,130 @@ vector<string> LargeGraph::haploidPathToNucleotides(vector<int> path)
 }
 
 
+readSimulationResults LargeGraph::simulateReadsForPathWithError(diploidEdgePath& path, std::string qualityMatrixFile, bool error)
+{
+	readSimulator rS(qualityMatrixFile);
+
+	readSimulationResults results;
+
+	map<string, long long> readCount;
+	map<string, long long> kMerOccurence;
+	map<string, set<int> > kMerOccurenceLocalization;
+	vector< vector<int> > haplotypeStartPositions;
+
+	vector<string> reqKMers = requiredKMers();
+	for(int i = 0; i < (int)reqKMers.size(); i++)
+	{
+		string kMer = reqKMers.at(i);
+		readCount[kMer] = 0;
+		kMerOccurence[kMer] = 0;
+	}
+
+	int haploidCoverage = 15;
+	int readLength = 85;
+
+	readCount["TotalSeq"] = 3200000000.0 * 2 * haploidCoverage;
+	readCount["MeanReadLen"] = (double)readLength;
+	readCount["TotalKMerCoverage"] = 0;
+
+	double onePositionStartReadProbability = (double) haploidCoverage / (double)readLength;
+
+    boost::mt19937 rnd_gen;   //Mersenne Twister generator
+    typedef boost::variate_generator< boost::mt19937, boost::poisson_distribution<> > rnd_poisson_t;
+	rnd_poisson_t rnd_poisson( rnd_gen, boost::poisson_distribution<>( onePositionStartReadProbability ));
+    rnd_poisson = rnd_poisson_t( rnd_gen, boost::poisson_distribution<>( onePositionStartReadProbability ));
+
+    assert(kMerSize > 0);
+
+	for(int haplotype = 0; haplotype < 2; haplotype++)
+	{
+		vector<int> kMerHaplotype;
+		vector<int> haplotypeStart;
+
+		if(haplotype == 0)
+		{
+			kMerHaplotype = path.h1;
+		}
+		else if(haplotype == 1)
+		{
+			kMerHaplotype = path.h2;
+		}
+		else
+		{
+			assert( 1 == 0 );
+		}
+
+		string haplotype_string = Utilities::join(haploidPathToNucleotides(kMerHaplotype), "");
+		results.haplotypes_untrimmed.push_back(haplotype_string);
+
+		for(int pI = 0; pI < (int)haplotype_string.size(); pI++)
+		{
+			if(haplotype_string.substr(pI, 1) != "_")
+			{
+				haplotypeStart.push_back(pI);
+			}
+		}
+		erase_all(haplotype_string, "_");
+
+		results.haplotypes.push_back(haplotype_string);
+		results.haplotypeStartPositions.push_back(haplotypeStart);
+
+		for(int pos = 0; pos <= (int)(haplotype_string.length() - kMerSize); pos++)
+		{
+			string kMer = haplotype_string.substr(pos, kMerSize);
+			if(kMer.find("*") == string::npos)
+			{
+				assert((int)kMer.size() == kMerSize);
+				assert(kMerOccurence.count(kMer) > 0);
+				kMerOccurence[kMer]++;
+				kMerOccurenceLocalization[kMer].insert(pos);
+			}
+		}
+
+		std::vector<oneRead> simulated_reads = rS.simulate_unpaired_reads_from_string(haplotype_string, haploidCoverage, !error);
+		for(unsigned int readI = 0; readI < simulated_reads.size(); readI++)
+		{
+			const oneRead& read = simulated_reads.at(readI);
+			if((int)read.sequence.length() >= kMerSize)
+			{
+				for(int kMerI = 0; kMerI <= ((int)read.sequence.length() - kMerSize); kMerI++)
+				{
+					if(!((int)read.sequence.length() >= kMerSize))
+					{
+						cout << "read.sequence.length(): " << read.sequence.length() << "\n";
+						cout << "proposedRead.length() - kMerSize: " << (int)read.sequence.length() - kMerSize << "\n";
+						cout << "kMerSize: " << kMerSize << "\n";
+
+
+					}
+					assert((int)read.sequence.length() >= kMerSize);
+
+					string proposedkMer = read.sequence.substr(kMerI, kMerSize);
+					assert((int)proposedkMer.length() == kMerSize);
+
+					if(proposedkMer.find("*") == string::npos)
+					{
+						// assert(readCount.count(proposedkMer) > 0);
+						if(readCount.count(proposedkMer) == 0)
+						{
+							readCount[proposedkMer] = 0;
+						}
+						readCount[proposedkMer]++;
+					}
+				}
+			}
+		}
+	}
+
+	results.kMerOccurenceLocalization = kMerOccurenceLocalization;
+	results.kMerOccurence = kMerOccurence;
+	assert(results.haplotypes.size() == 2);
+	results.simulatedReads = readCount;
+
+	return results;
+}
+
+
 readSimulationResults LargeGraph::simulateReadsForPath(diploidEdgePath& path)
 {
 	readSimulationResults results;
@@ -1725,7 +1851,7 @@ readSimulationResults LargeGraph::simulateReadsForPath(diploidEdgePath& path)
 	int haploidCoverage = 15;
 	int readLength = 85;
 
-	readCount["TotalSeq"] = 3200000000.0 * 2 * 15;
+	readCount["TotalSeq"] = 3200000000.0 * 2 * haploidCoverage;
 	readCount["MeanReadLen"] = (double)readLength;
 	readCount["TotalKMerCoverage"] = 0;
 

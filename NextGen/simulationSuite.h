@@ -18,7 +18,7 @@
 
 using namespace std;
 
-void simulationSuite(string graph_file, string temp_dir, string temp_label, int genotypingMode);
+void simulationSuite(string graph_file, string temp_dir, string temp_label, int genotypingMode, bool error, std::string qualityMatrixFile);
 int agreementStats(string estimated_1, string estimated_2, string real_1, string real_2);
 int agreementStats(int estimated_1, int estimated_2, int real_1, int real_2);
 vector<int> agreementStarStats(string estimated_1, string estimated_2, string real_1, string real_2);

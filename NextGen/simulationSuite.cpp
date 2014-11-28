@@ -388,7 +388,7 @@ void describeGraph_25(string graph_file, string temp_dir, string temp_label, boo
 	std::cout << "\nWritten file: " << fn_globalstats << "\n" << std::flush;
 }
 
-void simulationSuite(string graph_file, string temp_dir, string temp_label, int genotypingMode)
+void simulationSuite(string graph_file, string temp_dir, string temp_label, int genotypingMode, bool error, std::string qualityMatrixFile)
 {
 	assert(agreementStats("A", "C", "A", "C") == 2);
 	assert(agreementStats("A", "C", "C", "A") == 2);
@@ -454,6 +454,11 @@ void simulationSuite(string graph_file, string temp_dir, string temp_label, int 
 	assert(agreementStarStats("A", "*", "*", "A").at(1) == 1);
 
 
+	std::cout << "Enter simulationSuite(..)";
+	std::cout << "\tError = " << error << "\n";
+	std::cout << "\tQuality matrix = " << qualityMatrixFile << "\n";
+	std::cout << std::flush;
+
 	LargeGraph kMerG;
 	kMerG.readFromFile(graph_file);
 
@@ -481,7 +486,8 @@ void simulationSuite(string graph_file, string temp_dir, string temp_label, int 
 
 		diploidNucleotidePath realNucleotidePath = kMerG.diploidPathToNucleotides(simulatedPath);
 
-		readSimulationResults readSimulation = kMerG.simulateReadsForPath(simulatedPath);
+		// readSimulationResults readSimulation = kMerG.simulateReadsForPath(simulatedPath);
+		readSimulationResults readSimulation = kMerG.simulateReadsForPathWithError(simulatedPath, qualityMatrixFile, error);
 		map<string, long long> simulatedReads = readSimulation.simulatedReads;
 
 		if(genotypingMode == 8)
@@ -494,7 +500,7 @@ void simulationSuite(string graph_file, string temp_dir, string temp_label, int 
 					break;
 				}
 				modifiedkMers++;
-				kMerIt->second = -1;
+				// kMerIt->second = -1;
 			}
 		}
 
@@ -1073,6 +1079,9 @@ void simulationSuite(string graph_file, string temp_dir, string temp_label, int 
 	}
 
 	cout << "\nTotal summary\n";
+	cout << "Error = " << error << "\n";
+	cout << "Quality matrix = " << qualityMatrixFile << "\n";
+
 	for(map<string, map< string, int> >::iterator mapIt = total_comparison_statistics.begin(); mapIt != total_comparison_statistics.end(); mapIt++)
 	{
 		cout << "\t " << mapIt->first << "\n";
