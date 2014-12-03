@@ -101,7 +101,7 @@ GraphAlignerUnique::GraphAlignerUnique(Graph* graph, int k) : g(graph), kMerSize
 		genomicCoverageStream.close();
 
 		std::cout << "myGraph_coveredIntervals: Have " << myGraph_coveredIntervals.getNumIntervals() << " intervals.\n" << std::flush;
-	}
+	}  
 }
 
 
@@ -111,8 +111,8 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
  
 	bool conservativeReadQualities = true;
 	
-	double rate_deletions = log(0.00005);
-	double rate_insertions = log(0.00005);
+	double rate_deletions = log(0.01);
+	double rate_insertions = log(0.01);
 	double combined_log_likelihood = 0;
 
 	totalMismatches = 0;
