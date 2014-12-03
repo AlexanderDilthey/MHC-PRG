@@ -1709,7 +1709,7 @@ vector<string> LargeGraph::haploidPathToNucleotides(vector<int> path)
 
 readSimulationResults LargeGraph::simulateReadsForPathWithError(diploidEdgePath& path, std::string qualityMatrixFile, bool error)
 {
-	readSimulator rS(qualityMatrixFile);
+	readSimulator rS(qualityMatrixFile, 101);
 
 	readSimulationResults results;
 

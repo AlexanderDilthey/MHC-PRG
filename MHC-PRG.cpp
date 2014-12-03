@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
 		string temp_dir = arguments.at(3);
 		string temp_label = arguments.at(4);
 
-		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I100.txt";
+		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I101_NA12878.txt";
 
 		simulationSuite(graph_file, temp_dir, temp_label, genotypingMode, error, filename_qualityMatrix);
 	}
@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 	{
 		string graph_file = arguments.at(2);
 
-		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I100.txt";
+		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I101_NA12878.txt";
 
 		double insertSize_mean = 200;
 		double insertSize_sd = 15;
@@ -406,7 +406,7 @@ int main(int argc, char *argv[])
 	else if((arguments.size() > 0) && (arguments.at(1) == "simulateHLAreads"))
 	{
 		std::string graph_dir;
-		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I100.txt";
+		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I101_NA12878.txt";
 		std::string outputDirectory;
 
 		int nIndividuals = 10;
@@ -414,7 +414,7 @@ int main(int argc, char *argv[])
 		double insertSize_sd = 15;
 		double haploidCoverage = 15;
 
-		int read_length = 100;
+		int read_length = 101;
 		bool readError = true;
 		bool perturbHaplotypes = false;
 		bool exon23 = true;

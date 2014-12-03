@@ -40,8 +40,8 @@
 
 void fillAS();
 
-double insertionP = 0.00005;  
-double deletionP = 0.00005;
+double insertionP = 0.01;  
+double deletionP = 0.01;
 double log_likelihood_insertion = log(insertionP);
 double log_likelihood_deletion = log(deletionP);
 double log_likelihood_nonInsertion = log(1 - insertionP);
@@ -51,10 +51,10 @@ double log_likelihood_nonDeletion = log(1 - deletionP);
 double min_alignmentFraction_OK = 0.96; // measures all alignment positions but graph AND sequence gaps, separately for both reads
 double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downweighted by quality
 // double min_bothReads_weightedCharactersOK = 0.985; // both reads, mismatches downweighted by quality
-// double min_bothReads_weightedCharactersOK = 0.95; // todo reinstate
+//double min_bothReads_weightedCharactersOK = 0.95; // todo reinstate
 double min_bothReads_weightedCharactersOK = 0.0;
 
-double minimumMappingQuality = 0.9;
+double minimumMappingQuality = 0.5;
 double minimumPerPositionMappingQuality = 0.7;
 
 bool combineReadAndBaseLikelihoods = false;
@@ -3831,7 +3831,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	std::ofstream bestGuess_outputStream;
 	bestGuess_outputStream.open(outputFN_bestGuess.c_str());
 	assert(bestGuess_outputStream.is_open());
-	bestGuess_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\n";
+	bestGuess_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\t" << "AverageCoverage" << "\t" << "CoverageFirstDecile" << "\t" << "MinimumCoverage" << "\n";
 
 
 	std::vector<std::string> forReturn_starting_haplotype_1_vec;
@@ -4327,9 +4327,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			double mapQ_thisAlignment = alignedReadPair.first.mapQ_genomic;
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
-					// (mapQ_thisAlignment >= minimumMappingQuality)
-					(!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
+					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))
+					// (mapQ_thisAlignment >= minimumMappingQuality) &&
+					// (!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
 					)  			
 			{
 				// good
@@ -4398,7 +4398,6 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		std::ofstream pileUpStream;
 		pileUpStream.open(fileName_pileUp.c_str());
 		assert(pileUpStream.is_open());
-
 
 		for(std::map<int, std::map<int, std::vector<oneExonPosition> > >::iterator exonIt = pileUpPerPosition.begin(); exonIt != pileUpPerPosition.end(); exonIt++)
 		{
@@ -5121,8 +5120,31 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		forReturn_starting_haplotype_1_vec.push_back(bestGuess_firstAllele_ID);
 		forReturn_starting_haplotype_2_vec.push_back(bestGuess_secondAllele_ID);
 
-		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\n";
-		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\n";
+		double locus_coverage = (double)HLATypeInference_thisLocus_bases_used / (double)thisLocus_totalColumns;;
+		std::cout << "Locus " << locus << " " << HLATypeInference_thisLocus_bases_used << " bases across " << thisLocus_totalColumns << " columns utilized." << "\n";
+		std::cout << "\tCoverage " << locus_coverage << "\n";
+		
+		std::vector<double> positionalCoverages;
+		for(unsigned int pI = 0; pI < combined_exon_sequences_graphLevels.size(); pI++)
+		{
+			int graphLevel = combined_exon_sequences_graphLevels.at(pI);
+			int individualExon = graphLevel_2_exonPosition_individualExon.at(graphLevel);
+			int exonPosition = graphLevel_2_exonPosition_individualExonPosition.at(graphLevel);
+			int coverage = pileUpPerPosition[individualExon][exonPosition].size();
+			positionalCoverages.push_back(coverage);
+		}
+		assert(positionalCoverages.size() > 0);
+		std::sort(positionalCoverages.begin(), positionalCoverages.end(), std::less<int>());
+		if(positionalCoverages.size() > 1)
+		{
+			assert(positionalCoverages.at(0) <= positionalCoverages.at(1));
+		}
+		int index_for_decile = (int)((double)positionalCoverages.size() / 10.0);
+		double firstDecileCoverage = positionalCoverages.at(index_for_decile);
+		double minimumCoverage = positionalCoverages.at(0);
+		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\n";
+		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\n";
+
 
 		unsigned int maxPairPrint = (LLs_completeReads_indices.size() > 10) ? 10 : LLs_completeReads_indices.size();
 		for(unsigned int LLi = 0; LLi < maxPairPrint; LLi++)
@@ -5151,9 +5173,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			assert(LLs_completeReads.at(LLs_completeReads_indices.at(0)) >= LLs_completeReads.at(LLs_completeReads_indices.at(1)));
 		}
 		
-		double locus_coverage = (double)HLATypeInference_thisLocus_bases_used / (double)thisLocus_totalColumns;;
-		std::cout << "Locus " << locus << " " << HLATypeInference_thisLocus_bases_used << " bases across " << thisLocus_totalColumns << " columns utilized." << "\n";
-		std::cout << "\tCoverage " << locus_coverage << "\n";
+
 	}
 
 	bestGuess_outputStream.close();

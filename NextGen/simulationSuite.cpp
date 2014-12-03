@@ -465,7 +465,7 @@ void simulationSuite(string graph_file, string temp_dir, string temp_label, int 
 	MultiGraph* multiG = multiBeautifyForAlpha2(&kMerG, "");
 
 	//multiG->stats();
-
+   
 	int iterations = 20;
 	map<string, map< string, int> > total_comparison_statistics;
 	set<string> keys;
