@@ -522,8 +522,8 @@ int main(int argc, char *argv[])
 		std::string starting_haplotypes_perLocus_1_str;
 		std::string starting_haplotypes_perLocus_2_str;
 
-		HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
-
+		// HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+  
  		// loci_string = "A";
 		// starting_haplotypes_perLocus_1_str = "A*02:07:01;A*02:265";
 		// starting_haplotypes_perLocus_2_str = "A*02:06:01";
@@ -532,7 +532,7 @@ int main(int argc, char *argv[])
 		// starting_haplotypes_perLocus_1_str = "A*02:03:01;A*02:264";
 		// starting_haplotypes_perLocus_2_str = "A*24:02:01:01;A*24:02:01:02L;A*24:02:03Q;A*24:02:10;A*24:09N;A*24:11N";
 			
-		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+		// HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
 		// nodo activate
 		
@@ -1195,7 +1195,7 @@ int main(int argc, char *argv[])
 		std::string referenceGenome;
 
 		double positiveThreshold = 0.3;
-		double negativeThreshold = 0.3;
+		double negativeThreshold = 0.45;
 
 		vector<string> arguments (argv + 1, argv + argc + !argc);
 
@@ -1207,7 +1207,7 @@ int main(int argc, char *argv[])
 		int k = 25;
 
 		bool positiveUnique = false;
-		bool negativePreserveUnique = false;
+		bool negativePreserveUnique = true;
 
 		std::string uniqueness_base;
 		std::string uniqueness_subtract;
