@@ -1207,7 +1207,7 @@ int main(int argc, char *argv[])
 		int k = 25;
 
 		bool positiveUnique = false;
-		bool negativePreserveUnique = true;
+		bool negativePreserveUnique = false;
 
 		std::string uniqueness_base;
 		std::string uniqueness_subtract;
