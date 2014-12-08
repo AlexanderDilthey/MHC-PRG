@@ -13,6 +13,7 @@ my $graph = 'hla';
 my $action = '';
 my $iteration = 1;
 my $sampleIDs;
+my $BAMs;
 
 my $referenceGenome = qq(/gpfs1/well/chimp/oa/ref/hs37d5.fasta);
 #$referenceGenome = '';
@@ -21,6 +22,7 @@ GetOptions ('graph:s' => \$graph,
  'action:s' => \$action, 
  'iteration:s' => \$iteration,  
  'sampleIDs:s' => \$sampleIDs,
+ 'BAMs:s' => \$BAMs,
 );         
 
 my $target_directory_for_copying = qq(/Net/birch/data/dilthey/MHC-PRG/tmp/hla);
@@ -30,7 +32,15 @@ my @sampleIDs;
 if($sampleIDs)
 {
 	@sampleIDs = split(/,/, $sampleIDs);
-	@BAMs = map {'/gpfs1/well/gsk_hla/bam_output/'.$_.'.bam'} @sampleIDs;
+	if($BAMs)
+	{
+		@BAMs = split(/,/, $BAMs);
+		die unless($#BAMs == $#sampleIDs);
+	}
+	else
+	{
+		@BAMs = map {'/gpfs1/well/gsk_hla/bam_output/'.$_.'.bam'} @sampleIDs;
+	}
 }
 else
 {
@@ -65,9 +75,9 @@ if($action eq 'qsub')
 		print $command_negative_filtering, "\n";
 		open(QSUB, '>', $qsub_filename) or die "Cannot open $qsub_filename";
 print QSUB qq(#!/bin/bash
-#\$ -P mcvean.prjb -q long.qb
+#\$ -P mcvean.prjc -q long.qc
 #\$ -pe shmem 2
-export PERL5LIB=/users/dilthey/perl/lib/x86_64-linux-thread-multi/:/opt/perl/5.8.8/bioperl/1.6.901/Bio-SamTools-1.38/lib/perl5/x86_64-linux-thread-multi:/opt/perl/5.8.8/bioperl/1.6.901/bioperl-live:/users/dilthey/perl5/lib/perl5/x86_64-linux-thread-multi/:/users/dilthey/perl5/lib/perl5:\$PERL5LIB
+export PERL5LIB=/users/mcvean/dilthey/perl5/lib/perl5:\$PERL5LIB
 cd /gpfs1/well/gsk_hla/MHC-PRG/src
 $command_negative_filtering
 );
@@ -84,6 +94,7 @@ elsif($action eq 'copy')
 	for(my $bI = 0; $bI <= $#BAMs; $bI++)
 	{
 		my $sampleID = $sampleIDs[$bI];
+		# next if(($sampleID =~ /E2/) or ($sampleID =~ /E4/) or ($sampleID =~ /F4/)); # todo reactivate
 		my $directory = '../tmp/hla/'.$sampleID;
 		if(-e $directory)
 		{	
