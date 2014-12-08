@@ -40,21 +40,24 @@
 
 void fillAS();
 
-double insertionP = 0.01;  
-double deletionP = 0.01;
+double insertionP = 0.001;  
+double deletionP = 0.001;
 double log_likelihood_insertion = log(insertionP);
+double log_likelihood_insertion_actualAllele = log_likelihood_insertion + log(1.0/4.0);
+
 double log_likelihood_deletion = log(deletionP);
 double log_likelihood_nonInsertion = log(1 - insertionP);
 double log_likelihood_nonDeletion = log(1 - deletionP);
+double log_likelihood_match_mismatch = log(1 - insertionP - deletionP);
 
 // int max_mismatches_perRead = 2;
 double min_alignmentFraction_OK = 0.96; // measures all alignment positions but graph AND sequence gaps, separately for both reads
 double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downweighted by quality
 // double min_bothReads_weightedCharactersOK = 0.985; // both reads, mismatches downweighted by quality
-//double min_bothReads_weightedCharactersOK = 0.95; // todo reinstate
+// double min_bothReads_weightedCharactersOK = 0.95; // todo reinstate
 double min_bothReads_weightedCharactersOK = 0.0;
 
-double minimumMappingQuality = 0.5;
+double minimumMappingQuality = 0.0;
 double minimumPerPositionMappingQuality = 0.7;
 
 bool combineReadAndBaseLikelihoods = false;
@@ -463,7 +466,7 @@ double alignmentWeightedOKFraction(oneRead& underlyingRead, seedAndExtend_return
 	double readLength = underlyingRead.sequence.length();
 	assert(totalMismatches >= weightedMismatches);
 
-	return  (1 - (weightedMismatches / readLength));
+	return  (1.0 - (weightedMismatches / readLength));
 };
 
 
@@ -4327,9 +4330,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			double mapQ_thisAlignment = alignedReadPair.first.mapQ_genomic;
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))
-					// (mapQ_thisAlignment >= minimumMappingQuality) &&
-					// (!((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) < min_bothReads_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) < min_bothReads_weightedCharactersOK)))
+					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) && 
+					(mapQ_thisAlignment >= minimumMappingQuality) &&
+					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK))
 					)  			
 			{
 				// good
@@ -4437,6 +4440,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 						+ Utilities::DtoStr(piledPosition.mapQ_position) + " | "
 						+ Utilities::DtoStr(piledPosition.mapQ) + " "
 						+ Utilities::DtoStr(piledPosition.mapQ_genomic) + " | "
+						+ Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
+						+ Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "						
 						+ piledPosition.thisRead_ID + " "
 						+ piledPosition.pairedRead_ID
 						+ "]";
@@ -4565,7 +4570,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 								std::cout << "\t\t" << "Insertion " << (1 + l_diff) << "\n";
 							}
 
-							log_likelihood_position += (log_likelihood_insertion * (1 + l_diff));
+							log_likelihood_position += (log_likelihood_insertion_actualAllele * (1 + l_diff));
 						}
 					}
 					else
@@ -4583,12 +4588,14 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 						}
 						else
 						{
+							log_likelihood_position += log_likelihood_match_mismatch;
+							
 							assert(readQualities.length());
 							double pCorrect = Utilities::PhredToPCorrect(readQualities.at(0));
 							if(veryConservativeReadLikelihoods)
 							{
-								if(pCorrect > 0.99)
-									pCorrect = 0.99;
+								if(pCorrect > 0.999)
+									pCorrect = 0.999;
 							}
 							assert((pCorrect > 0) && (pCorrect <= 1));
 

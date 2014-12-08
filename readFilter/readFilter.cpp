@@ -37,7 +37,7 @@ readFilter::readFilter() {
 	negativePreserveUnique = false;
 
 	positiveUnique_threshold = 10;
-	negativePreserveUnique_threshold = 10;
+	negativePreserveUnique_threshold = 1;
 
 	threads = 2;
 }
@@ -151,23 +151,48 @@ void readFilter::doFilter()
 	int cortex_width = 50;
 
 	std::set<std::string> unique_kMers;
+	
 	if(positiveUnique || negativePreserveUnique)
 	{
 		std::cout << Utilities::timestamp() << "Load file " << uniqueness_base << "\n" << std::flush;	
 	
 		unique_kMers = load_positive_kMers_file(uniqueness_base);
+		
+		std::cout << Utilities::timestamp() << "unique_kMers before filtering: " << unique_kMers.size() << "\n" << std::flush;
+		
 		std::cout << Utilities::timestamp() << "Allocate Cortex graph object with height = " << cortex_height << ", width = " << cortex_width << " ...\n" << std::flush;
 		DeBruijnGraph<1, 25, 1> subtract_kMers_graph(cortex_height, cortex_width);
 		std::cout << Utilities::timestamp() << "Cortex graph object allocated, loading binary " << uniqueness_subtract << "..\n" << std::flush;
 		subtract_kMers_graph.loadMultiColourBinary(uniqueness_subtract);
+		
+		std::set<std::string> unique_kMers_forDeletion;
 		for(std::set<std::string>::iterator kMerIt = unique_kMers.begin(); kMerIt != unique_kMers.end(); kMerIt++)
 		{
 			std::string kMer = *kMerIt;
 			if(subtract_kMers_graph.kMerinGraph(kMer))
 			{
-				unique_kMers.erase(kMer);
+				unique_kMers_forDeletion.insert(kMer);
 			}
 		}
+		
+		for(std::set<std::string>::iterator kMerIt = unique_kMers_forDeletion.begin(); kMerIt != unique_kMers_forDeletion.end(); kMerIt++)
+		{
+			std::string kMer = *kMerIt;	
+			unique_kMers.erase(kMer);
+		}
+		
+		std::cout << Utilities::timestamp() << "unique_kMers after filtering: " << unique_kMers.size() << "\n" << std::flush;
+		
+		std::vector<std::string> testKmers = { "AATTTTCTCCCATTTTGTAGGTTGC", "AGGTTGCGAAAATTTTCTCCCATTT", "GTTGCGAAAATTTTCTCCCATTTTG", "TAGGTTGCGAAAATTTTCTCCCATT", "TCTCCCATTTTGTAGGTTGCCTGTT", "TCTTGTAAATTTGTTTGAGTTCATT", "TGTAGGTTGCCTGTTCACTCTGATG", "TTCTCCCATTTTGTAGGTTGCCTGT", "TTGCTGTGCAGAAGCTCTTTAGTTT", "TTTCTCCCATTTTGTAGGTTGCCTG" };
+		
+		for(unsigned int kI = 0; kI < testKmers.size(); kI++)
+		{
+			std::string kMer = testKmers.at(kI);
+			std::cout << "kMer " << kMer <<  " " << (int)subtract_kMers_graph.kMerinGraph(kMer)  << " " << (int) unique_kMers.count(kMer) << "\n" << std::flush;
+		}
+		
+		// assert ( 2 == 4);
+		
 	}
 
 	DeBruijnGraph<1, 25, 1>* negative_kMers;
@@ -345,6 +370,8 @@ void readFilter::doFilter()
 			double kMers_1_TOTAL = 0;
 			double kMers_2_TOTAL = 0;
 
+			// std::s<std::string> seen_unique_kMers;
+			
 			kMers_1_TOTAL += kMers_1_fwd.size();
 			kMers_2_TOTAL += kMers_2_fwd.size();
 
@@ -379,6 +406,7 @@ void readFilter::doFilter()
 					if(unique_kMers.count(kMer))
 					{
 						kMers_1_forward_unique++;
+						// seen_unique_kMers.insert(kMer);
 					}
 				}
 				for(unsigned int kI = 0; kI < kMers_2_fwd.size(); kI++)
@@ -387,6 +415,7 @@ void readFilter::doFilter()
 					if(unique_kMers.count(kMer))
 					{
 						kMers_2_forward_unique++;
+						// seen_unique_kMers.insert(kMer);
 					}
 				}
 
@@ -396,6 +425,7 @@ void readFilter::doFilter()
 					if(unique_kMers.count(kMer))
 					{
 						kMers_1_reverse_unique++;
+						// seen_unique_kMers.insert(kMer);
 					}
 				}
 
@@ -405,6 +435,7 @@ void readFilter::doFilter()
 					if(unique_kMers.count(kMer))
 					{
 						kMers_2_reverse_unique++;
+						// seen_unique_kMers.insert(kMer);
 					}
 				}
 			}
@@ -424,7 +455,25 @@ void readFilter::doFilter()
 
 			if(negativePreserveUnique)
 			{
+				/*
+				if(((forward_combined_unique >= negativePreserveUnique_threshold) || (reverse_combined_unique >= negativePreserveUnique_threshold)))
+				{
+					
+					pragma omp critical
+					{
+						std::cout << "Negative test, unique kMers:\n\t";
+						for(std::set<std::string>::iterator kMerIt = seen_unique_kMers.begin(); kMerIt != seen_unique_kMers.end(); kMerIt++)
+						{
+							std::cout << *kMerIt << " ";
+						}
+						std::cout << "\n";
+					}
+					
+				}
+				*/
 				pass_negative = ( pass_negative || ((forward_combined_unique >= negativePreserveUnique_threshold) || (reverse_combined_unique >= negativePreserveUnique_threshold)) );
+				
+
 			}
 			return (pass_positive && pass_negative);
 		}
