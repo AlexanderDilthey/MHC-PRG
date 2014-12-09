@@ -64,7 +64,13 @@ unless(-e $genome_graph_file)
 {
 	die "Please set variable \$genome_graph_file to an existing file - the current value $genome_graph_file is not accessible.";
 }
+
 my $expected_kMer_file = qq(../tmp2/GS_nextGen/${graph}/requiredkMers_graph.txt.kmers_25);
+unless(-e $expected_kMer_file)
+{
+	die "Please set variable \$expected_kMer_file to an existing file - the current value $expected_kMer_file is not accessible.";
+}
+
 my $exon_folder = qq(../tmp2/GS_nextGen/${graph}/);
 unless(-e $expected_kMer_file)
 {
@@ -202,7 +208,7 @@ if($actions =~ /n/)
 	my $fastQ_files = join(',', @fastQ_files);
 	my $output_files = join(',', @output_files);
 	
-	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files);
+	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files --negativePreserveUnique --uniqueness_base ${expected_kMer_file} --uniqueness_subtract ${genome_graph_file});
 	
 	print "Now executing command:\n$command\n\n";
 	

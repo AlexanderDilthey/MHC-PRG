@@ -30,18 +30,18 @@ foreach my $seqID (keys %sequences)
 	my $kMer_notIn = 0;
 	foreach my $kMer (@kMers)
 	{
-		print "\t\t", $kMer, " ";
+		# print "\t\t", $kMer, " ";
 		if(isIn($reference_href, $kMer) or isIn($reference_href_complement, $kMer))
 		{
 			$kMer_in++;
-			print "1";
+			# print "1";
 		}
 		else
 		{
 			$kMer_notIn++;
-			print "0";
+			# print "0";
 		}
-		print "\n";
+		# print "\n";
 	}
 	
 	my $perc_unique = sprintf("%.2f", ($kMer_notIn / ($kMer_in + $kMer_notIn)) * 100).'%';
