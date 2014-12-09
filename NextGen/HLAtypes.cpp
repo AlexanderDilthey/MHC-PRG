@@ -4570,12 +4570,18 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 								std::cout << "\t\t" << "Insertion " << (1 + l_diff) << "\n";
 							}
 
+							assert(readGenotype.find("_") == std::string::npos);
 							log_likelihood_position += (log_likelihood_insertion_actualAllele * (1 + l_diff));
 						}
 					}
 					else
 					{
 
+						if(readGenotype.length() > 1)
+						{
+							std::string readGenotype_after1 = readGenotype.substr(1);
+							assert(readGenotype_after1.find("_") == std::string::npos);
+						}
 						// score from first position match
 						if(readGenotype.substr(0, 1) == "_")
 						{
@@ -4628,7 +4634,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 							}
 						}
 						// if read allele is longer
-						log_likelihood_position += (log_likelihood_insertion * l_diff);
+						log_likelihood_position += (log_likelihood_insertion_actualAllele * l_diff);
 
 						if(l_diff > 0)
 						{
