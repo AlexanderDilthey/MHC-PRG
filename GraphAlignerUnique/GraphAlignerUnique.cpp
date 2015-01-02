@@ -101,7 +101,7 @@ GraphAlignerUnique::GraphAlignerUnique(Graph* graph, int k) : g(graph), kMerSize
 		genomicCoverageStream.close();
 
 		std::cout << "myGraph_coveredIntervals: Have " << myGraph_coveredIntervals.getNumIntervals() << " intervals.\n" << std::flush;
-	}
+	}  
 }
 
 
@@ -111,8 +111,9 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
  
 	bool conservativeReadQualities = true;
 	
-	double rate_deletions = log(0.00005);
-	double rate_insertions = log(0.00005);
+	double rate_deletions = log(0.001);
+	double rate_insertions = log(0.001);
+	double rate_match_mismatch = log(1 - exp(rate_deletions) - exp(rate_insertions));
 	double combined_log_likelihood = 0;
 
 	totalMismatches = 0;
@@ -171,11 +172,12 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 			else
 			{
 				// two well-defined characters
+				combined_log_likelihood += rate_match_mismatch;
 				char qualityCharacter = underlyingRead.quality.at(indexIntoOriginalReadData_correctlyAligned);
 				double pCorrect = Utilities::PhredToPCorrect(qualityCharacter);
-				if(conservativeReadQualities && (pCorrect > 0.99))
+				if(conservativeReadQualities && (pCorrect > 0.999))
 				{
-					pCorrect = 0.99;
+					pCorrect = 0.999;
 				}
 				assert((pCorrect > 0) && (pCorrect <= 1));
 				if(sequenceCharacter == graphCharacter)
