@@ -526,7 +526,7 @@ int main(int argc, char *argv[])
   
  		// loci_string = "A";
 		// starting_haplotypes_perLocus_1_str = "A*02:07:01;A*02:265";
-		// starting_haplotypes_perLocus_2_str = "A*02:06:01";
+		// starting_haplotypes_perLocus_2_str = "A*02:06:01";    
 
  		// loci_string = "A";
 		// starting_haplotypes_perLocus_1_str = "A*02:03:01;A*02:264";
