@@ -675,6 +675,16 @@ void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2
 			ret_readID = lines.at(0);
 			ret_sequence = lines.at(1);
 			ret_qualities = lines.at(3);
+			if(!(ret_sequence.length() == ret_qualities.length()))
+			{
+				std::cerr << "Problem with input file stream\n";
+				std::cerr << "\t" << "ret_sequence.length()" << ": " << ret_sequence.length() << "\n";
+				std::cerr << "\t" << "ret_qualities.length()" << ": " << ret_qualities.length() << "\n";
+				std::cerr << "\t" << "ret_sequence" << ": " << ret_sequence << "\n";
+				std::cerr << "\t" << "ret_qualities" << ": " << ret_qualities << "\n";
+				std::cerr << std::flush;
+				
+			}
 			assert(ret_sequence.length() == ret_qualities.length());
 		}
 		else

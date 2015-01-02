@@ -535,7 +535,7 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 					std::cout << "\t\t" << "Intrinsic graph gap" << "\n";
 				}
 				
-				log_likelihood += log_likelihood_nonInsertion;
+				// log_likelihood += log_likelihood_nonInsertion;
 
 			}
 			else
@@ -546,7 +546,7 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 				}
 				
 				assert(l_diff >= 0);			
-				log_likelihood += (log_likelihood_insertion + log(pdf(poisson1, l_diff)));
+				log_likelihood += (log_likelihood_insertion_actualAllele + log(pdf(poisson1, l_diff)));
 			}
 		}
 		else
@@ -564,14 +564,20 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 			}
 			else
 			{
-				log_likelihood += log_likelihood_nonDeletion;
+				if(readGenotype.length() > 1)
+				{
+					std::string readGenotype_after1 = readGenotype.substr(1);
+					assert(readGenotype_after1.find("_") == std::string::npos);
+				}
+				
+				log_likelihood += log_likelihood_match_mismatch;
 				
 				assert(readQualities.length());
 				double pCorrect = Utilities::PhredToPCorrect(readQualities.at(0));
 				if(veryConservativeReadLikelihoods)
 				{
-					if(pCorrect > 0.99)
-						pCorrect = 0.99;
+					if(pCorrect > 0.999)
+						pCorrect = 0.999;
 				}
 				assert((pCorrect > 0) && (pCorrect <= 1));
 
@@ -607,13 +613,12 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 			// if read allele is longer
 			if(l_diff == 0)
 			{
-				log_likelihood += log_likelihood_nonInsertion;
+				// log_likelihood += log_likelihood_nonInsertion;
 			}
 			else
 			{
 				assert(l_diff >= 1);
-				
-				log_likelihood += (log_likelihood_insertion + log(pdf(poisson1, (l_diff-1))));
+				log_likelihood += (log_likelihood_insertion_actualAllele + log(pdf(poisson1, l_diff - 1)));				
 			}
 
 			if(l_diff > 0)
@@ -3867,6 +3872,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 		int thisLocus_totalColumns = 0;
 
+		std::map<int, int> exon_lengths;
+		
 		for(unsigned int exonI = 0; exonI < loci_2_exons.at(locus).size(); exonI++)
 		{
 			std::string exonID = loci_2_exons.at(locus).at(exonI);
@@ -3933,6 +3940,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				combined_exon_sequences_graphLevels_individualExon.push_back(exonI);
 				combined_exon_sequences_graphLevels_individualExonPosition.push_back(lI);
 			}
+			
+			exon_lengths[exonI] = expected_allele_length;
 
 
 			for(unsigned int lI = 1; lI < exon_lines.size(); lI++)
@@ -4405,54 +4414,65 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		for(std::map<int, std::map<int, std::vector<oneExonPosition> > >::iterator exonIt = pileUpPerPosition.begin(); exonIt != pileUpPerPosition.end(); exonIt++)
 		{
 			int exon = exonIt->first;
-			for(std::map<int, std::vector<oneExonPosition> >::iterator exonPosIt = pileUpPerPosition.at(exon).begin(); exonPosIt != pileUpPerPosition.at(exon).end(); exonPosIt++)
+			int exonL = exon_lengths.at(exon);
+			for(int exonPos = 0; exonPos < exonL; exonPos++)
 			{
-				int exonPos = exonPosIt->first;
-				std::vector<oneExonPosition> pileUp = exonPosIt->second;
-
-				std::vector<std::string> fieldsPerLine;
-				fieldsPerLine.push_back(Utilities::ItoStr(exon));
-				fieldsPerLine.push_back(Utilities::ItoStr(exonPos));
-
-				std::vector<std::string> piledUpGenotypes;
-
-				for(unsigned int pI = 0; pI < pileUp.size(); pI++)
+				if(pileUpPerPosition.at(exon).count(exonPos))
 				{
-					oneExonPosition piledPosition = pileUp.at(pI);
+					// int exonPos = exonPosIt->first;
+					std::vector<oneExonPosition> pileUp = pileUpPerPosition.at(exon).at(exonPos);
 
-					std::vector<std::string> qualities_as_strings;
-					for(unsigned int qI = 0; qI < piledPosition.qualities.size(); qI++)
+					std::vector<std::string> fieldsPerLine;
+					fieldsPerLine.push_back(Utilities::ItoStr(exon));
+					fieldsPerLine.push_back(Utilities::ItoStr(exonPos));
+
+					std::vector<std::string> piledUpGenotypes;
+
+					for(unsigned int pI = 0; pI < pileUp.size(); pI++)
 					{
-						char qC = piledPosition.qualities.at(qI);
-						int qC_i = qC;
-						qualities_as_strings.push_back(Utilities::ItoStr(qC_i));
+						oneExonPosition piledPosition = pileUp.at(pI);
+
+						std::vector<std::string> qualities_as_strings;
+						for(unsigned int qI = 0; qI < piledPosition.qualities.size(); qI++)
+						{
+							char qC = piledPosition.qualities.at(qI);
+							int qC_i = qC;
+							qualities_as_strings.push_back(Utilities::ItoStr(qC_i));
+						}
+
+						std::string pileUpString = piledPosition.genotype
+							+ " (" + Utilities::join(qualities_as_strings, ", ") + ")"
+							+ " ["
+							// + Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
+							// + Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "
+							// + Utilities::DtoStr(piledPosition.thisRead_fractionOK) + " "
+							// + Utilities::DtoStr(piledPosition.pairedRead_fractionOK) + " | "
+							// + Utilities::ItoStr(piledPosition.pairs_strands_OK) + " "
+							+ Utilities::DtoStr(piledPosition.pairs_strands_distance) + " | "
+							+ Utilities::DtoStr(piledPosition.mapQ_position) + " | "
+							+ Utilities::DtoStr(piledPosition.mapQ) + " "
+							+ Utilities::DtoStr(piledPosition.mapQ_genomic) + " | "
+							+ Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
+							+ Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "						
+							+ piledPosition.thisRead_ID + " "
+							+ piledPosition.pairedRead_ID
+							+ "]";
+
+						piledUpGenotypes.push_back(pileUpString);
 					}
 
-					std::string pileUpString = piledPosition.genotype
-						+ " (" + Utilities::join(qualities_as_strings, ", ") + ")"
-						+ " ["
-						// + Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
-						// + Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "
-						// + Utilities::DtoStr(piledPosition.thisRead_fractionOK) + " "
-						// + Utilities::DtoStr(piledPosition.pairedRead_fractionOK) + " | "
-						// + Utilities::ItoStr(piledPosition.pairs_strands_OK) + " "
-						+ Utilities::DtoStr(piledPosition.pairs_strands_distance) + " | "
-						+ Utilities::DtoStr(piledPosition.mapQ_position) + " | "
-						+ Utilities::DtoStr(piledPosition.mapQ) + " "
-						+ Utilities::DtoStr(piledPosition.mapQ_genomic) + " | "
-						+ Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
-						+ Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "						
-						+ piledPosition.thisRead_ID + " "
-						+ piledPosition.pairedRead_ID
-						+ "]";
+					fieldsPerLine.push_back(Utilities::join(piledUpGenotypes, ", "));
 
-					piledUpGenotypes.push_back(pileUpString);
+
+					pileUpStream << Utilities::join(fieldsPerLine, "\t") << "\n";
 				}
-
-				fieldsPerLine.push_back(Utilities::join(piledUpGenotypes, ", "));
-
-
-				pileUpStream << Utilities::join(fieldsPerLine, "\t") << "\n";
+				else
+				{
+					std::vector<std::string> fieldsPerLine;
+					fieldsPerLine.push_back(Utilities::ItoStr(exon));
+					fieldsPerLine.push_back(Utilities::ItoStr(exonPos));
+					pileUpStream << Utilities::join(fieldsPerLine, "\t") << "\n";				
+				}				
 			}
 		}
 		pileUpStream.close();
