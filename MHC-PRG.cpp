@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
 		string temp_dir = arguments.at(3);
 		string temp_label = arguments.at(4);
 
-		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I100.txt";
+		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I101_NA12878.txt";
 
 		simulationSuite(graph_file, temp_dir, temp_label, genotypingMode, error, filename_qualityMatrix);
 	}
@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 	{
 		string graph_file = arguments.at(2);
 
-		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I100.txt";
+		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I101_NA12878.txt";
 
 		double insertSize_mean = 200;
 		double insertSize_sd = 15;
@@ -406,7 +406,7 @@ int main(int argc, char *argv[])
 	else if((arguments.size() > 0) && (arguments.at(1) == "simulateHLAreads"))
 	{
 		std::string graph_dir;
-		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I100.txt";
+		std::string filename_qualityMatrix = "GraphAlignerUnique/predefinedQualityMatrices/I101_NA12878.txt";
 		std::string outputDirectory;
 
 		int nIndividuals = 10;
@@ -414,7 +414,7 @@ int main(int argc, char *argv[])
 		double insertSize_sd = 15;
 		double haploidCoverage = 15;
 
-		int read_length = 100;
+		int read_length = 101;
 		bool readError = true;
 		bool perturbHaplotypes = false;
 		bool exon23 = true;
@@ -522,17 +522,17 @@ int main(int argc, char *argv[])
 		std::string starting_haplotypes_perLocus_1_str;
 		std::string starting_haplotypes_perLocus_2_str;
 
-		HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
-
+		// HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+  
  		// loci_string = "A";
 		// starting_haplotypes_perLocus_1_str = "A*02:07:01;A*02:265";
-		// starting_haplotypes_perLocus_2_str = "A*02:06:01";
+		// starting_haplotypes_perLocus_2_str = "A*02:06:01";    
 
  		// loci_string = "A";
 		// starting_haplotypes_perLocus_1_str = "A*02:03:01;A*02:264";
 		// starting_haplotypes_perLocus_2_str = "A*24:02:01:01;A*24:02:01:02L;A*24:02:03Q;A*24:02:10;A*24:09N;A*24:11N";
 			
-		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+		// HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
 		// nodo activate
 		
@@ -1195,7 +1195,7 @@ int main(int argc, char *argv[])
 		std::string referenceGenome;
 
 		double positiveThreshold = 0.3;
-		double negativeThreshold = 0.3;
+		double negativeThreshold = 0.45;
 
 		vector<string> arguments (argv + 1, argv + argc + !argc);
 

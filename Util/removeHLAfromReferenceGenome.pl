@@ -38,7 +38,10 @@ close(MAPPING);
 my $reference_href = readFASTA($inputGenome);
 
 print "Now block ", scalar(keys %block_positions_chr6), " positions.\n";
+# my @ten_pos = (keys %block_positions_chr6)[0 .. 10];
+# print "\t", join(", ", @ten_pos), "\n";
 
+my $blocked = 0;
 my $found_6 = 0;
 foreach my $chromosomeID (keys %$reference_href)
 {
@@ -50,6 +53,14 @@ foreach my $chromosomeID (keys %$reference_href)
 		{
 			if($block_positions_chr6{$i})
 			{
+				if(substr($reference_href->{$chromosomeID}, $i, 1) =~ /[ACGT]/i)
+				{
+					$blocked++;
+				}
+				else
+				{
+					# print "Existing: ", substr($reference_href->{$chromosomeID}, $i, 1), "\n";
+				}
 				substr($reference_href->{$chromosomeID}, $i, 1) = 'N';
 			}
 		}
@@ -60,8 +71,10 @@ unless($found_6)
 	die "Could not find chromosome 6.\n";
 }	
 
-print "Produce output file $outputGenome ...\n";
+print "Blocked: $blocked\n";
 
+print "Produce output file $outputGenome ...\n";
+die "Printing deactivated - just remove me!";
 printFASTA($outputGenome, $reference_href);
 
 sub readFASTA

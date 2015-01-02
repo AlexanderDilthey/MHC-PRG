@@ -19,7 +19,13 @@
 
 in /gpfs1/well/gsk_hla/Platypus: chmod u+x xMHC_agreement_with_arrayGenotypes.pl; ./xMHC_agreement_with_arrayGenotypes.pl --kmer 31 --evaluateOnlyVCF 1 
 
-../bin/MHC-PRG domode simulationSuite ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/ SIMU_MHC --genotypingMode 8 > temp_gt8_31_compare.txt
+Improved simulations
+
+
+../bin/MHC-PRG domode simulationSuite ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/ SIMU_MHC_ERROR1 --error 1 --genotypingMode 8 > temp_gt8_31_compare_error1.txt;\
+../bin/MHC-PRG domode simulationSuite ../tmp2/GS_nextGen/varigraph3/graph.txt.kmers_31 ../tmp/ SIMU_MHC_ERROR0 --error 0 --genotypingMode 8 > temp_gt8_31_compare_error0.txt
+
+
 
 Validation:
 

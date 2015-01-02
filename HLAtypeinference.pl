@@ -42,6 +42,7 @@ my $trueHLA;
 my $trueHaplotypes;
 #my $validation_round = 'R1';
 my $T = 0;
+my $minCoverage = 0;
 my $all_2_dig = 0;
 my $only_4_dig = 1;
 
@@ -56,15 +57,26 @@ GetOptions ('graph:s' => \$graph,
  'referenceGenome:s' => \$referenceGenome, 
  #'validation_round:s' => \$validation_round,
  'T:s' => \$T,
+ 'minCoverage:s' => \$minCoverage,
 );         
 
+if($minCoverage)
+{
+	print "Minimum coverage threshold in place: $minCoverage\n";
+}
 
 my $genome_graph_file = qq(../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx);
 unless(-e $genome_graph_file)
 {
 	die "Please set variable \$genome_graph_file to an existing file - the current value $genome_graph_file is not accessible.";
 }
+
 my $expected_kMer_file = qq(../tmp2/GS_nextGen/${graph}/requiredkMers_graph.txt.kmers_25);
+unless(-e $expected_kMer_file)
+{
+	die "Please set variable \$expected_kMer_file to an existing file - the current value $expected_kMer_file is not accessible.";
+}
+
 my $exon_folder = qq(../tmp2/GS_nextGen/${graph}/);
 unless(-e $expected_kMer_file)
 {
@@ -123,8 +135,8 @@ elsif($sampleIDs =~ /^all/)
 
 if(scalar(@sampleIDs) > 5)
 {
-	@sampleIDs = @sampleIDs[0 .. 4];
-	warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
+	#@sampleIDs = @sampleIDs[0 .. 4];
+	#warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 }
 
 # @sampleIDs = $sampleIDs[7]; # todo remove
@@ -202,7 +214,7 @@ if($actions =~ /n/)
 	my $fastQ_files = join(',', @fastQ_files);
 	my $output_files = join(',', @output_files);
 	
-	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files);
+	my $command = qq($use_bin domode filterReads --input_FASTQ $fastQ_files --negativeFilter $genome_graph_file --output_FASTQ $output_files --negativePreserveUnique --uniqueness_base ${expected_kMer_file} --uniqueness_subtract ${genome_graph_file});
 	
 	print "Now executing command:\n$command\n\n";
 	
@@ -272,6 +284,16 @@ if($actions =~ /i/)
 		
 		my $stdout_file = '../tmp/hla/'.$sampleID.'/inference.stdout';
 		push(@stdout_files, $stdout_file);
+		
+		foreach my $validation_round (qw/R1 R2/)
+		{
+			my $bestguess_file = '../tmp/hla/'.$sampleID.'/'.$validation_round.'_bestguess.txt';
+			if(-e $bestguess_file)
+			{
+				warn "Delete existing best-guess file $bestguess_file";
+				unlink($bestguess_file) or die "Cannot delete $bestguess_file";
+			}
+		}
 	}
 		
 	for(my $sI = 0; $sI <= $#aligned_files; $sI++)
@@ -326,6 +348,10 @@ if($actions =~ /v/)
 	# die Dumper(\%reference_data);
 	
 	my %imputed_HLA;
+	my %imputed_HLA_avgCoverage;
+	my %imputed_HLA_lowCoverage;
+	my %imputed_HLA_minCoverage;
+
 	my %sample_noI_toI;
 	
 	foreach my $sampleID (@sampleIDs)
@@ -359,7 +385,21 @@ if($actions =~ /v/)
 			}
 			else
 			{
+				die unless(defined $line_hash{'Allele'});
 				$imputed_HLA{$line_hash{'Locus'}}{$sampleID_noI}{$line_hash{'Chromosome'}} = $line_hash{'Allele'};			
+			}
+			
+			
+			if($line_hash{'Chromosome'} eq '1')
+			{
+				$imputed_HLA_avgCoverage{$line_hash{'Locus'}}{$sampleID_noI} = $line_hash{'AverageCoverage'};
+				$imputed_HLA_lowCoverage{$line_hash{'Locus'}}{$sampleID_noI} = $line_hash{'CoverageFirstDecile'};
+				$imputed_HLA_minCoverage{$line_hash{'Locus'}}{$sampleID_noI} = $line_hash{'MinimumCoverage'};
+				
+				if($minCoverage and ($line_hash{'MinimumCoverage'} < $minCoverage))
+				{
+					$imputed_HLA{$line_hash{'Locus'}}{$sampleID_noI}{$line_hash{'Chromosome'}} = '??:??';								
+				}
 			}
 		}	
 		close(BESTGUESS);
@@ -371,6 +411,10 @@ if($actions =~ /v/)
 	my $debug = 0;
 	my $comparisons = 0;
 	my $compare_problems = 0;
+	my %locus_avgCoverages;
+	my %locus_lowCoverages;
+	my %locus_minCoverages;
+	
 	my %problem_locus_detail;
 	my %problem_locus_examined;
 	my %problem_haplo_counter;
@@ -400,7 +444,8 @@ if($actions =~ /v/)
 			$debug = 0;
 			
 			my @imputed_hla_values = map { $imputed_HLA{$locus}{$indivID}{$_} } keys %{$imputed_HLA{$locus}{$indivID}};
-								
+			die "Undefined HLA ".join(', ', @imputed_hla_values) unless(scalar(grep {defined $_} @imputed_hla_values) == scalar(@imputed_hla_values));
+					
 			my @reference_hla_values;
 			
 			next INDIV unless($#imputed_hla_values == 1);
@@ -412,16 +457,19 @@ if($actions =~ /v/)
 			{
 				@reference_hla_values = split(/\//, $reference_data{$indivID}{'HLA'.$locus});
 			}
-			
-			die Dumper($reference_data{$indivID}, \@reference_hla_values) unless($#reference_hla_values == 1);
-			
+
+			die Dumper($reference_data{$indivID}, \@reference_hla_values) unless($#reference_hla_values == 1);				
+						
+			die "Undefined HLA ".join(', ', @reference_hla_values) unless(scalar(grep {defined $_} @reference_hla_values) == scalar(@reference_hla_values));			
 			@reference_hla_values = grep {! &simpleHLA::is_missing($_)} @reference_hla_values;
-			
+
+			next if($#reference_hla_values == -1);
+						
 			if($only_4_dig)
 			{
 				next unless (&simpleHLA::HLA_is4digit($reference_hla_values[0]) and (($#reference_hla_values == 0) || (&simpleHLA::HLA_is4digit($reference_hla_values[1]))));
 			}
-			
+					
 			$imputed_HLA_Calls{$locus}{sum} += scalar(@imputed_hla_values);		
 			@imputed_hla_values = grep {! &simpleHLA::is_missing($_)} @imputed_hla_values;
 			$imputed_HLA_Calls{$locus}{called} += scalar(@imputed_hla_values);
@@ -431,7 +479,7 @@ if($actions =~ /v/)
 				@reference_hla_values = map {&simpleHLA::HLA_2digit($_)} @reference_hla_values;
 				@imputed_hla_values = map {join(';', map {&simpleHLA::HLA_2digit($_)} split(/;/, $_))} @imputed_hla_values;
 			}
-			
+						
 			# print Dumper(\@reference_hla_values, @imputed_hla_values), "\n";
 		
 			my $comparisons_before = $comparisons;
@@ -649,6 +697,25 @@ if($actions =~ /v/)
 			}
 			
 			my $thisIndiv_problems = $problem_locus_detail{$locus} - $problem_locus_detail_before;
+				
+			my $avgCoverage = $imputed_HLA_avgCoverage{$locus}{$indivID};
+			my $lowCoverage = $imputed_HLA_lowCoverage{$locus}{$indivID};
+			my $minCoverage = $imputed_HLA_minCoverage{$locus}{$indivID};
+
+			# average coverages
+			if(($thisIndiv_problems > 0))
+			{
+				push(@{$locus_avgCoverages{$locus}{problems}}, $avgCoverage);
+				push(@{$locus_lowCoverages{$locus}{problems}}, $lowCoverage);
+				push(@{$locus_minCoverages{$locus}{problems}}, $minCoverage);
+			}
+			else
+			{
+				push(@{$locus_avgCoverages{$locus}{ok}}, $avgCoverage);
+				push(@{$locus_lowCoverages{$locus}{ok}}, $lowCoverage);
+				push(@{$locus_minCoverages{$locus}{ok}}, $minCoverage);
+				
+			}
 			
 			# print "\t", $thisIndiv_problems, "\n";
 			
@@ -757,6 +824,7 @@ if($actions =~ /v/)
 							die unless(defined $pileup_href->{$indivID_withI});
 							die unless(defined $pileup_href->{$indivID_withI}{'HLA'.$locus});
 							die unless(defined $pileup_href->{$indivID_withI}{'HLA'.$locus}[$exon-2]);
+							# die "Problem with pileup for $locus / $indivID / $exon / $i " unless(defined $pileUpString);
 							# next unless(defined $pileUpString);
 							
 							
@@ -838,6 +906,24 @@ if($actions =~ /v/)
 		print TMP_OUTPUT join("\t", @fields), "\n";
 	}
 	close(TMP_OUTPUT);	
+		
+	print "\nCorrect vs incorrect coverages per locus:\n";
+	foreach my $locus (sort keys %problem_locus_detail)
+	{
+		my @avg_minMax_ok = min_avg_max(@{$locus_avgCoverages{$locus}{ok}});
+		my @low_minMax_ok = min_avg_max(@{$locus_lowCoverages{$locus}{ok}});
+		my @min_minMax_ok = min_avg_max(@{$locus_minCoverages{$locus}{ok}});
+			
+		my @avg_minMax_problems = min_avg_max(@{$locus_avgCoverages{$locus}{problems}});
+		my @low_minMax_problems = min_avg_max(@{$locus_lowCoverages{$locus}{problems}});
+		my @min_minMax_problems = min_avg_max(@{$locus_minCoverages{$locus}{problems}});
+		
+		print "\t", $locus, "\n";
+
+		print "\t\tAverage ", join(' / ', @avg_minMax_ok), " vs ", join(' / ', @avg_minMax_problems), " [problems]", "\n";
+		print "\t\tLow ", join(' / ', @low_minMax_ok), " vs ", join(' / ', @low_minMax_problems), " [problems]", "\n";
+		print "\t\tMin ", join(' / ', @min_minMax_ok), " vs ", join(' / ', @min_minMax_problems), " [problems]", "\n";
+	}
 
 	print "\n";
 }
@@ -1486,13 +1572,21 @@ sub load_pileup
 		chomp($line);
 		next unless($line);
 		my @f = split(/\t/, $line);
-		die unless($#f == 2);
-		my $exon = $f[0];
-		my $exonPos = $f[1];
-		my $pileUp = $f[2];
-		
-		$r_href->{$indivID}{'HLA'.$locus}[$exon][$exonPos] = $pileUp;
-		
+		die unless(($#f == 2) or ($#f == 1));
+		if($#f == 2)
+		{
+			my $exon = $f[0];
+			my $exonPos = $f[1];
+			my $pileUp = $f[2];		
+			$r_href->{$indivID}{'HLA'.$locus}[$exon][$exonPos] = $pileUp;
+		}
+		else
+		{
+			my $exon = $f[0];
+			my $exonPos = $f[1];
+			my $pileUp = '';		
+			$r_href->{$indivID}{'HLA'.$locus}[$exon][$exonPos] = $pileUp;
+		}
 	}	
 	close(F);
 }
@@ -1650,4 +1744,41 @@ sub find_exon_file
 	{
 		return $exon_folder.'/'.$exon_folder_files[0];
 	}	
+}
+
+
+sub min_avg_max
+{
+	my @v = @_;
+	@v = sort {$a <=> $b} @v;
+	if($#v >= 1)
+	{
+		die unless($v[0] <= $v[1]);
+	}
+	
+	if(scalar(@v) == 0)
+	{
+		return ('', '', '');
+	}
+	if(scalar(@v) == 1)
+	{
+		return($v[0], $v[0], '');
+	}
+	
+	my $min = $v[0];
+	my $max = $v[$#v];
+	  
+	my $sum = 0;
+	foreach my $vE (@v)
+	{
+		$sum += $vE;
+	}
+	
+	my $avg = '';
+	if(scalar(@v) > 0)
+	{
+		$avg = $sum / scalar(@v);
+	}
+	
+	return ($min, $avg, $max);
 }
