@@ -1733,12 +1733,12 @@ readSimulationResults LargeGraph::simulateReadsForPathWithError(diploidEdgePath&
 	readCount["MeanReadLen"] = (double)readLength;
 	readCount["TotalKMerCoverage"] = 0;
 
-	double onePositionStartReadProbability = (double) haploidCoverage / (double)readLength;
+	// double onePositionStartReadProbability = (double) haploidCoverage / (double)readLength;
 
-    boost::mt19937 rnd_gen;   //Mersenne Twister generator
-    typedef boost::variate_generator< boost::mt19937, boost::poisson_distribution<> > rnd_poisson_t;
-	rnd_poisson_t rnd_poisson( rnd_gen, boost::poisson_distribution<>( onePositionStartReadProbability ));
-    rnd_poisson = rnd_poisson_t( rnd_gen, boost::poisson_distribution<>( onePositionStartReadProbability ));
+//    boost::mt19937 rnd_gen;   //Mersenne Twister generator
+//    typedef boost::variate_generator< boost::mt19937, boost::poisson_distribution<> > rnd_poisson_t;
+//	rnd_poisson_t rnd_poisson( rnd_gen, boost::poisson_distribution<>( onePositionStartReadProbability ));
+//    rnd_poisson = rnd_poisson_t( rnd_gen, boost::poisson_distribution<>( onePositionStartReadProbability ));
 
     assert(kMerSize > 0);
 
