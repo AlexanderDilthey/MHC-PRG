@@ -1662,70 +1662,165 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		Utilities::makeDir(outputDirectory);
 	}
 
+	std::string outputFN_bestGuess_6dig = outputDirectory + "/R2_bestguess_6dig.txt";
+	std::ofstream bestGuess_6dig_outputStream;
+	bestGuess_6dig_outputStream.open(outputFN_bestGuess_6dig.c_str());
+	assert(bestGuess_6dig_outputStream.is_open());
+	bestGuess_6dig_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "AbsoluteDifferences" << "\t"<< "RelativeDifference" << "\n";
+
+	std::string outputFN_bestGuess_8dig = outputDirectory + "/R2_bestguess_8dig.txt";
+	std::ofstream bestGuess_8dig_outputStream;
+	bestGuess_8dig_outputStream.open(outputFN_bestGuess_8dig.c_str());
+	assert(bestGuess_8dig_outputStream.is_open());
+	bestGuess_8dig_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "AbsoluteDifferences" << "\t" << "RelativeDifference" << "\n";
+
+
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
 	{
+		std::string locus = loci.at(locusI);
+
+		std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Making inference for " << locus << "\n" << std::flush;
+
+		std::vector<int> combined_sequences_graphLevels;
+		std::vector<std::string> combined_sequences_graphLevels_individualType;
+		std::vector<int> combined_sequences_graphLevels_individualTypeNumber;
+		std::vector<int> combined_sequences_graphLevels_individualPosition;
+
+		std::vector<std::string> combined_sequences_locusIDs;
+		std::map<std::string, std::string> combined_sequences;
+		std::vector<std::string> starting_haplotypes_combined_vec;
+
+		read_HLA_alleles_for_haplotypeInference(
+			graphDir,
+			locus,
+			combined_sequences_graphLevels,
+			combined_sequences_graphLevels_individualType,
+			combined_sequences_graphLevels_individualTypeNumber,
+			combined_sequences_graphLevels_individualPosition,
+			combined_sequences_locusIDs,
+			combined_sequences,
+			graphLocus_2_levels,
+			starting_haplotypes_combined_vec,
+			true
+		);
+
 		std::string starting_haplotypes_1_str = starting_haplotypes_perLocus_1.at(locusI);
 		std::string starting_haplotypes_2_str = starting_haplotypes_perLocus_2.at(locusI);
-		std::vector<std::string> starting_haplotypes_1_vec = Utilities::split(starting_haplotypes_1_str, ";");
-		std::vector<std::string> starting_haplotypes_2_vec = Utilities::split(starting_haplotypes_2_str, ";");
+		std::vector<std::string> starting_haplotypes_1_vec_preTranslation = Utilities::split(starting_haplotypes_1_str, ";");
+		std::vector<std::string> starting_haplotypes_2_vec_preTranslation = Utilities::split(starting_haplotypes_2_str, ";");
+
+		// translate predefined types into full-length types
+		std::set<std::string> completeDefinedTypes = getCompletelyDefinedHLAAlleles(graphDir, locus);
+		auto translatePartialTypesToFull = [&](std::vector<std::string> partialTypes) -> std::vector<std::string>
+		{
+			std::vector<std::string> forReturn;
+			for(unsigned int i = 0; i < partialTypes.size(); i++)
+			{
+				std::string partialType = partialTypes.at(i);
+				if(completeDefinedTypes.count(partialType))
+				{
+					forReturn.push_back(partialType);
+				}
+			}
+
+			if(forReturn.size() > 0)
+			{
+				std::cout << Utilities::timestamp() << "\t\ttranslatePartialTypesToFull(..): Input set of size " << partialTypes.size() << " immediately mapped onto output set of size " << forReturn.size() << ".\n";
+
+				return forReturn;
+			}
+			else
+			{
+				std::map<std::string, int> completeTypes_editDistances;
+				for(std::set<std::string>::iterator completeTypeIt = completeDefinedTypes.begin(); completeTypeIt != completeDefinedTypes.end(); completeTypeIt++)
+				{
+					std::string completeType = *completeTypeIt;
+
+					for(unsigned int i = 0; i < partialTypes.size(); i++)
+					{
+						std::string partialType = partialTypes.at(i);
+
+						std::string completeTypeSequence = combined_sequences.at(completeType);
+						std::string partialTypeSequence = combined_sequences.at(partialType);
+
+						if(completeTypeSequence.length() == partialTypeSequence.length())
+						{
+							int editDistance = compute_Hamming_distance(completeTypeSequence, partialTypeSequence, true);
+							if(completeTypes_editDistances.count(completeType) == 0)
+							{
+								completeTypes_editDistances[completeType] = editDistance;
+							}
+							else
+							{
+								if(editDistance < completeTypes_editDistances.at(completeType))
+								{
+									completeTypes_editDistances.at(completeType) = editDistance;
+								}
+							}
+						}
+					}
+				}
+
+				if(completeTypes_editDistances.size() == 0)
+				{
+					std::cout << Utilities::timestamp() << "\t\ttranslatePartialTypesToFull(..): Could not use a single complete type for edit distance check - use arbitrary complete type.";
+					forReturn.push_back(combined_sequences.begin()->first);
+				}
+				else
+				{
+					std::vector<std::string> completeTypes_editDistances_keys;
+					for(std::map<std::string, int>::iterator completeTypeIt = completeTypes_editDistances.begin(); completeTypeIt != completeTypes_editDistances.end(); completeTypeIt++)
+					{
+						completeTypes_editDistances_keys.push_back(completeTypeIt->first);
+					}
+					std::sort(completeTypes_editDistances_keys.begin(), completeTypes_editDistances_keys.end(), [&](std::string a, std::string b){return (completeTypes_editDistances.at(a) < completeTypes_editDistances.at(b));});
+
+					if(completeTypes_editDistances_keys.size() > 1)
+					{
+						assert(completeTypes_editDistances.at(completeTypes_editDistances_keys.at(0)) <= completeTypes_editDistances.at(completeTypes_editDistances_keys.at(1)));
+					}
+
+					std::vector<std::string> equallyGoodEditDistances;
+					int bestEditDistance = completeTypes_editDistances.at(completeTypes_editDistances_keys.at(0));
+					for(unsigned int i = 0; i < completeTypes_editDistances_keys.size(); i++)
+					{
+						int competingEditDistance = completeTypes_editDistances.at(completeTypes_editDistances_keys.at(i));
+						if(competingEditDistance == bestEditDistance)
+						{
+							equallyGoodEditDistances.push_back(completeTypes_editDistances_keys.at(i));
+						}
+						else
+						{
+							break;
+						}
+					}
+
+					assert(equallyGoodEditDistances.size() >= 1);
+
+					forReturn = equallyGoodEditDistances;
+
+					std::cout << Utilities::timestamp() << "\t\ttranslatePartialTypesToFull(..): Input set of size " << partialTypes.size() << " edit-distance mapped onto output set of size " << forReturn.size() << ".\n";
+				}
+
+				return forReturn;
+			}
+		};
+
+		std::vector<std::string> starting_haplotypes_1_vec = translatePartialTypesToFull(starting_haplotypes_1_vec_preTranslation);
+		std::vector<std::string> starting_haplotypes_2_vec = translatePartialTypesToFull(starting_haplotypes_2_vec_preTranslation);
 
 		std::set<std::string> starting_haplotypes_1_set(starting_haplotypes_1_vec.begin(), starting_haplotypes_1_vec.end());
 		std::set<std::string> starting_haplotypes_2_set(starting_haplotypes_2_vec.begin(), starting_haplotypes_2_vec.end());
 		std::set<std::string> starting_haplotypes_combined_set = starting_haplotypes_1_set;
 		starting_haplotypes_combined_set.insert(starting_haplotypes_2_set.begin(), starting_haplotypes_2_set.end());
-		std::vector<std::string> starting_haplotypes_combined_vec(starting_haplotypes_combined_set.begin(), starting_haplotypes_combined_set.end());
 		
+		starting_haplotypes_combined_vec.clear();
+		starting_haplotypes_combined_vec.insert(starting_haplotypes_combined_vec.end(), starting_haplotypes_combined_set.begin(), starting_haplotypes_combined_set.end());
+
 		assert(starting_haplotypes_1_set.size() > 0);
 		assert(starting_haplotypes_2_set.size() > 0);
 
-		std::string locus = loci.at(locusI);
-		std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Making inference for " << locus << ", have " << starting_haplotypes_combined_set.size() << " combined starting haplotypes\n" << std::flush;
-
-		// find intron and exon files belonging to locus
-		std::vector<std::string> files_in_order;
-		std::vector<std::string> files_in_order_type;
-		std::vector<int> files_in_order_number;
-
-		std::ifstream segmentsStream;
-		std::string segmentsFileName = graphDir + "/segments.txt";
-		segmentsStream.open(segmentsFileName.c_str());
-		assert(segmentsStream.is_open());
-		std::string line;
-		while(segmentsStream.good())
-		{
-			std::getline(segmentsStream, line);
-			Utilities::eraseNL(line);
-			if(line.length() > 0)
-			{
-				std::vector<std::string> split_by_underscore = Utilities::split(line, "_");
-				std::string file_locus = split_by_underscore.at(0);
-				
-
-				
-				if(file_locus == locus)
-				{
-					if((split_by_underscore.at(2) == "intron") || (split_by_underscore.at(2) == "exon"))
-					{
-						files_in_order.push_back(graphDir + "/" + line);
-						files_in_order_type.push_back(split_by_underscore.at(2));
-						files_in_order_number.push_back(Utilities::StrtoI(split_by_underscore.at(3)));
-					}
-					else
-					{
-						std::vector<std::string> third_split_by_colon = Utilities::split(split_by_underscore.at(2), ".");	
-
-						files_in_order.push_back(graphDir + "/" + line);
-						files_in_order_type.push_back(third_split_by_colon.at(0));
-						files_in_order_number.push_back(1);
-					}
-				}
-			}
-		}
-		assert(files_in_order.size() > 0);
-
-		std::cout << "HLAHaplotypeInference(..): Files read in for locus " << locus << "\n";
-		std::cout << Utilities::join(files_in_order, ",   ") << "\n\n" << std::flush;
-
+		std::cout << Utilities::timestamp() << "\thave " << starting_haplotypes_combined_set.size() << " combined starting haplotypes\n" << std::flush;
 
 		std::string file_AAmapping = graphDir + "/AAmapping/"+locus+".txt";
 		// std::cerr << "File: " << file_AAmapping << "\n\n" << std::flush;
@@ -1754,143 +1849,19 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			fileInputStream.close();
 		}
 
-		std::vector<int> combined_sequences_graphLevels;
-		std::vector<std::string> combined_sequences_graphLevels_individualType;
-		std::vector<int> combined_sequences_graphLevels_individualTypeNumber;
-		std::vector<int> combined_sequences_graphLevels_individualPosition;
-
-		std::vector<std::string> combined_sequences_locusIDs;
-		std::map<std::string, std::string> combined_sequences;
-
-		for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
-		{
-			std::cout << Utilities::timestamp() << "\tLocus" << locus << ", file " << fileI << "\n" << std::flush;
-			std::string file = files_in_order.at(fileI);
-
-			std::string type = files_in_order_type.at(fileI);
-			int typeNumber = files_in_order_number.at(fileI);
-
-			if(! Utilities::fileReadable(file))
-			{
-				std::cerr << "HLAHaplotypeInference(..): Locus " << locus << ", fileI " << fileI << ": Can't read file " << file << "\n";
-			}
-			assert(Utilities::fileReadable(file));
-
-			std::ifstream fileInputStream;
-			fileInputStream.open(file.c_str());
-			assert(fileInputStream.is_open());
-			std::vector<std::string> file_lines;
-			while(fileInputStream.good())
-			{
-				std::string line;
-				std::getline(fileInputStream, line);
-				Utilities::eraseNL(line);
-				if(line.length())
-				{
-					file_lines.push_back(line);
-				}
-			}
-			fileInputStream.close();
-
-			std::string firstLine = file_lines.at(0);
-			std::vector<std::string> firstLine_fields = Utilities::split(firstLine, " ");
-			assert(firstLine_fields.at(0) == "IndividualID");
-
-			std::vector<std::string> exon_level_names(firstLine_fields.begin() + 1, firstLine_fields.end());
-			std::string first_graph_locusID = exon_level_names.front();
-			std::string last_graph_locusID = exon_level_names.back();
-
-			assert(graphLocus_2_levels.count(first_graph_locusID));
-			assert(graphLocus_2_levels.count(last_graph_locusID));
-
-
-			unsigned int first_graph_level = graphLocus_2_levels.at(first_graph_locusID);
-			unsigned int last_graph_level = graphLocus_2_levels.at(last_graph_locusID);
-
-			std::cout << Utilities::timestamp() << "\tLocus" << locus << ", fileI " << fileI << ": from " << first_graph_locusID << " (" << first_graph_level << ") to " << last_graph_locusID << " (" << last_graph_level << ").\n" << std::flush;
-
-			assert(last_graph_level > first_graph_level);
-			unsigned int expected_allele_length = last_graph_level - first_graph_level + 1;
-			if(!(exon_level_names.size() == expected_allele_length))
-			{
-				std::cerr << "For locus " << locus << " fileI " << fileI << " (" << file << "), we have a problem with expected graph length.\n";
-				std::cerr << "\t" << "expected_allele_length" << ": " << expected_allele_length << "\n";
-				std::cerr << "\t" << "expected_allele_length" << ": " << expected_allele_length << "\n";
-				std::cerr << std::flush;
-			}
-			assert(exon_level_names.size() == expected_allele_length);
-
-			combined_sequences_locusIDs.insert(combined_sequences_locusIDs.end(), exon_level_names.begin(), exon_level_names.end());
-			for(unsigned int lI = 0; lI < expected_allele_length; lI++)
-			{
-				unsigned int graphLevel = first_graph_level + lI;
-				assert(graphLocus_2_levels.at(exon_level_names.at(lI)) == graphLevel);
-				combined_sequences_graphLevels.push_back(graphLevel);
-				combined_sequences_graphLevels_individualType.push_back(type);
-				combined_sequences_graphLevels_individualTypeNumber.push_back(typeNumber);
-				combined_sequences_graphLevels_individualPosition.push_back(lI);
-			}
-
-			if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
-			{
-				assert(file_lines.size() > 1);
-				for(unsigned int sI = 0; sI < starting_haplotypes_combined_vec.size(); sI++)
-				{			
-					int getLine = sI % (file_lines.size()-1) + 1;
-					assert(getLine >= 1);
-					assert(getLine < (int)file_lines.size());
-					assert(file_lines.at(getLine).length());
-					
-					std::vector<std::string> line_fields = Utilities::split(file_lines.at(getLine), " ");
-					assert(line_fields.size() == firstLine_fields.size());
-					std::string HLA_type = starting_haplotypes_combined_vec.at(sI);
-					std::vector<std::string> line_alleles(line_fields.begin()+1, line_fields.end());
-
-					std::string HLA_type_sequence = Utilities::join(line_alleles, "");
-
-					if(fileI == 0)
-					{
-						assert(combined_sequences.count(HLA_type) == 0);
-						combined_sequences[HLA_type] = HLA_type_sequence;
-					}
-					else
-					{
-						// assert(combined_sequences.count(HLA_type));
-						combined_sequences[HLA_type] += HLA_type_sequence;
-					}				
-
-					// std::cout << HLA_type << " " << files_in_order_type.at(fileI) << " add " << HLA_type_sequence.length() << "\n" << std::flush;
-					
-				}
-			}
-			else
-			{
-				for(unsigned int lI = 1; lI < file_lines.size(); lI++)
-				{
-					assert(file_lines.at(lI).length());
-					if(file_lines.at(lI).length())
-					{
-						std::vector<std::string> line_fields = Utilities::split(file_lines.at(lI), " ");
-						assert(line_fields.size() == firstLine_fields.size());
-						std::string HLA_type = line_fields.at(0);
-						std::vector<std::string> line_alleles(line_fields.begin()+1, line_fields.end());
-
-						std::string HLA_type_sequence = Utilities::join(line_alleles, "");
-
-						if(fileI == 0)
-						{
-							assert(combined_sequences.count(HLA_type) == 0);
-							combined_sequences[HLA_type] = HLA_type_sequence;
-						}
-						else
-						{
-							// assert(combined_sequences.count(HLA_type));
-							combined_sequences[HLA_type] += HLA_type_sequence;
-						}
-					}
-				}
-			}
-		}
+		read_HLA_alleles_for_haplotypeInference(
+			graphDir,
+			locus,
+			combined_sequences_graphLevels,
+			combined_sequences_graphLevels_individualType,
+			combined_sequences_graphLevels_individualTypeNumber,
+			combined_sequences_graphLevels_individualPosition,
+			combined_sequences_locusIDs,
+			combined_sequences,
+			graphLocus_2_levels,
+			starting_haplotypes_combined_vec,
+			false
+		);
 		
 		std::set<std::string> non_full_length_types;
 		for(std::set<std::string>::iterator haplotypeIt = starting_haplotypes_combined_set.begin(); haplotypeIt != starting_haplotypes_combined_set.end(); haplotypeIt++)
@@ -2203,12 +2174,14 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			oneReadAlignment_2_exonPositions(alignedReadPair.first, originalReadPair.reads.first, read1_positions, alignedReadPair.second, originalReadPair.reads.second);
 			oneReadAlignment_2_exonPositions(alignedReadPair.second, originalReadPair.reads.second, read2_positions, alignedReadPair.first, originalReadPair.reads.first);
 
+			assert(alignedReadPair.first.mapQ_genomic != 2);
+			double mapQ_thisAlignment = alignedReadPair.first.mapQ_genomic;
+
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
 					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
-					(alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK) &&
-					(alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK) &&
-					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_oneRead_weightedCharactersOK) || (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_oneRead_weightedCharactersOK))
+					(mapQ_thisAlignment >= minimumMappingQuality) &&
+					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK))
 			)
 			{
 				// good
@@ -2237,12 +2210,17 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			{
 				oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
 
+				if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
+				{
+					continue;
+				}
+
 				unsigned int position = graphLevel_2_position.at(onePositionSpecifier.graphLevel);
 				pileUpPerPosition.at(position).push_back(onePositionSpecifier);
 			}
 		}
 
-		std::string fileName_pileUp = outputDirectory + "/R1_pileup_"+locus+".txt";
+		std::string fileName_pileUp = outputDirectory + "/R2_pileup_"+locus+".txt";
 		std::ofstream pileUpStream;
 		pileUpStream.open(fileName_pileUp.c_str());
 		assert(pileUpStream.is_open());
@@ -2272,6 +2250,30 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				ll_computed_until_position = -1;
 				setPexternal = false;
 			}
+
+			const std::vector<std::string>& getH1()
+			{
+				return h1;
+			}
+
+			const std::vector<std::string>& getH2()
+			{
+				return h2;
+			}
+
+			const std::vector<std::string>& getH(unsigned int i)
+			{
+				assert((i == 1) || (i == 2));
+				if(i == 1)
+				{
+					return h1;
+				}
+				else
+				{
+					return h2;
+				}
+			}
+
 
 			std::pair<std::string, std::string> getHaplotypeAlleles(unsigned int pI)
 			{
@@ -2453,7 +2455,6 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 						std::cout << "\t\tLL1 After complete update: " << LL1 << "\n" << std::flush;
 					}
 				}
-				
 				
 				//LL2
 				{
@@ -3673,7 +3674,112 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		}
 
 		haplotypeBestGuess_outputStream.close();
+
+		// find closest 6- and 8-digit matches
+
+		assert(bestHaplotype.getH1().size() == combined_sequences_graphLevels.size());
+		assert(bestHaplotype.getH2().size() == combined_sequences_graphLevels.size());
+
+		std::map<std::string, std::vector<std::string>> combined_sequences_6_8_digit_inference;
+		read_HLA_alleles_for_6_8_digits(graphDir, locus, combined_sequences_graphLevels, graphLocus_2_levels, combined_sequences_6_8_digit_inference);
+
+		std::string outputFN_similarReferenceHaplotypes = outputDirectory + "/R2_haplotypes_similarReferenceHaplotypes_"+locus+".txt";
+		std::ofstream similarReferenceHaplotypesStream;
+		similarReferenceHaplotypesStream.open(outputFN_similarReferenceHaplotypes.c_str());
+		assert(similarReferenceHaplotypesStream.is_open());
+
+		similarReferenceHaplotypesStream 	<< "Locus" << "\t"
+											<< "6DigitOnly" << "\t"
+											<< "Haplotype" << "\t"
+											<< "Alternative" << "\t"
+											<< "ReferenceAllele" << "\t"
+											<< "AbsoluteDifferences" << "\t"
+											<< "RelativeDifference" << "\n";
+
+		for(unsigned int haplotypeI = 1; haplotypeI <= 2; haplotypeI++)
+		{
+			for(unsigned int dig_6 = 0; dig_6 <= 1; dig_6++)
+			{
+				std::vector<std::string> h = bestHaplotype.getH(haplotypeI);
+
+				int comparisons = 0;
+				int differences = 0;
+
+				if(dig_6 == 1)
+				{
+					assert(h.size() == combined_sequences_graphLevels.size());
+					int masked_characters = 0;
+					for(unsigned int pI = 0; pI < combined_sequences_graphLevels.size(); pI++)
+					{
+						if(combined_sequences_graphLevels_individualType.at(pI) != "exon")
+						{
+							h.at(pI) = "*";
+							masked_characters++;
+						}
+					}
+					assert(masked_characters > 0); // deactivate later for loci without exons
+				}
+				std::map<std::string, double> referenceHaplotypes_absoluteDifferences;
+				std::map<std::string, double> referenceHaplotypes_differenceRatio;
+
+				for(std::map<std::string, std::vector<std::string>>::iterator referenceHaplotypeIt = combined_sequences_6_8_digit_inference.begin(); referenceHaplotypeIt != combined_sequences_6_8_digit_inference.end(); referenceHaplotypeIt++)
+				{
+					compute_weird_Edit_distance(h, referenceHaplotypeIt->second, comparisons, differences);
+
+					double diff_ratio = 0;
+					if(comparisons != 0)
+					{
+						diff_ratio = (double)differences/(double)comparisons;
+					}
+
+					referenceHaplotypes_absoluteDifferences[referenceHaplotypeIt->first] = differences;
+					referenceHaplotypes_differenceRatio[referenceHaplotypeIt->first] = diff_ratio;
+				}
+
+				std::vector<std::string> referenceHaplotypes_keys;
+				for(std::map<std::string, double>::iterator completeTypeIt = referenceHaplotypes_absoluteDifferences.begin(); completeTypeIt != referenceHaplotypes_absoluteDifferences.end(); completeTypeIt++)
+				{
+					referenceHaplotypes_keys.push_back(completeTypeIt->first);
+				}
+				std::sort(referenceHaplotypes_keys.begin(), referenceHaplotypes_keys.end(), [&](std::string a, std::string b){return (referenceHaplotypes_absoluteDifferences.at(a) < referenceHaplotypes_absoluteDifferences.at(b));});
+
+				if(referenceHaplotypes_keys.size() > 1)
+				{
+					assert(referenceHaplotypes_absoluteDifferences.at(referenceHaplotypes_keys.at(0)) <= referenceHaplotypes_absoluteDifferences.at(referenceHaplotypes_keys.at(1)));
+				}
+
+				int print_index = (referenceHaplotypes_keys.size() > 5) ? 5 : referenceHaplotypes_keys.size();
+
+
+				for(int printI = 1; printI <= print_index; printI++)
+				{
+					std::string printAllele = referenceHaplotypes_keys.at(printI-1);
+
+					similarReferenceHaplotypesStream 	<< locus << "\t"
+														<< dig_6 << "\t"
+														<< haplotypeI << "\t"
+														<< printI << "\t"
+														<< printAllele << "\t"
+														<< referenceHaplotypes_absoluteDifferences.at(printAllele) << "\t"
+														<< referenceHaplotypes_differenceRatio.at(printAllele) << "\n";
+
+					if(printI == 1)
+					{
+						((dig_6 == 0) ? bestGuess_8dig_outputStream : bestGuess_6dig_outputStream )
+														<< locus << "\t"
+														<< haplotypeI << "\t"
+														<< printAllele << "\t"
+														<< referenceHaplotypes_absoluteDifferences.at(printAllele) << "\t"
+														<< referenceHaplotypes_differenceRatio.at(printAllele) << "\n";
+					}
+				}
+			}
+		}
+
+		similarReferenceHaplotypesStream.close();
+
 	}
+
 
 	std::string outputFN_parameters = outputDirectory + "/R2_parameters.txt";
 	std::ofstream outputFN_parameters_outputStream;
@@ -5406,6 +5512,631 @@ void fillAS()
 		AS2codon["Ile"] = ASIlecodons;
 	}
 }
+
+void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string locus, std::vector<int>& combined_sequences_graphLevels, std::vector<std::string>& combined_sequences_graphLevels_individualType, std::vector<int>& combined_sequences_graphLevels_individualTypeNumber, std::vector<int>& combined_sequences_graphLevels_individualPosition, std::vector<std::string>& combined_sequences_locusIDs, std::map<std::string, std::string>& combined_sequences, const std::map<std::string, unsigned int>& graphLocus_2_levels,  const std::vector<std::string>& padding_sequences_to_alleles, bool exonsWithStars)
+{
+	combined_sequences_graphLevels.clear();
+	combined_sequences_graphLevels_individualType.clear();
+	combined_sequences_graphLevels_individualTypeNumber.clear();
+	combined_sequences_graphLevels_individualPosition.clear();
+	combined_sequences_locusIDs.clear();
+	combined_sequences.clear();
+
+	// find intron and exon files belonging to locus
+	std::vector<std::string> files_in_order;
+	std::vector<std::string> files_in_order_type;
+	std::vector<int> files_in_order_number;
+
+	std::ifstream segmentsStream;
+	std::string segmentsFileName = graphDir + "/segments.txt";
+	segmentsStream.open(segmentsFileName.c_str());
+	assert(segmentsStream.is_open());
+	std::string line;
+	while(segmentsStream.good())
+	{
+		std::getline(segmentsStream, line);
+		Utilities::eraseNL(line);
+		if(line.length() > 0)
+		{
+			std::vector<std::string> split_by_underscore = Utilities::split(line, "_");
+			std::string file_locus = split_by_underscore.at(0);
+
+
+
+			if(file_locus == locus)
+			{
+				if((split_by_underscore.at(2) == "intron") || (split_by_underscore.at(2) == "exon"))
+				{
+					files_in_order.push_back(graphDir + "/" + line);
+					files_in_order_type.push_back(split_by_underscore.at(2));
+					files_in_order_number.push_back(Utilities::StrtoI(split_by_underscore.at(3)));
+				}
+				else
+				{
+					std::vector<std::string> third_split_by_colon = Utilities::split(split_by_underscore.at(2), ".");
+
+					files_in_order.push_back(graphDir + "/" + line);
+					files_in_order_type.push_back(third_split_by_colon.at(0));
+					files_in_order_number.push_back(1);
+				}
+			}
+		}
+	}
+	assert(files_in_order.size() > 0);
+
+	std::cout << "read_HLA_alleles_for_haplotypeInference(..): Files read in for locus " << locus << "\n";
+	std::cout << Utilities::join(files_in_order, ",   ") << "\n\n" << std::flush;
+
+	if(exonsWithStars)
+	{
+		std::string takeTypesFromFile;
+		for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
+		{
+			if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+			{
+				continue;
+			}
+			if(files_in_order_type.at(fileI) == "exon")
+			{
+				takeTypesFromFile = files_in_order.at(fileI);
+			}
+		}
+		if(takeTypesFromFile.length() == 0)
+		{
+			for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
+			{
+				if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+				{
+					continue;
+				}
+				if(files_in_order_type.at(fileI) == "intron")
+				{
+					takeTypesFromFile = files_in_order.at(fileI);
+				}
+			}
+		}
+
+		assert(takeTypesFromFile.length());
+
+		std::cout << "exonsWithStars is on, take types from file " << takeTypesFromFile << "\n" << std::flush;
+
+		std::ifstream fileInputStream;
+		fileInputStream.open(takeTypesFromFile.c_str());
+		assert(fileInputStream.is_open());
+		std::vector<std::string> file_lines;
+		int n_line = 0;
+		while(fileInputStream.good())
+		{
+			std::string line;
+			std::getline(fileInputStream, line);
+			Utilities::eraseNL(line);
+			if(line.length())
+			{
+				if(n_line > 0)
+				{
+					std::vector<std::string> line_fields = Utilities::split(line, " ");
+					std::string HLA_type = line_fields.at(0);
+					combined_sequences[HLA_type] = "";
+				}
+			}
+			n_line++;
+		}
+		fileInputStream.close();
+
+		std::cout << "exonsWithStars, total sequences " << combined_sequences.size() << "\n" << std::flush;
+	}
+
+	for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
+	{
+		std::cout << Utilities::timestamp() << "\tLocus" << locus << ", file " << fileI << "\n" << std::flush;
+		std::string file = files_in_order.at(fileI);
+
+		std::string type = files_in_order_type.at(fileI);
+		int typeNumber = files_in_order_number.at(fileI);
+
+		if(! Utilities::fileReadable(file))
+		{
+			std::cerr << "HLAHaplotypeInference(..): Locus " << locus << ", fileI " << fileI << ": Can't read file " << file << "\n";
+		}
+		assert(Utilities::fileReadable(file));
+
+		std::ifstream fileInputStream;
+		fileInputStream.open(file.c_str());
+		assert(fileInputStream.is_open());
+		std::vector<std::string> file_lines;
+		while(fileInputStream.good())
+		{
+			std::string line;
+			std::getline(fileInputStream, line);
+			Utilities::eraseNL(line);
+			if(line.length())
+			{
+				file_lines.push_back(line);
+			}
+		}
+		fileInputStream.close();
+
+		std::string firstLine = file_lines.at(0);
+		std::vector<std::string> firstLine_fields = Utilities::split(firstLine, " ");
+		assert(firstLine_fields.at(0) == "IndividualID");
+
+		std::vector<std::string> exon_level_names(firstLine_fields.begin() + 1, firstLine_fields.end());
+		std::string first_graph_locusID = exon_level_names.front();
+		std::string last_graph_locusID = exon_level_names.back();
+
+		assert(graphLocus_2_levels.count(first_graph_locusID));
+		assert(graphLocus_2_levels.count(last_graph_locusID));
+
+
+		unsigned int first_graph_level = graphLocus_2_levels.at(first_graph_locusID);
+		unsigned int last_graph_level = graphLocus_2_levels.at(last_graph_locusID);
+
+		std::cout << Utilities::timestamp() << "\tLocus" << locus << ", fileI " << fileI << ": from " << first_graph_locusID << " (" << first_graph_level << ") to " << last_graph_locusID << " (" << last_graph_level << ").\n" << std::flush;
+
+		assert(last_graph_level > first_graph_level);
+		unsigned int expected_allele_length = last_graph_level - first_graph_level + 1;
+		if(!(exon_level_names.size() == expected_allele_length))
+		{
+			std::cerr << "For locus " << locus << " fileI " << fileI << " (" << file << "), we have a problem with expected graph length.\n";
+			std::cerr << "\t" << "expected_allele_length" << ": " << expected_allele_length << "\n";
+			std::cerr << "\t" << "expected_allele_length" << ": " << expected_allele_length << "\n";
+			std::cerr << std::flush;
+		}
+		assert(exon_level_names.size() == expected_allele_length);
+
+		combined_sequences_locusIDs.insert(combined_sequences_locusIDs.end(), exon_level_names.begin(), exon_level_names.end());
+		for(unsigned int lI = 0; lI < expected_allele_length; lI++)
+		{
+			unsigned int graphLevel = first_graph_level + lI;
+			assert(graphLocus_2_levels.at(exon_level_names.at(lI)) == graphLevel);
+			combined_sequences_graphLevels.push_back(graphLevel);
+			combined_sequences_graphLevels_individualType.push_back(type);
+			combined_sequences_graphLevels_individualTypeNumber.push_back(typeNumber);
+			combined_sequences_graphLevels_individualPosition.push_back(lI);
+		}
+
+
+		if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+		{
+			assert(file_lines.size() > 1);
+			bool processedThisBlock = false;
+			for(unsigned int sI = 0; sI < padding_sequences_to_alleles.size(); sI++)
+			{
+				int getLine = sI % (file_lines.size()-1) + 1;
+				assert(getLine >= 1);
+				assert(getLine < (int)file_lines.size());
+				assert(file_lines.at(getLine).length());
+
+				std::vector<std::string> line_fields = Utilities::split(file_lines.at(getLine), " ");
+				assert(line_fields.size() == firstLine_fields.size());
+				std::string HLA_type = padding_sequences_to_alleles.at(sI);
+				std::vector<std::string> line_alleles(line_fields.begin()+1, line_fields.end());
+
+				std::string HLA_type_sequence = Utilities::join(line_alleles, "");
+
+				if(exonsWithStars)
+				{
+					assert(combined_sequences.count(HLA_type));
+				}
+				// assert(combined_sequences.count(HLA_type));
+				combined_sequences[HLA_type] += HLA_type_sequence;
+
+				// std::cout << HLA_type << " " << files_in_order_type.at(fileI) << " add " << HLA_type_sequence.length() << "\n" << std::flush;
+
+			}
+		}
+		else
+		{
+			int L = -1;
+			std::set<std::string> saw_alleles;
+			for(unsigned int lI = 1; lI < file_lines.size(); lI++)
+			{
+				assert(file_lines.at(lI).length());
+				if(file_lines.at(lI).length())
+				{
+					std::vector<std::string> line_fields = Utilities::split(file_lines.at(lI), " ");
+					assert(line_fields.size() == firstLine_fields.size());
+					std::string HLA_type = line_fields.at(0);
+					std::vector<std::string> line_alleles(line_fields.begin()+1, line_fields.end());
+
+					std::string HLA_type_sequence = Utilities::join(line_alleles, "");
+
+						// assert(combined_sequences.count(HLA_type));
+					if(exonsWithStars)
+					{
+						assert(combined_sequences.count(HLA_type));
+					}
+					combined_sequences[HLA_type] += HLA_type_sequence;
+					saw_alleles.insert(HLA_type);
+
+					if(L == -1)
+					{
+						L = HLA_type_sequence.length();
+					}
+					else
+					{
+						if(L != (int)HLA_type_sequence.length())
+						{
+							std::cerr << "Length error" << "\n";
+							std::cerr << "\t" << "L" << ": " << L << "\n";
+							std::cerr << "\t" << "HLA_type_sequence.length()" << ": " << HLA_type_sequence.length() << "\n";
+							std::cerr << "\t" << "file" << ": " << file << "\n";
+							std::cerr << "\t" << "HLA_type_sequence" << ": " << HLA_type_sequence << "\n";
+							std::cerr << "\t" << "lI" << ": " << lI << "\n";
+							std::cerr << std::flush;
+						}
+						assert(L == (int)HLA_type_sequence.length());
+					}
+				}
+			}
+
+			if(exonsWithStars)
+			{
+				if(files_in_order_type.at(fileI) == "intron")
+				{
+					if(L != -1)
+					{
+						for(std::map<std::string, std::string>::iterator typeIt = combined_sequences.begin(); typeIt != combined_sequences.end(); typeIt++)
+						{
+							std::string allele = typeIt->first;
+							if(saw_alleles.count(allele) == 0)
+							{
+								std::string forAppend;
+								forAppend.resize(L, '*');
+								if(exonsWithStars)
+								{
+									assert(combined_sequences.count(allele));
+								}
+								combined_sequences[allele] += forAppend;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+
+void read_HLA_alleles_for_6_8_digits(std::string graphDir, std::string locus, const std::vector<int>& combined_sequences_graphLevels, const std::map<std::string, unsigned int>& graphLocus_2_levels, std::map<std::string, std::vector<std::string>>& combined_sequences)
+{
+	combined_sequences.clear();
+
+	// find intron and exon files belonging to locus
+	std::vector<std::string> files_in_order;
+	std::vector<std::string> files_in_order_type;
+	std::vector<int> files_in_order_number;
+
+	std::ifstream segmentsStream;
+	std::string segmentsFileName = graphDir + "/segments.txt";
+	segmentsStream.open(segmentsFileName.c_str());
+	assert(segmentsStream.is_open());
+	std::string line;
+	while(segmentsStream.good())
+	{
+		std::getline(segmentsStream, line);
+		Utilities::eraseNL(line);
+		if(line.length() > 0)
+		{
+			std::vector<std::string> split_by_underscore = Utilities::split(line, "_");
+			std::string file_locus = split_by_underscore.at(0);
+
+
+
+			if(file_locus == locus)
+			{
+				if((split_by_underscore.at(2) == "intron") || (split_by_underscore.at(2) == "exon"))
+				{
+					files_in_order.push_back(graphDir + "/" + line);
+					files_in_order_type.push_back(split_by_underscore.at(2));
+					files_in_order_number.push_back(Utilities::StrtoI(split_by_underscore.at(3)));
+				}
+				else
+				{
+					std::vector<std::string> third_split_by_colon = Utilities::split(split_by_underscore.at(2), ".");
+
+					files_in_order.push_back(graphDir + "/" + line);
+					files_in_order_type.push_back(third_split_by_colon.at(0));
+					files_in_order_number.push_back(1);
+				}
+			}
+		}
+	}
+	assert(files_in_order.size() > 0);
+
+	std::cout << "read_HLA_alleles_for_6_8_digits(..): Files read in for locus " << locus << "\n";
+	std::cout << Utilities::join(files_in_order, ",   ") << "\n\n" << std::flush;
+
+	bool exonsWithStars = true;
+	if(exonsWithStars)
+	{
+		std::string takeTypesFromFile;
+		for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
+		{
+			if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+			{
+				continue;
+			}
+			if(files_in_order_type.at(fileI) == "exon")
+			{
+				takeTypesFromFile = files_in_order.at(fileI);
+			}
+		}
+		if(takeTypesFromFile.length() == 0)
+		{
+			for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
+			{
+				if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+				{
+					continue;
+				}
+				if(files_in_order_type.at(fileI) == "intron")
+				{
+					takeTypesFromFile = files_in_order.at(fileI);
+				}
+			}
+		}
+
+		assert(takeTypesFromFile.length());
+
+		std::cout << "\texonsWithStars is on, take types from file " << takeTypesFromFile << "\n" << std::flush;
+
+		std::ifstream fileInputStream;
+		fileInputStream.open(takeTypesFromFile.c_str());
+		assert(fileInputStream.is_open());
+		std::vector<std::string> file_lines;
+		int n_line = 0;
+		while(fileInputStream.good())
+		{
+			std::string line;
+			std::getline(fileInputStream, line);
+			Utilities::eraseNL(line);
+			if(line.length())
+			{
+				if(n_line > 0)
+				{
+					std::vector<std::string> line_fields = Utilities::split(line, " ");
+					std::string HLA_type = line_fields.at(0);
+
+					std::vector<std::string> newV;
+					combined_sequences[HLA_type] = newV;
+					combined_sequences[HLA_type].reserve(combined_sequences_graphLevels.size());
+				}
+			}
+			n_line++;
+		}
+		fileInputStream.close();
+
+		std::cout << "\texonsWithStars, total sequences " << combined_sequences.size() << "\n" << std::flush;
+	}
+
+	for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
+	{
+		std::cout << Utilities::timestamp() << "\tLocus" << locus << ", file " << fileI << "\n" << std::flush;
+		std::string file = files_in_order.at(fileI);
+
+		std::string type = files_in_order_type.at(fileI);
+		int typeNumber = files_in_order_number.at(fileI);
+
+		if(! Utilities::fileReadable(file))
+		{
+			std::cerr << "\tread_HLA_alleles_for_6_8_digits(..): Locus " << locus << ", fileI " << fileI << ": Can't read file " << file << "\n";
+		}
+		assert(Utilities::fileReadable(file));
+
+		std::ifstream fileInputStream;
+		fileInputStream.open(file.c_str());
+		assert(fileInputStream.is_open());
+		std::vector<std::string> file_lines;
+		while(fileInputStream.good())
+		{
+			std::string line;
+			std::getline(fileInputStream, line);
+			Utilities::eraseNL(line);
+			if(line.length())
+			{
+				file_lines.push_back(line);
+			}
+		}
+		fileInputStream.close();
+
+		std::string firstLine = file_lines.at(0);
+		std::vector<std::string> firstLine_fields = Utilities::split(firstLine, " ");
+		assert(firstLine_fields.at(0) == "IndividualID");
+
+		std::vector<std::string> exon_level_names(firstLine_fields.begin() + 1, firstLine_fields.end());
+		std::string first_graph_locusID = exon_level_names.front();
+		std::string last_graph_locusID = exon_level_names.back();
+
+		assert(graphLocus_2_levels.count(first_graph_locusID));
+		assert(graphLocus_2_levels.count(last_graph_locusID));
+
+
+		unsigned int first_graph_level = graphLocus_2_levels.at(first_graph_locusID);
+		unsigned int last_graph_level = graphLocus_2_levels.at(last_graph_locusID);
+
+		std::cout << Utilities::timestamp() << "\tLocus" << locus << ", fileI " << fileI << ": from " << first_graph_locusID << " (" << first_graph_level << ") to " << last_graph_locusID << " (" << last_graph_level << ").\n" << std::flush;
+
+		assert(last_graph_level > first_graph_level);
+		unsigned int expected_allele_length = last_graph_level - first_graph_level + 1;
+		if(!(exon_level_names.size() == expected_allele_length))
+		{
+			std::cerr << "For locus " << locus << " fileI " << fileI << " (" << file << "), we have a problem with expected graph length.\n";
+			std::cerr << "\t" << "expected_allele_length" << ": " << expected_allele_length << "\n";
+			std::cerr << "\t" << "expected_allele_length" << ": " << expected_allele_length << "\n";
+			std::cerr << std::flush;
+		}
+		assert(exon_level_names.size() == expected_allele_length);
+
+		if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+		{
+			assert(file_lines.size() > 1);
+
+			for(std::map<std::string, vector<std::string>>::iterator typeIt = combined_sequences.begin(); typeIt != combined_sequences.end(); typeIt++)
+			{
+				std::vector<std::string> toAppend;
+				toAppend.resize(expected_allele_length, "*");
+				combined_sequences.at(typeIt->first).insert(combined_sequences.at(typeIt->first).end(), toAppend.begin(), toAppend.end());
+			}
+		}
+		else
+		{
+			int L = -1;
+			std::set<std::string> saw_alleles;
+			for(unsigned int lI = 1; lI < file_lines.size(); lI++)
+			{
+				assert(file_lines.at(lI).length());
+				if(file_lines.at(lI).length())
+				{
+					std::vector<std::string> line_fields = Utilities::split(file_lines.at(lI), " ");
+					assert(line_fields.size() == firstLine_fields.size());
+					std::string HLA_type = line_fields.at(0);
+					std::vector<std::string> line_alleles(line_fields.begin()+1, line_fields.end());
+
+						// assert(combined_sequences.count(HLA_type));
+					if(exonsWithStars)
+					{
+						assert(combined_sequences.count(HLA_type));
+					}
+					combined_sequences[HLA_type].insert(combined_sequences[HLA_type].end(), line_alleles.begin(), line_alleles.end());
+					saw_alleles.insert(HLA_type);
+
+					if(L == -1)
+					{
+						L = line_alleles.size();
+					}
+					else
+					{
+						if(L != (int)line_alleles.size())
+						{
+							std::cerr << "Length error" << "\n";
+							std::cerr << "\t" << "L" << ": " << L << "\n";
+							std::cerr << "\t" << "line_alleles.size()" << ": " << line_alleles.size() << "\n";
+							std::cerr << "\t" << "file" << ": " << file << "\n";
+							std::cerr << "\t" << "lI" << ": " << lI << "\n";
+							std::cerr << std::flush;
+						}
+						assert(L == (int)line_alleles.size());
+					}
+				}
+			}
+
+			if(exonsWithStars)
+			{
+				if(files_in_order_type.at(fileI) == "intron")
+				{
+					if(L != -1)
+					{
+						for(std::map<std::string, vector<std::string>>::iterator typeIt = combined_sequences.begin(); typeIt != combined_sequences.end(); typeIt++)
+						{
+							std::string allele = typeIt->first;
+							if(saw_alleles.count(allele) == 0)
+							{
+								std::vector<std::string> forAppend;
+								forAppend.resize(L, "*");
+								if(exonsWithStars)
+								{
+									assert(combined_sequences.count(allele));
+								}
+								combined_sequences[allele].insert(combined_sequences[allele].end(), forAppend.begin(), forAppend.end());
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	std::cout << "\tHave " << combined_sequences.size() << " unfiltered sequences\n" << std::flush;
+
+	std::set<std::string> forRemoval;
+	for(std::map<std::string, std::vector<std::string> >::iterator HLAtypeIt = combined_sequences.begin(); HLAtypeIt != combined_sequences.end(); HLAtypeIt++)
+	{
+		if(combined_sequences.at(HLAtypeIt->first).size() != combined_sequences_graphLevels.size())
+		{
+			forRemoval.insert(HLAtypeIt->first);
+		}
+	}
+
+	std::cout << "\tNow remove  " << forRemoval.size() << "\n" << std::flush;
+
+
+	for(std::set<std::string>::iterator removeIt = forRemoval.begin(); removeIt != forRemoval.end(); removeIt++)
+	{
+		combined_sequences.erase(*removeIt);
+	}
+
+	std::cout << "\t\t... to obtain " << combined_sequences.size() << "\n" << std::flush;
+}
+
+int compute_Hamming_distance(const std::string& completeTypeSequence, const std::string& partialTypeSequence, bool ignoreStars)
+{
+	int forReturn = 0;
+	assert(completeTypeSequence.length() == partialTypeSequence.length());
+	for(unsigned int i = 0; i < completeTypeSequence.length(); i++)
+	{
+		const char& c1 = completeTypeSequence.at(i);
+		const char& c2 = partialTypeSequence.at(i);
+		if(ignoreStars)
+		{
+			if((c1 == '*') || (c2 == '*'))
+			{
+				continue;
+			}
+		}
+
+		if(c1 != c2)
+		{
+			forReturn++;
+		}
+	}
+	assert(forReturn >= 0);
+	assert(forReturn <= (int)completeTypeSequence.length());
+	return forReturn;
+}
+
+
+void compute_weird_Edit_distance(const std::vector<std::string>& S1, const std::vector<std::string>& S2, int& comparisons, int& differences)
+{
+	comparisons = 0;
+	differences = 0;
+	assert(S1.size() == S2.size());
+	for(unsigned int i = 0; i < S1.size(); i++)
+	{
+		const std::string& s1 = S1.at(i);
+		const std::string& s2 = S2.at(i);
+
+		int smaller_L = (s1.length() < s2.length()) ? s1.length() : s2.length();
+		int greater_L = (s1.length() > s2.length()) ? s1.length() : s2.length();
+
+		for(unsigned int cI = 0; cI < smaller_L; cI++)
+		{
+			char c1 = s1.at(cI);
+			char c2 = s2.at(cI);
+
+			if((c1 == '*') || (c2 == '*'))
+			{
+				continue;
+			}
+
+			comparisons++;
+
+			if(c1 != c2)
+			{
+				differences++;
+			}
+		}
+
+		if(smaller_L != greater_L)
+		{
+			int l_diff = greater_L - smaller_L;
+			assert(l_diff > 0);
+			comparisons += l_diff;
+			differences += l_diff;
+		}
+	}
+}
+
 
 
 
