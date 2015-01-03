@@ -538,6 +538,7 @@ int main(int argc, char *argv[])
 		
 		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
+		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))
 	{
