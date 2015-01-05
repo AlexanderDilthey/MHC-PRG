@@ -258,7 +258,7 @@ double Utilities::PhredToPCorrect(unsigned char nucleotideQuality)
 	{
 		return -1;
 	}
-	int illuminaPhred = nucleotideQuality - 33;
+	int illuminaPhred = (int)nucleotideQuality - 33;
 	assert(illuminaPhred >= 0);
 
 	//char illuminaPhred = nucleotideQuality;
