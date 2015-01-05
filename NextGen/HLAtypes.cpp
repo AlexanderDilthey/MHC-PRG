@@ -2220,10 +2220,10 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			}
 		}
 
-		std::string fileName_pileUp = outputDirectory + "/R2_pileup_"+locus+".txt";
-		std::ofstream pileUpStream;
-		pileUpStream.open(fileName_pileUp.c_str());
-		assert(pileUpStream.is_open());
+//		std::string fileName_pileUp = outputDirectory + "/R2_pileup_"+locus+".txt";
+//		std::ofstream pileUpStream;
+//		pileUpStream.open(fileName_pileUp.c_str());
+//		assert(pileUpStream.is_open());
 
 		class haplotypeAlternative {
 		protected:
@@ -4531,6 +4531,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					std::vector<std::string> fieldsPerLine;
 					fieldsPerLine.push_back(Utilities::ItoStr(exon));
 					fieldsPerLine.push_back(Utilities::ItoStr(exonPos));
+					fieldsPerLine.push_back(Utilities::ItoStr(pileUp.size()));
 
 					std::vector<std::string> piledUpGenotypes;
 
@@ -4577,6 +4578,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					std::vector<std::string> fieldsPerLine;
 					fieldsPerLine.push_back(Utilities::ItoStr(exon));
 					fieldsPerLine.push_back(Utilities::ItoStr(exonPos));
+					fieldsPerLine.push_back(Utilities::ItoStr(0));
 					pileUpStream << Utilities::join(fieldsPerLine, "\t") << "\n";				
 				}				
 			}
