@@ -524,10 +524,10 @@ int main(int argc, char *argv[])
 
 		// HLATypeInference(input_alignedReads, graph_dir, sampleID, true, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
   
- 		loci_string = "A,B,C,DQA1,DQB1,DRB1";
-		starting_haplotypes_perLocus_1_str = "A*02:124;A*02:81,B*39:29,C*03:04:04,DQA1*01:02:01:01;DQA1*01:02:01:02;DQA1*01:02:01:03;DQA1*01:02:01:04;DQA1*01:02:02;DQA1*01:02:03;DQA1*01:02:04;DQA1*01:08;DQA1*01:09;DQA1*01:11,DQB1*02:01:01;DQB1*02:01:08;DQB1*02:02:01;DQB1*02:02:02;DQB1*02:04;DQB1*02:06;DQB1*02:09;DQB1*02:10,DRB1*01:25";
-		starting_haplotypes_perLocus_2_str = " A*33:24,B*18:21,C*14:11,DQA1*01:01:01;DQA1*01:01:02;DQA1*01:04:01:01;DQA1*01:04:01:02;DQA1*01:04:02;DQA1*01:05;DQA1*01:12,DQB1*03:01:01:01;DQB1*03:01:01:02;DQB1*03:01:01:03;DQB1*03:01:04;DQB1*03:01:05;DQB1*03:01:09;DQB1*03:01:10;DQB1*03:01:11;DQB1*03:01:12;DQB1*03:01:20;DQB1*03:09;DQB1*03:19;DQB1*03:21;DQB1*03:22;DQB1*03:24;DQB1*03:29;DQB1*03:35;DQB1*03:42;DQB1*03:49;DQB1*03:50;DQB1*03:51;DQB1*03:84N;DQB1*03:94,DRB1*13:106";    
-
+ 		// loci_string = "A,B,C,DQA1,DQB1,DRB1";
+		// starting_haplotypes_perLocus_1_str = "A*02:124;A*02:81,B*39:29,C*03:04:04,DQA1*01:02:01:01;DQA1*01:02:01:02;DQA1*01:02:01:03;DQA1*01:02:01:04;DQA1*01:02:02;DQA1*01:02:03;DQA1*01:02:04;DQA1*01:08;DQA1*01:09;DQA1*01:11,DQB1*02:01:01;DQB1*02:01:08;DQB1*02:02:01;DQB1*02:02:02;DQB1*02:04;DQB1*02:06;DQB1*02:09;DQB1*02:10,DRB1*01:25";
+		// starting_haplotypes_perLocus_2_str = "A*33:24,B*18:21,C*14:11,DQA1*01:01:01;DQA1*01:01:02;DQA1*01:04:01:01;DQA1*01:04:01:02;DQA1*01:04:02;DQA1*01:05;DQA1*01:12,DQB1*03:01:01:01;DQB1*03:01:01:02;DQB1*03:01:01:03;DQB1*03:01:04;DQB1*03:01:05;DQB1*03:01:09;DQB1*03:01:10;DQB1*03:01:11;DQB1*03:01:12;DQB1*03:01:20;DQB1*03:09;DQB1*03:19;DQB1*03:21;DQB1*03:22;DQB1*03:24;DQB1*03:29;DQB1*03:35;DQB1*03:42;DQB1*03:49;DQB1*03:50;DQB1*03:51;DQB1*03:84N;DQB1*03:94,DRB1*13:106";    
+  
  		// loci_string = "A";
 		// starting_haplotypes_perLocus_1_str = "A*02:03:01;A*02:264";
 		// starting_haplotypes_perLocus_2_str = "A*24:02:01:01;A*24:02:01:02L;A*24:02:03Q;A*24:02:10;A*24:09N;A*24:11N";
@@ -536,7 +536,7 @@ int main(int argc, char *argv[])
 		
 		// todo activate
 		
-		// HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
 		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 	}

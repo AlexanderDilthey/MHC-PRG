@@ -376,6 +376,12 @@ if($actions =~ /i/)
 			{
 				die Dumper("Wrong bestguess count", $locus, $expected_bestguess_file, \%l_counter);
 			}
+			
+			my $bestguess_haplotypes_file =  $aligned_file_path . '/' . 'R2_haplotypes_bestguess_' . $locus . '.txt';
+			unless(-e $bestguess_haplotypes_file)
+			{
+				die "Expected best-guess haplotypes file cannot be found : ". $bestguess_haplotypes_file;
+			}	
 		}
 	}
 }  
