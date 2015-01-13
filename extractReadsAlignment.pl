@@ -58,22 +58,22 @@ my %interestingReadsBySample = (
 		# 'trueHLAsaysThere' => [	
 		# ],
 	# },
-	'I1_AA02O9Q_A4' => {
-		'mapperSaysThere' => [
-			'@@FC81EV9ABXX:1:2107:19235:25332#ATCACGAT:normalAlignment=0.88942[6:29857164-29857253];8.99959e-09[6:29856502-29856591];1;573/1:FROM:6:29857164:FROM:A0',			
-			'@@A819BJABXX:2:2105:2212:175827#ATCACGAT:normalAlignment=0.104438[6:29856473-29856562];0.0610183[6:29856562-29856651];1;0/2:FROM:6:29856562:FROM:A0',
-			'',
-		],
-		'trueHLAsaysThere' => [	
-		],
-	},
-	# 'I1_AA02O9Q_A6' => {
+	# 'I1_AA02O9Q_A4' => {
 		# 'mapperSaysThere' => [
-			# '@@B819A2ABXX:8:1106:4146:172982#ACAGTGAT:normalAlignment=8.95678e-18[6:29856326-29856415];2.58495e-09[6:29856415-29856504];1;0/1:FROM:6:29856326:FROM:A0',			
+			# '@@FC81EV9ABXX:1:2107:19235:25332#ATCACGAT:normalAlignment=0.88942[6:29857164-29857253];8.99959e-09[6:29856502-29856591];1;573/1:FROM:6:29857164:FROM:A0',			
+			# '@@A819BJABXX:2:2105:2212:175827#ATCACGAT:normalAlignment=0.104438[6:29856473-29856562];0.0610183[6:29856562-29856651];1;0/2:FROM:6:29856562:FROM:A0',
+			# '',
 		# ],
 		# 'trueHLAsaysThere' => [	
 		# ],
-	# },	
+	# },
+	'I2_SRR718067' => {
+		'mapperSaysThere' => [
+			'@@SRR718067.25100355:normalAlignment=6.97501e-05[6:32489589-32489669];0.695469[6:32489782-32489882];1;113/1:FROM:6:32489589:FROM:A0',			
+		],
+		'trueHLAsaysThere' => [	
+		],
+	},	
 );
 
 # pre-processing

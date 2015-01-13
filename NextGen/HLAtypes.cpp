@@ -472,6 +472,7 @@ double alignmentWeightedOKFraction(oneRead& underlyingRead, seedAndExtend_return
 
 double read_likelihood_per_position(const std::string& exonGenotypeR, const std::string& readGenotypeR, const std::string& readQualities, const int& alignmentGraphLevel)
 {
+	// not exact, only approximation, but seems to work well empirically
 
 	double log_likelihood = 0;
 	bool verbose = 0;
@@ -642,11 +643,20 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 
 void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype, std::vector<int>& perturbedPositions)
 {
+	// std::cout << "simulateHLAreads_perturbHaplotype:\n";
+	// std::cout << "\t" << "haplotype.size()" << ": " << haplotype.size() << "\n";
+	// std::cout << "\t" << "perturbedPositions.size()" << ": " << perturbedPositions.size() << "\n";
+	// std::cout << std::flush;
+	
 	perturbedPositions.clear();
 	
 	double rate_perturbation = 0.01;
 	for(unsigned int pI = 0; pI < haplotype.size(); pI++)
 	{
+		// std::cout << pI << " / " << haplotype.size() << "\n";
+		// std::cout << "\t" << haplotype.at(pI).size() << "\n";
+		// std::cout << std::flush;
+		
 		bool madePerturbation = false;
 		if(Utilities::randomDouble() >= (1 - rate_perturbation))
 		{
@@ -676,8 +686,10 @@ void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype, std:
 			{
 				// insertion
 				std::string newAllele = haplotype.at(pI);
-				int length = Utilities::randomNumber(2);
-				for(unsigned int l = 0; length <= length; l++)
+				int length = Utilities::randomNumber(2)+1;
+				// std::cout << "Length: " << length << "\n";
+				std::cout << std::flush;
+				for(int l = 0; l <= length; l++)
 				{
 					newAllele.push_back(Utilities::randomNucleotide());
 				}
@@ -1217,11 +1229,14 @@ void simulateHLAreads(std::string graphDir, int nIndividuals, bool exon23, bool 
 			std::vector<std::string> haplotype_2 = loci_types_haplotypes.at(locus).at(selectedType_2);
 
 			std::vector<int> perturbed_h1;
-			std::vector<int> perturbed_h2;			
+			std::vector<int> perturbed_h2;		
+
 			if(perturbHaplotypes)
 			{
+				std::cout << "\t.. perturb...\n" << std::flush;			
 				simulateHLAreads_perturbHaplotype(haplotype_1, perturbed_h1);
-				simulateHLAreads_perturbHaplotype(haplotype_2, perturbed_h2);
+				simulateHLAreads_perturbHaplotype(haplotype_2, perturbed_h2); 
+				std::cout << "\t\tdone " << haplotype_1.size() << " " << haplotype_2.size() << " " << perturbed_h1.size() << " " << perturbed_h2.size() << "...\n" << std::flush;			
 			}
 
 			std::string haplotype_1_noGaps = Utilities::join(haplotype_1, "");
@@ -1740,6 +1755,10 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					{
 						std::string partialType = partialTypes.at(i);
 
+						if(! combined_sequences.count(partialType))
+						{
+							std::cerr << "Don't have type " << partialType << " at locus " << locus << "\n" << std::flush;
+						}
 						std::string completeTypeSequence = combined_sequences.at(completeType);
 						std::string partialTypeSequence = combined_sequences.at(partialType);
 
@@ -2313,12 +2332,12 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			
 			double getLL1()
 			{
-				return LL1; // priors todo activate
+				return LL1 + LLPriors;
 			}
 			
 			double getLL2()
 			{
-				return LL2; // priors todo activate
+				return LL1 + LLPriors;
 			}
 			
 			int getLL_computedUntil()
@@ -5569,61 +5588,71 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 	std::cout << "read_HLA_alleles_for_haplotypeInference(..): Files read in for locus " << locus << "\n";
 	std::cout << Utilities::join(files_in_order, ",   ") << "\n\n" << std::flush;
 
-	if(exonsWithStars)
+	if(exonsWithStars || 1)
 	{
-		std::string takeTypesFromFile;
+		// std::string takeTypesFromFile;
+		// for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
+		// {
+			// if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+			// {
+				// continue;
+			// }
+			// if(files_in_order_type.at(fileI) == "exon")
+			// {
+				// takeTypesFromFile = files_in_order.at(fileI);
+				// break;
+			// }
+		// }
+		// if(takeTypesFromFile.length() == 0)
+		// {
+			// for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
+			// {
+				// if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+				// {
+					// continue;
+				// }
+				// if(files_in_order_type.at(fileI) == "intron")
+				// {
+					// takeTypesFromFile = files_in_order.at(fileI);
+				// }
+			// }
+		// }
+
+		// assert(takeTypesFromFile.length());
+
+		// std::cout << "exonsWithStars is on, take types from file " << takeTypesFromFile << "\n" << std::flush;
+
+		
 		for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
 		{
 			if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
 			{
 				continue;
 			}
-			if(files_in_order_type.at(fileI) == "exon")
+				
+			std::ifstream fileInputStream;
+			fileInputStream.open(files_in_order.at(fileI).c_str());
+			assert(fileInputStream.is_open());
+			std::vector<std::string> file_lines;
+			int n_line = 0;
+			while(fileInputStream.good())
 			{
-				takeTypesFromFile = files_in_order.at(fileI);
-			}
-		}
-		if(takeTypesFromFile.length() == 0)
-		{
-			for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
-			{
-				if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+				std::string line;
+				std::getline(fileInputStream, line);
+				Utilities::eraseNL(line);
+				if(line.length())
 				{
-					continue;
+					if(n_line > 0)
+					{
+						std::vector<std::string> line_fields = Utilities::split(line, " ");
+						std::string HLA_type = line_fields.at(0);
+						combined_sequences[HLA_type] = "";
+					}
 				}
-				if(files_in_order_type.at(fileI) == "intron")
-				{
-					takeTypesFromFile = files_in_order.at(fileI);
-				}
+				n_line++;
 			}
+			fileInputStream.close();
 		}
-
-		assert(takeTypesFromFile.length());
-
-		std::cout << "exonsWithStars is on, take types from file " << takeTypesFromFile << "\n" << std::flush;
-
-		std::ifstream fileInputStream;
-		fileInputStream.open(takeTypesFromFile.c_str());
-		assert(fileInputStream.is_open());
-		std::vector<std::string> file_lines;
-		int n_line = 0;
-		while(fileInputStream.good())
-		{
-			std::string line;
-			std::getline(fileInputStream, line);
-			Utilities::eraseNL(line);
-			if(line.length())
-			{
-				if(n_line > 0)
-				{
-					std::vector<std::string> line_fields = Utilities::split(line, " ");
-					std::string HLA_type = line_fields.at(0);
-					combined_sequences[HLA_type] = "";
-				}
-			}
-			n_line++;
-		}
-		fileInputStream.close();
 
 		std::cout << "exonsWithStars, total sequences " << combined_sequences.size() << "\n" << std::flush;
 	}
@@ -5746,6 +5775,10 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 						// assert(combined_sequences.count(HLA_type));
 					if(exonsWithStars)
 					{
+						if(!combined_sequences.count(HLA_type))
+						{
+							std::cerr << "Don't have sequence for type " << HLA_type << "\n" << std::flush;
+						}
 						assert(combined_sequences.count(HLA_type));
 					}
 					combined_sequences[HLA_type] += HLA_type_sequence;
@@ -5772,10 +5805,10 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 				}
 			}
 
-			if(exonsWithStars)
-			{
-				if(files_in_order_type.at(fileI) == "intron")
-				{
+			// if(exonsWithStars)
+			// {
+				// if(files_in_order_type.at(fileI) == "intron")
+				// {
 					if(L != -1)
 					{
 						for(std::map<std::string, std::string>::iterator typeIt = combined_sequences.begin(); typeIt != combined_sequences.end(); typeIt++)
@@ -5793,9 +5826,24 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 							}
 						}
 					}
-				}
-			}
+				// }
+			// }
 		}
+	}
+	
+	if(locus == "A")
+	{
+		if(!combined_sequences.count("A*33:24"))
+		{
+			std::cerr << "Type missing\nHave:\n";
+			for(std::map<std::string, std::string>::iterator typeIt = combined_sequences.begin(); typeIt != combined_sequences.end(); typeIt++)
+			{
+				std::cerr << " - " << typeIt->first << "\n";
+			}
+			std::cerr << std::flush;
+		}
+		assert(combined_sequences.count("A*33:24"));
+		
 	}
 }
 
@@ -5850,7 +5898,7 @@ void read_HLA_alleles_for_6_8_digits(std::string graphDir, std::string locus, co
 	std::cout << Utilities::join(files_in_order, ",   ") << "\n\n" << std::flush;
 
 	bool exonsWithStars = true;
-	if(exonsWithStars)
+	if(exonsWithStars || 1)
 	{
 		std::string takeTypesFromFile;
 		for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
@@ -5859,55 +5907,38 @@ void read_HLA_alleles_for_6_8_digits(std::string graphDir, std::string locus, co
 			{
 				continue;
 			}
-			if(files_in_order_type.at(fileI) == "exon")
+
+			std::ifstream fileInputStream;
+			fileInputStream.open(files_in_order_type.at(fileI).c_str());
+			assert(fileInputStream.is_open());
+			std::vector<std::string> file_lines;
+			int n_line = 0;
+			while(fileInputStream.good())
 			{
-				takeTypesFromFile = files_in_order.at(fileI);
-			}
-		}
-		if(takeTypesFromFile.length() == 0)
-		{
-			for(unsigned int fileI = 0; fileI < files_in_order.size(); fileI++)
-			{
-				if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
+				std::string line;
+				std::getline(fileInputStream, line);
+				Utilities::eraseNL(line);
+				if(line.length())
 				{
-					continue;
+					if(n_line > 0)
+					{
+						std::vector<std::string> line_fields = Utilities::split(line, " ");
+						std::string HLA_type = line_fields.at(0);
+
+						if(combined_sequences.count(HLA_type) == 0)
+						{
+							std::vector<std::string> newV;
+							combined_sequences[HLA_type] = newV;
+							combined_sequences[HLA_type].reserve(combined_sequences_graphLevels.size());
+						}
+					}
 				}
-				if(files_in_order_type.at(fileI) == "intron")
-				{
-					takeTypesFromFile = files_in_order.at(fileI);
-				}
+				n_line++;
 			}
+			fileInputStream.close();
+			
 		}
-
-		assert(takeTypesFromFile.length());
-
-		std::cout << "\texonsWithStars is on, take types from file " << takeTypesFromFile << "\n" << std::flush;
-
-		std::ifstream fileInputStream;
-		fileInputStream.open(takeTypesFromFile.c_str());
-		assert(fileInputStream.is_open());
-		std::vector<std::string> file_lines;
-		int n_line = 0;
-		while(fileInputStream.good())
-		{
-			std::string line;
-			std::getline(fileInputStream, line);
-			Utilities::eraseNL(line);
-			if(line.length())
-			{
-				if(n_line > 0)
-				{
-					std::vector<std::string> line_fields = Utilities::split(line, " ");
-					std::string HLA_type = line_fields.at(0);
-
-					std::vector<std::string> newV;
-					combined_sequences[HLA_type] = newV;
-					combined_sequences[HLA_type].reserve(combined_sequences_graphLevels.size());
-				}
-			}
-			n_line++;
-		}
-		fileInputStream.close();
+		
 
 		std::cout << "\texonsWithStars, total sequences " << combined_sequences.size() << "\n" << std::flush;
 	}
