@@ -1776,7 +1776,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 						if(! combined_incomplete_sequences_paddingSetToStars.count(partialType))
 						{
-							std::cerr << "Don't have type " << partialType << " at locus " << locus << "\n" << std::flush;
+							std::cerr << "Don't have type '" << partialType << "' at locus " << locus << "\n" << std::flush;
 						}
 						std::string completeTypeSequence = combined_sequences.at(completeType);
 						std::string partialTypeSequence = combined_incomplete_sequences_paddingSetToStars.at(partialType);
@@ -5987,9 +5987,12 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 		std::string first_graph_locusID = exon_level_names.front();
 		std::string last_graph_locusID = exon_level_names.back();
 
+		if(!graphLocus_2_levels.count(first_graph_locusID))
+		{
+			std::cerr << "Don't have " << first_graph_locusID << " in set of " << graphLocus_2_levels.size() << " elements.\n" << std::flush;
+		}
 		assert(graphLocus_2_levels.count(first_graph_locusID));
 		assert(graphLocus_2_levels.count(last_graph_locusID));
-
 
 		unsigned int first_graph_level = graphLocus_2_levels.at(first_graph_locusID);
 		unsigned int last_graph_level = graphLocus_2_levels.at(last_graph_locusID);
@@ -6023,7 +6026,7 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 		{
 			assert(file_lines.size() > 1);
 			std::vector<std::vector<std::string>> paddingSequences;
-			for(unsigned int lI = 0; lI < file_lines.size(); lI++)
+			for(unsigned int lI = 1; lI < file_lines.size(); lI++)
 			{
 				if(file_lines.at(lI).length())
 				{
@@ -6051,7 +6054,7 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 					int paddingSequenceI = sI % paddingSequences.size();
 					assert(paddingSequenceI >= 0);
 					assert(paddingSequenceI < (int)paddingSequences.size());
-					std::vector<std::string> paddingSequence = paddingSequences.at(sI);
+					std::vector<std::string> paddingSequence = paddingSequences.at(paddingSequenceI);
 
 					if(setPaddingToStars)
 					{
@@ -6062,10 +6065,15 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 						{
 							assert(paddingSequence.front() == "*");
 							assert(paddingSequence.back() == "*");
-						}
+						}  
 					}
 
 					combined_sequences.at(sequenceID) += Utilities::join(paddingSequence, "");
+					
+					if(sequenceID == "A*01:11N")
+					{
+						// std::cerr << "Length for " << sequenceID << ": " << combined_sequences.at(sequenceID).length() << "\n" << std::flush;
+					}							
 				}
 			}
 		}
@@ -6135,8 +6143,13 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 					{
 						incompleteSequences.insert(sequenceID);
 					}
-
+				
 					combined_sequences.at(sequenceID) += localAlleleSequence;
+					
+					if(sequenceID == "A*01:11N")
+					{
+						// std::cerr << "Length for " << sequenceID << ": " << combined_sequences.at(sequenceID).length() << "\n" << std::flush;
+					}					
 				}
 			}
 		}
@@ -6154,6 +6167,14 @@ void read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string l
 	for(std::map<std::string, std::string>::iterator sequenceIt = combined_sequences.begin(); sequenceIt != combined_sequences.end(); sequenceIt++)
 	{
 		std::string sequenceID = sequenceIt->first;
+		if(sequenceIt->second.length() != combined_sequences_locusIDs.size())
+		{
+			std::cerr << "sequenceID" << ": " << sequenceID << "\n";
+			std::cerr << "sequenceIt->second.length()" << ": " << sequenceIt->second.length() << "\n";
+			std::cerr << "combined_sequences_locusIDs.size()" << ": " << combined_sequences_locusIDs.size() << "\n";
+			// std::cerr << "combined_sequences->second" << ": " << sequenceIt->second << "\n";
+			std::cerr << std::flush;
+		}
 		assert(sequenceIt->second.length() == combined_sequences_locusIDs.size());
 		assert(sequenceIt->second.length() == combined_sequences_graphLevels.size());
 	}
@@ -6191,7 +6212,7 @@ void read_HLA_alleles_for_6_8_digits(std::string graphDir, std::string locus, co
 	std::map<std::string, std::string> combined_incomplete_sequences_paddingSetToStars;
 	std::vector<std::string> starting_haplotypes_combined_vec;
 
-	std::map<std::string, unsigned int> local_graphLocus_2_levels;
+	// std::map<std::string, unsigned int> local_graphLocus_2_levels = graphLocus_2_levels;
 
 	std::map<std::string, std::string> local_combined_sequences;
 
@@ -6204,19 +6225,19 @@ void read_HLA_alleles_for_6_8_digits(std::string graphDir, std::string locus, co
 		local_combined_sequences_graphLevels_individualPosition,
 		local_combined_sequences_locusIDs,
 		local_combined_sequences,
-		local_graphLocus_2_levels,
+		graphLocus_2_levels,
 		false,
 		false,
 		true
 	);
 
 	assert(combined_sequences_graphLevels.size() == local_combined_sequences_graphLevels.size());
-	assert(graphLocus_2_levels.size() == local_graphLocus_2_levels.size());
-	for(std::map<std::string, unsigned int>::const_iterator graphLocusIt = graphLocus_2_levels.begin(); graphLocusIt != graphLocus_2_levels.end(); graphLocusIt++)
-	{
-		assert(local_graphLocus_2_levels.count(graphLocusIt->first));
-		assert(local_graphLocus_2_levels.at(graphLocusIt->first) == graphLocusIt->second);
-	}
+	// assert(graphLocus_2_levels.size() == local_graphLocus_2_levels.size());
+	// for(std::map<std::string, unsigned int>::const_iterator graphLocusIt = graphLocus_2_levels.begin(); graphLocusIt != graphLocus_2_levels.end(); graphLocusIt++)
+	// {
+		// assert(local_graphLocus_2_levels.count(graphLocusIt->first));
+		// assert(local_graphLocus_2_levels.at(graphLocusIt->first) == graphLocusIt->second);
+	// }
 
 	for(unsigned int i = 0; i < combined_sequences_graphLevels.size(); i++)
 	{
