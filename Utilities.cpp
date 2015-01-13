@@ -417,21 +417,32 @@ vector<string> Utilities::split(string input, string delimiter)
 		return output;
 	}
 
-	if(input.find(delimiter) == string::npos)
+	if(delimiter == "")
 	{
-		output.push_back(input);
+		output.reserve(input.size());
+		for(unsigned int i = 0; i < input.length(); i++)
+		{
+			output.push_back(input.substr(i, 1));
+		}
 	}
 	else
 	{
-		int s = 0;
-		int p = input.find(delimiter);
+		if(input.find(delimiter) == string::npos)
+		{
+			output.push_back(input);
+		}
+		else
+		{
+			int s = 0;
+			int p = input.find(delimiter);
 
-		do {
-			output.push_back(input.substr(s, p - s));
-			s = p + delimiter.size();
-			p = input.find(delimiter, s);
-		} while (p != (int)string::npos);
-		output.push_back(input.substr(s));
+			do {
+				output.push_back(input.substr(s, p - s));
+				s = p + delimiter.size();
+				p = input.find(delimiter, s);
+			} while (p != (int)string::npos);
+			output.push_back(input.substr(s));
+		}
 	}
 
 	return output;
