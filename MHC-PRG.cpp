@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 
 		double insertSize_mean = 200;
 		double insertSize_sd = 15;
-		int read_length = 100;
+		int read_length = 101;
 
 		for(unsigned int i = 5; i < arguments.size(); i++)
 		{
@@ -535,7 +535,7 @@ int main(int argc, char *argv[])
 		// HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
 		// todo activate
-		
+		   
 		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
 		
 		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
