@@ -846,15 +846,28 @@ void testChains()
 
 void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_length, double insertSize_mean, double insertSize_sd, std::string qualityMatrixFile)
 {
-	readSimulator rS(qualityMatrixFile);
+	readSimulator rS(qualityMatrixFile, read_length);
 
 	double haploidCoverage = 30;
 	int aligner_kMerSize = 25;
-	int simulateGenomePairs = 1;
+	int simulateGenomePairs = 3;
 	int outerThreads = 4;
-	int skipPairs_MOD = 50;
+	int skipPairs_MOD = 25;
+	  
 	bool evaluateWithoutPairing = false;
-	bool useShort = true;
+	bool useShort = false;
+	bool useAllAlignments_short = true; // this has precedence!
+	
+	if(useAllAlignments_short)
+	{
+		assert(! useShort);		
+		std::cout << "Evaluate allAlignments aligner!\n" << std::flush;
+	}
+	else
+	{
+		assert(useShort);
+		std::cout << "Evaluate older aligner!\n" << std::flush;
+	}
 	
 	// todo remove
 	// boost::mt19937 rnd_gen;
@@ -1214,8 +1227,23 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 				assert((tI >= 0) && (tI < graphAligners.size()));
 
 				std::map<int, double> _IS_ignore;
-				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = graphAligners.at(tI)->seedAndExtend_local_paired_or_short(rP, usePairing, useShort, insertSize_mean, insertSize_sd, false, _IS_ignore);
+				
 
+				
+				std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair;
+
+				if(useAllAlignments_short)
+				{				
+				
+					std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignment_pairs = graphAligners.at(tI)->seedAndExtend_short_allAlignments(rP, insertSize_mean, insertSize_sd);
+							
+					alignment_pair = alignment_pairs.at(0);
+				}
+				else
+				{
+					alignment_pair = graphAligners.at(tI)->seedAndExtend_local_paired_or_short(rP, usePairing, useShort, insertSize_mean, insertSize_sd, false, _IS_ignore);
+				}
+				
 				alignments_perThread.at(tI).push_back(alignment_pair);
 				alignments_readPairI_perThread.at(tI).push_back(pairI);
 				

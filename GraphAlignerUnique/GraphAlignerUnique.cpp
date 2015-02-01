@@ -2057,7 +2057,6 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 	// bool verbose = ((readPair.reads.first.name == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2") || (readPair.reads.second.name  == "@@B81998ABXX:1:2206:11676:81700#GATCAGAT/2"));
 	bool verbose = false;
 
-
 	std::map<std::string, std::string> readID_2_group;
 
 	// this section here can be filled with output from extractReadsAlignment.pl
@@ -2072,6 +2071,9 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 
 	verbose = ( readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name) );
 
+	// todo deactivate
+	verbose = false;
+	
 	std::string GROUP;
 
 	if(readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name))
@@ -2121,6 +2123,9 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		read1_maxBacktrace = seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
 		read2_maxBacktrace = seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
 	}
+	
+	unsigned int preFiltering_read1_backtraces_size = read1_backtraces.size();
+	unsigned int preFiltering_read2_backtraces_size = read2_backtraces.size();
 
 	if(verbose)
 	{
@@ -2272,8 +2277,9 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 					std::cout << "\t\tLL1: " << likelihoods_read1_alternatives.at(aI1) << " LL2: " << likelihoods_read2_alternatives.at(aI2) << " ";
 					std::cout << "\t\tStrands valid: " << alignedReadPair_strandsValid(rP) << "\n";
 
-					// std::cout << "REV1: " << read1_backtraces.at(aI1).reverse << " REV2:" << read2_backtraces.at(aI2).reverse << " ";
-					// std::cout << "Distance: " <<  read1_backtraces.at(aI1).graph_aligned_levels.back() << " to " << read2_backtraces.at(aI2).graph_aligned_levels.front() << ", i.e. " << distance_graph_levels << " (" << log(distance_graph_levels_P) << ")" << "  == > " << combinedScore <<  "\n" << std::flush;
+					std::cout << "REV1: " << read1_backtraces.at(aI1).reverse << " REV2:" << read2_backtraces.at(aI2).reverse << " ";
+					std::cout << "Distance: " <<  read1_backtraces.at(aI1).graph_aligned_levels.back() << " to " << read2_backtraces.at(aI2).graph_aligned_levels.front() << "\n" << std::flush;
+					// ", i.e. " << distance_graph_levels << " (" << log(distance_graph_levels_P) << ")" << "  == > " << combinedScore <<  "\n" << std::flush;
 				}
 
 				if(alignedReadPair_strandsValid(rP))
@@ -2354,6 +2360,26 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 						pairDistances_P[distance] = 0;
 					}
 					pairDistances_P.at(distance) += P;
+					
+					if(estimateInsertSize)
+					{
+						if(distance > 10000)
+						{
+							if(pairDistances_P.at(distance) > 0.9)
+							{
+								std::cerr << "Problematic read pair!\n";
+								std::cerr << "\t\t" << readPair.reads.first.sequence << "\n";
+								std::cerr << "\t\t" << readPair.reads.second.sequence << "\n";
+								std::cerr << "\t" << "read1_backtraces.size()" << ": " << read1_backtraces.size() << "\n";
+								std::cerr << "\t\t" << preFiltering_read1_backtraces_size << "\n";
+								std::cerr << "\t" << "read2_backtraces.size()" << ": " << read2_backtraces.size() << "\n";
+								std::cerr << "\t\t" << preFiltering_read2_backtraces_size << "\n";
+								std::cerr << "\t" << distance << "\n";
+								std::cerr << "\t" << pairDistances_P.at(distance) << "\n";
+								std::cerr << std::flush;
+							}
+						}
+					}
 				}
 
 				insertSize_posterior_ret = pairDistances_P;
@@ -3158,7 +3184,9 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 	assert(g != 0);
 	seedAndExtend_return_local forReturn;
 
-	// verbose = true;
+	// todo deactivate
+	
+	verbose = false;
 	int seedAndExtend_short_maximumBacktraces = 200;  
 
 	// just to remind everyone that this is for short reads

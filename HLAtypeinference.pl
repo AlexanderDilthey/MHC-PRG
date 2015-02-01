@@ -62,6 +62,9 @@ GetOptions ('graph:s' => \$graph,
  #'validation_round:s' => \$validation_round,
  'T:s' => \$T,
  'minCoverage:s' => \$minCoverage,
+ 'all_2_dig:s' => \$all_2_dig,
+ 'only_4_dig:s' => \$only_4_dig,
+
 );         
 
 if($minCoverage)
@@ -380,7 +383,7 @@ if($actions =~ /i/)
 			my $bestguess_haplotypes_file =  $aligned_file_path . '/' . 'R2_haplotypes_bestguess_' . $locus . '.txt';
 			unless(-e $bestguess_haplotypes_file)
 			{
-				die "Expected best-guess haplotypes file cannot be found : ". $bestguess_haplotypes_file;
+				#die "Expected best-guess haplotypes file cannot be found : ". $bestguess_haplotypes_file;
 			}	
 		}
 	}
@@ -521,6 +524,7 @@ if($actions =~ /v/)
 		
 		my %calibration_baskets;
 		my %coverage_over_samples;
+		my %coverage_over_samples_individualValues;
 		my $coverage_over_samples_nSamples = 0;
 		
 		my $add_to_calibration_basket = sub {
@@ -883,6 +887,15 @@ if($actions =~ /v/)
 			
 			# print "\t", $thisIndiv_problems, "\n";
 			
+			# just for debugging - deactivated
+			if($thisIndiv_problems == 0)
+			{
+				if($locus eq 'A')
+				{
+					# print join(' vs ', join('/', @reference_hla_values), join('/', @imputed_hla_values)), "\n";
+				}	
+			}
+			
 			my $thisIndiv_comparions = $comparisons - $comparisons_before;
 			my $thisIndiv_OK = $thisIndiv_comparions - $thisIndiv_problems;
 			
@@ -911,6 +924,7 @@ if($actions =~ /v/)
 				foreach my $exonPos (keys %{$coverages_href->{$exon}})
 				{
 					$coverage_over_samples{$exon}{$exonPos} += $coverages_href->{$exon}{$exonPos};
+					push(@{$coverage_over_samples_individualValues{$exon}{$exonPos}}, $coverages_href->{$exon}{$exonPos});
 					push(@k_coverages_thisSample, $exon . '-/-' . $exonPos);
 				}
 			}	
@@ -930,7 +944,7 @@ if($actions =~ /v/)
 				}
 			}
 
-			if(($thisIndiv_problems > 0))
+			if(($thisIndiv_problems > 0) and (not $all_2_dig))
 			{
 				my %readIDs;
 				
@@ -1150,7 +1164,11 @@ if($actions =~ /v/)
 			{
 				foreach my $exonPos (sort {$a <=> $b} keys %{$coverage_over_samples{$exon}})
 				{
-					print SPATIALCOVERAGE join("\t", $exon, $exonPos, $exon . '-' . $exonPos, $coverage_over_samples{$exon}{$exonPos} / $coverage_over_samples_nSamples), "\n";
+					my @individualValues = @{$coverage_over_samples_individualValues{$exon}{$exonPos}};
+					@individualValues = sort {$a <=> $b} @individualValues;
+					my $idx_10 = int($#individualValues * 0.1 + 0.5);
+					my $idx_90 = int($#individualValues * 0.9 + 0.5);
+					print SPATIALCOVERAGE join("\t", $exon, $exonPos, $exon . '-' . $exonPos, $coverage_over_samples{$exon}{$exonPos} / $coverage_over_samples_nSamples, $individualValues[$idx_10], $individualValues[$idx_90]), "\n";
 				}
 			}				
 			close(SPATIALCOVERAGE)		

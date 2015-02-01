@@ -80,8 +80,8 @@ public:
 		t = reads.first;
 		reads.first = reads.second;
 		reads.second = t;
-		reads.first.invert();
-		reads.second.invert();
+		// reads.first.invert();
+		// reads.second.invert();
 	}
 };
 
