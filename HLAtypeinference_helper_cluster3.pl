@@ -1,12 +1,12 @@
 #!/usr/bin/perl -w
 
 use strict;
-use List::MoreUtils qw/all mesh any /;
+use List::MoreUtils qw/all mesh any /; 
 use Data::Dumper;
 use Getopt::Long;   
 use Sys::Hostname;
 use File::Copy;
-use File::Basename;
+use File::Basename;  
 use Storable;
   
 my $graph = 'hla';   
@@ -14,6 +14,8 @@ my $action = '';
 my $iteration = 1;
 my $sampleIDs;
 my $BAMs;
+my $fastExtraction = 0;
+
 
 my $referenceGenome = qq(/gpfs1/well/chimp/oa/ref/hs37d5.fasta);
 #$referenceGenome = '';
@@ -23,6 +25,7 @@ GetOptions ('graph:s' => \$graph,
  'iteration:s' => \$iteration,  
  'sampleIDs:s' => \$sampleIDs,
  'BAMs:s' => \$BAMs,
+ 'fastExtraction:s' => \$fastExtraction, 
 );         
 
 my $target_directory_for_copying = qq(/Net/birch/data/dilthey/MHC-PRG/tmp/hla);
@@ -71,6 +74,11 @@ if($action eq 'qsub')
 		{
 			$command_negative_filtering .= qq( --referenceGenome $referenceGenome);
 		}
+
+		if($fastExtraction)
+		{
+			$command_negative_filtering .= qq( --fastExtraction 1);
+		}
 		
 		print $command_negative_filtering, "\n";
 		open(QSUB, '>', $qsub_filename) or die "Cannot open $qsub_filename";
@@ -106,24 +114,41 @@ elsif($action eq 'copy')
 			}
 			my $cmd_copy = qq(cp -R $directory $target);
 			
+			my @files_input = glob($directory.'/*');
+			@files_input = grep {$_ =~ /\.p_[12]$/} @files_input;
+			die "Can't find two positive read files ".Dumper(\@files_input) unless(scalar(@files_input) == 2);
+			
+			my $md5_input_1 = `md5sum $files_input[0]`;			
+			die "Can't parse wc1 output: $md5_input_1" unless($md5_input_1 =~ /^(\w+)\s+/);
+			$md5_input_1 = $1;
+			
+			my $md5_input_2 = `md5sum $files_input[1]`;
+			die "Can't parse wc2 output: $md5_input_2" unless($md5_input_2 =~ /^(\w+)\s+/);
+			$md5_input_2 = $1;
+			
 			print "Executing command $cmd_copy\n";
 			system($cmd_copy);
-
-			my @files = glob($target.'/*');
-			@files = grep {$_ =~ /\.p_[12]$/} @files;
-			die "Can't find two positive read files ".Dumper(\@files) unless(scalar(@files) == 2);
+  
+			my @files_output = glob($target.'/*');
+			@files_output = grep {$_ =~ /\.p_[12]$/} @files_output;
+			die "Can't find two positive read files ".Dumper(\@files_output) unless(scalar(@files_output) == 2);
 			
-			my $wc1_output = `wc $files[0]`;			
-			die "Can't parse wc1 output: $wc1_output" unless($wc1_output =~ /^\s*(\d+)\s+(\d+)\s+(\d+)\s+/);
-			my $lines1 = $1;
+			my $md5_output_1 = `md5sum $files_output[0]`;			
+			die "Can't parse wc1 output: $md5_output_1" unless($md5_output_1 =~ /^(\w+)\s+/);
+			$md5_output_1 = $1;
 			
-			my $wc2_output = `wc $files[1]`;
-			die "Can't parse wc2 output: $wc2_output" unless($wc2_output =~ /^\s*(\d+)\s+(\d+)\s+(\d+)\s+/);
-			my $lines2 = $1;
+			my $md5_output_2 = `md5sum $files_output[1]`;
+			die "Can't parse wc2 output: $md5_output_2" unless($md5_output_2 =~ /^(\w+)\s+/);
+			$md5_output_2 = $1;
 			
-			unless($lines1 == $lines2)
+			unless($md5_input_1 eq $md5_output_1)
 			{
-				die "Lines for $files[0] and $files[1] don't agree - $lines1 / $lines2 \n$wc1_output\n$wc2_output";
+				die "MD5 for $files_output[0] don't agree - $md5_input_1 / $md5_output_1";
+			}
+			
+			unless($md5_input_2 eq $md5_output_2)
+			{
+				die "MD5 for $files_output[1] don't agree - $md5_input_2 / $md5_output_2";
 			}
 						
 

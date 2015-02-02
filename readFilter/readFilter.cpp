@@ -38,7 +38,7 @@ readFilter::readFilter() {
 
 	positiveUnique_threshold = 10;
 	negativePreserveUnique_threshold = 1;
-
+	fastPositiveFiltering = false;
 	threads = 2;
 }
 
@@ -548,7 +548,7 @@ void readFilter::doFilter()
 		};
 
 		std::cout << Utilities::timestamp() << "Filter BAM: " << input_BAM << "\n" << std::flush;
-		filterBAM(threads, input_BAM, referenceGenomeFile, output_FASTQ, &decisionFunction, &printFunction);
+		filterBAM(threads, input_BAM, referenceGenomeFile, output_FASTQ, &decisionFunction, &printFunction, fastPositiveFiltering);
 		
 		fastq_1_output.close();
 		fastq_2_output.close();
@@ -759,7 +759,7 @@ void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2
 	}
 }
 
-void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
+void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print, bool chromosome6Only)
 {
 	GraphAlignerUnique::GraphAlignerUnique gA_for_scoring(0, 0);
 
@@ -815,7 +815,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 		int tI = omp_get_thread_num();
 
 		std::string regionID;
-		
+
 		if(rI != N_regions)
 		{
 			const BAMRegionSpecifier& thisStretch = BAM_regions.at(rI);
@@ -854,6 +854,15 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 			regionID = "Unmapped";
 		}
 		
+
+		if(chromosome6Only)
+		{
+			if(!((regionID == "6") || (regionID == "chr6")))
+			{
+				continue;
+			}
+		}
+
 		std::map<std::string, fastq_readPair> thread_reads;
 		std::map<std::string, fastq_readPair> thread_reads_forPrint;
 
@@ -905,6 +914,11 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 					{
 						continue;
 					}
+				}
+				
+				if(! al.IsPrimaryAlignment())
+				{
+					continue;
 				}
 
 				std::string name = al.Name;

@@ -47,6 +47,7 @@ my $T = 0;
 my $minCoverage = 0;
 my $all_2_dig = 0;
 my $only_4_dig = 1;
+my $fastExtraction = 0;
 
 my $referenceGenome;
 
@@ -64,7 +65,7 @@ GetOptions ('graph:s' => \$graph,
  'minCoverage:s' => \$minCoverage,
  'all_2_dig:s' => \$all_2_dig,
  'only_4_dig:s' => \$only_4_dig,
-
+ 'fastExtraction:s' => \$fastExtraction, 
 );         
 
 if($minCoverage)
@@ -216,6 +217,11 @@ if($actions =~ /p/)
 		{
 			$command .= qq( --referenceGenome $referenceGenome);
 		}	
+		
+		if($fastExtraction)
+		{
+			$command .= qq( --fastPositiveFiltering);
+		}
 		
 		print "Now executing command:\n$command\n\n";
 		
