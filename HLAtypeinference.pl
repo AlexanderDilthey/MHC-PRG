@@ -180,8 +180,8 @@ if(scalar(@sampleIDs) > 5)
 	#warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 }
 
-# @sampleIDs = $sampleIDs[7]; # todo remove
-# warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples:\n".join("\n", @sampleIDs)."\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
+@sampleIDs = $sampleIDs[0]; # todo remove
+warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples:\n".join("\n", @sampleIDs)."\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 
 if($actions =~ /p/)
 {
@@ -1403,9 +1403,12 @@ if($actions =~ /w/)
 			die unless($#reference_haplotypes == 1);
 			
 			my @reference_haplotypes_split = (map {[split(/;/, $_)]} @reference_haplotypes);
-			my @reference_haplotypes_perturbed_split = (map {[split(/;/, $_)]} @reference_haplotypes_perturbed);
+			my @reference_haplotypes_perturbed_split = (map {split(/;/, $_)} @reference_haplotypes_perturbed);
+			
 			my %perturbedWhere = map {$_ => 1} @reference_haplotypes_perturbed_split;
 			
+			# die Dumper(\%perturbedWhere);
+
 			my @imputed_haplotypes_split = (map {[split(/;/, $_)]} @imputed_haplotypes);
 			
 			die unless($#reference_haplotypes_split == 1);
@@ -1484,6 +1487,14 @@ if($actions =~ /w/)
 						$alleles_pt_gt_disagree[$invertImputations] += $thisPosition_gt_disagree;
 						$alleles_pt_gt_missing[$invertImputations] += $thisPosition_gt_missing;
 					
+						if(($invertImputations == 0) and ($thisPosition_gt_agree != 2))
+						{
+							print "Position $i -- agreement: $thisPosition_gt_agree\n";
+							print "\tTrue genotypes: ", join('/', $reference_haplotypes_split[0][$i], $reference_haplotypes_split[1][$i]), "\n";
+							print "\tImputed genotypes: ", join('/', $imputed_haplotypes_split_forAnalysis[0][$i], $imputed_haplotypes_split_forAnalysis[1][$i]), "\n";
+							print "\t\tLine: ",	$imputed_haplotypes_lines{$locus}{$indivID}[$i], "\n";
+							print "\n";
+						}					
 					}
 					
 					if(($invertImputations == 0) and ($thisPosition_gt_agree != 2))
@@ -1501,7 +1512,7 @@ if($actions =~ /w/)
 			die unless($alleles_gt_disagree[0] == $alleles_gt_disagree[1]);
 			die unless($alleles_gt_missing[0] == $alleles_gt_missing[1]);
 			
-			print "Individual $indivID Locus $locus\n";
+			# print "Individual $indivID Locus $locus\n";
 			my @invertImputations_notOK;
 			for(my $invertImputations = 0; $invertImputations <= 1; $invertImputations++)
 			{	
@@ -1535,29 +1546,29 @@ if($actions =~ /w/)
 			die unless($alleles_sum > 0);
 						
 			
-			print "\t", "Haplotypes - inverted ", $invertImputations_optimal, "\n";
-			print "\t\tOK:       ", $alleles_agree[$invertImputations_optimal], " ", sprintf("%.2f", $alleles_agree[$invertImputations_optimal]/$alleles_sum * 100), "%\n";
-			print "\t\tNOT OK:   ", $alleles_disagree[$invertImputations_optimal], " ", sprintf("%.2f", $alleles_disagree[$invertImputations_optimal]/$alleles_sum * 100), "%\n";
-			print "\t\tMISSING:  ", $alleles_missing[$invertImputations_optimal], " ", sprintf("%.2f", $alleles_missing[$invertImputations_optimal]/$alleles_sum * 100), "%\n";
-			print "\n";
+			# print "\t", "Haplotypes - inverted ", $invertImputations_optimal, "\n";
+			# print "\t\tOK:       ", $alleles_agree[$invertImputations_optimal], " ", sprintf("%.2f", $alleles_agree[$invertImputations_optimal]/$alleles_sum * 100), "%\n";
+			# print "\t\tNOT OK:   ", $alleles_disagree[$invertImputations_optimal], " ", sprintf("%.2f", $alleles_disagree[$invertImputations_optimal]/$alleles_sum * 100), "%\n";
+			# print "\t\tMISSING:  ", $alleles_missing[$invertImputations_optimal], " ", sprintf("%.2f", $alleles_missing[$invertImputations_optimal]/$alleles_sum * 100), "%\n";
+			# print "\n";
 				
 			
 			my $alleles_gt_sum = $alleles_gt_agree[0] + $alleles_gt_disagree[0] + $alleles_gt_missing[0];
-			print "\t", "Genotypes ", "\n";
-			print "\t\tOK:       ", $alleles_gt_agree[0], " ", sprintf("%.2f", $alleles_gt_agree[0]/$alleles_gt_sum * 100), "%\n";
-			print "\t\tNOT OK:   ", $alleles_gt_disagree[0], " ", sprintf("%.2f", $alleles_gt_disagree[0]/$alleles_gt_sum * 100), "%\n";
-			print "\t\tMISSING:  ", $alleles_gt_missing[0], " ", sprintf("%.2f", $alleles_gt_missing[0]/$alleles_gt_sum * 100), "%\n";
-			print "\n";			
+			# print "\t", "Genotypes ", "\n";
+			# print "\t\tOK:       ", $alleles_gt_agree[0], " ", sprintf("%.2f", $alleles_gt_agree[0]/$alleles_gt_sum * 100), "%\n";
+			# print "\t\tNOT OK:   ", $alleles_gt_disagree[0], " ", sprintf("%.2f", $alleles_gt_disagree[0]/$alleles_gt_sum * 100), "%\n";
+			# print "\t\tMISSING:  ", $alleles_gt_missing[0], " ", sprintf("%.2f", $alleles_gt_missing[0]/$alleles_gt_sum * 100), "%\n";
+			# print "\n";			
 			
 			my $alleles_pt_gt_sum = $alleles_pt_gt_agree[0] + $alleles_pt_gt_disagree[0] + $alleles_pt_gt_missing[0];
-			print "\t", "Genotypes at perturbed positions", "\n";
-			if($alleles_pt_gt_sum > 0)
-			{
-				print "\t\tOK:       ", $alleles_pt_gt_agree[0], " ", sprintf("%.2f", $alleles_pt_gt_agree[0]/$alleles_pt_gt_sum * 100), "%\n";
-				print "\t\tNOT OK:   ", $alleles_pt_gt_disagree[0], " ", sprintf("%.2f", $alleles_pt_gt_disagree[0]/$alleles_pt_gt_sum * 100), "%\n";
-				print "\t\tMISSING:  ", $alleles_pt_gt_missing[0], " ", sprintf("%.2f", $alleles_pt_gt_missing[0]/$alleles_pt_gt_sum * 100), "%\n";
-			}
-			print "\n";					
+			# print "\t", "Genotypes at perturbed positions", "\n";
+			# if($alleles_pt_gt_sum > 0)
+			# {
+				# print "\t\tOK:       ", $alleles_pt_gt_agree[0], " ", sprintf("%.2f", $alleles_pt_gt_agree[0]/$alleles_pt_gt_sum * 100), "%\n";
+				# print "\t\tNOT OK:   ", $alleles_pt_gt_disagree[0], " ", sprintf("%.2f", $alleles_pt_gt_disagree[0]/$alleles_pt_gt_sum * 100), "%\n";
+				# print "\t\tMISSING:  ", $alleles_pt_gt_missing[0], " ", sprintf("%.2f", $alleles_pt_gt_missing[0]/$alleles_pt_gt_sum * 100), "%\n";
+			# }
+			# print "\n";					
 								
 			$locus_agree += $alleles_agree[$invertImputations_optimal];
 			$locus_disagree += $alleles_disagree[$invertImputations_optimal];
@@ -1606,7 +1617,8 @@ if($actions =~ /w/)
 			print "\t\tNOT OK:   ", $locus_pt_gt_disagree, " ", sprintf("%.2f", $locus_pt_gt_disagree/$locus_pt_gt_sum * 100), "%\n";
 			print "\t\tMISSING:  ", $locus_pt_gt_missing, " ", sprintf("%.2f", $locus_pt_gt_missing/$locus_pt_gt_sum * 100), "%\n";
 		}	
-				
+	
+		exit; # todo remove
 	}
 
 	# my $comparions_OK = $comparisons - $compare_problems;
