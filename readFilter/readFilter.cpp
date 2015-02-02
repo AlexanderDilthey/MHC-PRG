@@ -915,6 +915,11 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 						continue;
 					}
 				}
+				
+				if(! al.IsPrimaryAlignment())
+				{
+					continue;
+				}
 
 				std::string name = al.Name;
 				std::string nameWithPairID = name;
