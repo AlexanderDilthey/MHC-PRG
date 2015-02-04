@@ -1209,7 +1209,7 @@ int main(int argc, char *argv[])
 
 		bool positiveUnique = false;
 		bool negativePreserveUnique = false;
-		bool fastPositiveFiltering = false;
+		bool HiSeq250bp = false;
 
 		std::string uniqueness_base;
 		std::string uniqueness_subtract;
@@ -1268,9 +1268,9 @@ int main(int argc, char *argv[])
 			{
 				uniqueness_subtract = arguments.at(i+1);
 			}
-			if(arguments.at(i) == "--fastPositiveFiltering")
+			if(arguments.at(i) == "--HiSeq250bp")
 			{
-				fastPositiveFiltering = true;
+				HiSeq250bp = true;
 			}
 		}
 
@@ -1288,7 +1288,7 @@ int main(int argc, char *argv[])
 		F.uniqueness_base = uniqueness_base;
 		F.uniqueness_subtract = uniqueness_subtract;
 		F.referenceGenomeFile = referenceGenome;
-		F.fastPositiveFiltering = fastPositiveFiltering;
+		F.HiSeq250bp = HiSeq250bp;
 
 		F.doFilter();
 

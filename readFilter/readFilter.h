@@ -31,7 +31,7 @@ public:
 
 	bool positiveUnique;
 	bool negativePreserveUnique;
-	bool fastPositiveFiltering;
+	bool HiSeq250bp;
 
 	int positiveUnique_threshold;
 	int negativePreserveUnique_threshold;
@@ -211,9 +211,9 @@ public:
 
 std::vector<BAMRegionSpecifier> getBAMregions(std::string BAMfile);
 
-void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print, bool chromosome6Only);
-void filterFastQPairs(int threads, std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
-void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print);
+void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print, bool HiSeq250bp);
+void filterFastQPairs(int threads, std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print);
+void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print);
 
 bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string>& referenceGenome, const std::string& regionID, const BamTools::BamAlignment& al, oneRead& read_forLL, seedAndExtend_return_local& alignment_forLL);
 
