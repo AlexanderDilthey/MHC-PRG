@@ -28,7 +28,6 @@
 
 #include "../GraphAlignerUnique/GraphAlignerUnique.h"
 
-
 readFilter::readFilter() {
 	positiveThreshold = -1;
 	negativeThreshold = -1;
@@ -38,13 +37,13 @@ readFilter::readFilter() {
 
 	positiveUnique_threshold = 10;
 	negativePreserveUnique_threshold = 1;
-	fastPositiveFiltering = false;
+	HiSeq250bp = false;
 	threads = 2;
 }
 
 
 void readFilter::doFilter()
-{
+{	
 	if(!(positiveFilter.length() || negativeFilter.length()))
 	{
 		throw std::runtime_error("Please specify either positive filter or negative filter.");
@@ -216,7 +215,7 @@ void readFilter::doFilter()
 	int positive_tested = 0;
 	int saw_good_read_IDs = 0;
 	
-	std::function<bool(const fastq_readPair&)> decisionFunction = [&](const fastq_readPair& read) -> bool {
+	std::function<bool(const fastq_readPair&, bool)> decisionFunction = [&](const fastq_readPair& read, bool verboseDecisionFunction) -> bool {
 
 		std::vector<std::string> kMers_1_fwd = partitionStringIntokMers(read.a1.sequence, k);
 		std::vector<std::string> kMers_2_fwd = partitionStringIntokMers(seq_reverse_complement(read.a2.sequence), k);
@@ -327,8 +326,16 @@ void readFilter::doFilter()
 			
 
 			//pass_positive = ((forward_combined_optim >= positiveThreshold) || (reverse_combined_optim >= positiveThreshold));
-			pass_positive = (((forward_1_optim >= positiveThreshold) && (forward_2_optim >= positiveThreshold)) || ((reverse_1_optim >= positiveThreshold) && (reverse_2_optim >= positiveThreshold)));
-
+			
+			if(HiSeq250bp)
+			{
+				pass_positive = ((forward_1_optim >= (1*positiveThreshold)) || (forward_2_optim >= (1*positiveThreshold)) || (reverse_1_optim >= (1*positiveThreshold)) || (reverse_2_optim >= (1*positiveThreshold))); 
+				// pass_positive = ( pass_positive || (((forward_1_optim >= positiveThreshold) && (forward_2_optim >= positiveThreshold)) || ((reverse_1_optim >= positiveThreshold) && (reverse_2_optim >= positiveThreshold))) );
+			}
+			else
+			{
+				pass_positive = (((forward_1_optim >= positiveThreshold) && (forward_2_optim >= positiveThreshold)) || ((reverse_1_optim >= positiveThreshold) && (reverse_2_optim >= positiveThreshold)));
+			}
 			// std::cout << read.a1.readID << ": " << pass_positive << " // " << read.a2.readID << ": " << forward_1_optim << " / " << forward_2_optim <<  "    |||     "  << reverse_1_optim << " / " <<  reverse_2_optim << "\n";
 
 			// if(good_read_IDs.count(shortReadID))
@@ -351,6 +358,37 @@ void readFilter::doFilter()
 				pass_positive = ( pass_positive || ((forward_combined_unique >= positiveUnique_threshold) || (reverse_combined_unique >= positiveThreshold)) );
 			}
 			
+			
+
+			if(verboseDecisionFunction)
+			{
+				std::string shortReadID = "@" + std::string(read.a1.readID.begin(), read.a1.readID.end() - 2);
+				#pragma omp critical
+				{
+					std::cout << shortReadID << "\n";
+					std::cout << "R1" << "\n";
+					std::cout << "\t\t" << "fromID: " << read.a1.fromID << "\n";
+					std::cout << "\t\t" << "from: " << read.a1.fromPosition  << "\n";
+					std::cout << "\t\t" << "to: " << read.a1.toPosition  << "\n";
+					std::cout << "\t\t" << "fromReverse: " << read.a1.fromReverse  << "\n";
+					std::cout << "R2" << "\n";
+					std::cout << "\t\t" << "fromID: " << read.a2.fromID << "\n";
+					std::cout << "\t\t" << "from: " << read.a2.fromPosition  << "\n";
+					std::cout << "\t\t" << "to: " << read.a2.toPosition  << "\n";
+					std::cout << "\t\t" << "fromReverse: " << read.a2.fromReverse  << "\n";
+					std::cout << "Stats:\n";					
+					std::cout << "\t\t" << "positiveUnique: " << positiveUnique << "\n"; 
+					std::cout << "\t\t" << "pass: " << pass_positive << "\n";
+					std::cout << "\t\t" << "forward optim: " << forward_1_optim << " / " << forward_2_optim << "\n";
+					std::cout << "\t\t\t" << "forward_combined_optim: " << forward_combined_optim << "\n";
+					std::cout << "\t\t" << "reverse optim: " << reverse_1_optim << " / " <<  reverse_2_optim << "\n";
+					std::cout << "\t\t\t" << "reverse_combined_optim: " << reverse_combined_optim << "\n";
+					std::cout << "\t\t" << "read 1: " << read.a1.sequence << "\n";
+					std::cout << "\t\t" << "read 2: " << read.a2.sequence << "\n";
+					std::cout << "\n" << std::flush;   
+					saw_good_read_IDs++;
+				}			
+			}			
 			// positive_tested++;
 			// if(pass_positive)
 			// {
@@ -548,7 +586,7 @@ void readFilter::doFilter()
 		};
 
 		std::cout << Utilities::timestamp() << "Filter BAM: " << input_BAM << "\n" << std::flush;
-		filterBAM(threads, input_BAM, referenceGenomeFile, output_FASTQ, &decisionFunction, &printFunction, fastPositiveFiltering);
+		filterBAM(threads, input_BAM, referenceGenomeFile, output_FASTQ, &decisionFunction, &printFunction, HiSeq250bp);
 		
 		fastq_1_output.close();
 		fastq_2_output.close();
@@ -620,7 +658,7 @@ void readFilter::doFilter()
 	}
 }
 
-void filterFastQPairs(int threads, std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
+void filterFastQPairs(int threads, std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print)
 {
 	std::string file_1 = fastq_basePath + "_1";
 	std::string file_2 = fastq_basePath + "_2";
@@ -637,7 +675,7 @@ void filterFastQPairs(int threads, std::string fastq_basePath, std::string outpu
 	filterFastQPairs(threads, file_1, file_2, outputFile, decide, print);
 }
 
-void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print)
+void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print)
 {
 	std::ifstream fastQ_1_stream;
 	fastQ_1_stream.open(fastq_1_path.c_str());
@@ -752,14 +790,14 @@ void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2
 		}
 		assert(read1_ID_noFrom.substr(0, read1_ID_noFrom.length() - 2) == read2_ID_noFrom.substr(0, read2_ID_noFrom.length() - 2));		
 		
-		if((*decide)(thisPair))
+		if((*decide)(thisPair, false))
 		{
 			(*print)(thisPair);
 		}
 	}
 }
 
-void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&)>* decide, std::function<void(const fastq_readPair&)>* print, bool chromosome6Only)
+void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print, bool HiSeq250bp)
 {
 	GraphAlignerUnique::GraphAlignerUnique gA_for_scoring(0, 0);
 
@@ -808,8 +846,10 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 	//std::cout << "Star: " << thread_readers.at(0).GetReferenceID("*") << "\n" << std::flush;
 	// std::cout << "Jump to unmapped: " << thread_readers.at(0).Jump(-1) << "\n" << std::flush;
 	
+	std::cout << "HiSeq250bp: " << HiSeq250bp << "\n" << std::flush;
+	
 	std::map<std::string, size_t> reads_from_regions;
-	#pragma omp parallel for ordered schedule(dynamic)
+	#pragma omp parallel for
 	for(unsigned int rI = 0; rI <= N_regions; rI++)
 	{
 		int tI = omp_get_thread_num();
@@ -818,16 +858,19 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 
 		if(rI != N_regions)
 		{
+			assert(rI < BAM_regions.size());
 			const BAMRegionSpecifier& thisStretch = BAM_regions.at(rI);
-
 
 			int refIDidx = thread_readers.at(tI).GetReferenceID(thisStretch.ID);
 			assert(refIDidx != -1);
 
+			assert(refIDidx >= 0);
+			assert(refIDidx < thread_readers.at(tI).GetReferenceData().size());
+			
 			const BamTools::RefData& stretchSpec_BAMTools = thread_readers.at(tI).GetReferenceData().at(refIDidx);
 			assert((int)thisStretch.lastPos < (int)stretchSpec_BAMTools.RefLength);
 
-			std::cout << "\t" << Utilities::timestamp() << " read " << thisStretch.ID << " from " << thisStretch.firstPos << " to " << thisStretch.lastPos + 1 << "\n" << std::flush;
+			std::cout << "\t" << Utilities::timestamp() << " T " << tI << " read " << thisStretch.ID << " from " << thisStretch.firstPos << " to " << thisStretch.lastPos + 1 << "\n" << std::flush;
 
 			BamTools::BamRegion stretch_region_BAMTools;
 			stretch_region_BAMTools.LeftRefID = refIDidx;
@@ -841,7 +884,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 		}
 		else
 		{
-			std::cout << "\t" << Utilities::timestamp() << " read unmapped reads. " << "\n" << std::flush;
+			std::cout << "\t" << Utilities::timestamp() << " T " << tI << " read unmapped reads. " << "\n" << std::flush;
 
 			BamTools::BamRegion stretch_region_BAMTools;
 			stretch_region_BAMTools.LeftRefID = -1;
@@ -854,15 +897,25 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 			regionID = "Unmapped";
 		}
 		
-
-		if(chromosome6Only)
+		bool isChromosome6 = false;
+		if(HiSeq250bp)
 		{
-			if(!((regionID == "6") || (regionID == "chr6")))
+			if((!((regionID == "6") || (regionID == "chr6")))) 
 			{
 				continue;
 			}
+			else
+			{
+				isChromosome6 = true;
+				assert((regionID == "6") || (regionID == "chr6"));
+			}
 		}
-
+		
+		#pragma omp critical
+		{
+			// std::cout << "\nT " << tI << " regionID: " << regionID << "\n" << std::flush;
+		}	
+		
 		std::map<std::string, fastq_readPair> thread_reads;
 		std::map<std::string, fastq_readPair> thread_reads_forPrint;
 
@@ -965,6 +1018,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 
 							simpleAlignment.likelihood_from_normalAlignment = exp(ll_score);
 
+							assert(alignment_forLL.graph_aligned_levels.size() > 0);
 							int firstCoordinate_normalAlignment = -1;													
 							int i = 0;
 							while(alignment_forLL.graph_aligned_levels.at(i) == -1)
@@ -975,6 +1029,8 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 									break;
 								}	
 							}
+							assert(i != alignment_forLL.graph_aligned_levels.size());
+							
 							firstCoordinate_normalAlignment = alignment_forLL.graph_aligned_levels.at(i);											
 							assert(firstCoordinate_normalAlignment != -1);
 							
@@ -988,6 +1044,8 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 									break;
 								}
 							}
+							assert(i >= 0);
+							
 							lastCoordinate_normalAlignment = alignment_forLL.graph_aligned_levels.at(i);											
 							assert(lastCoordinate_normalAlignment != -1);
 							
@@ -1041,8 +1099,13 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 					assert(success);
 					if(thisPair.isComplete())
 					{
+						bool verbose = false;
+						if(isChromosome6 && (alignmentMappedPosition != -1) && (alignmentMappedPosition >= 29910247) && (alignmentMappedPosition <= 29913661))
+						{
+							verbose = true;
+						}
 						// process
-						if((*decide)(thisPair))
+						if((*decide)(thisPair, verbose))
 						{
 							thread_reads_forPrint[name] = thisPair;
 							if(thread_reads_forPrint.size() > print_at_once)
@@ -1097,7 +1160,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 					if(existingPair.isComplete())
 					{
 						// process
-						if((*decide)(existingPair))
+						if((*decide)(existingPair, false))
 						{
 							(*print)(existingPair);
 						}
@@ -1160,6 +1223,8 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 	{
 		return false;
 	}
+	
+	assert(al.IsPrimaryAlignment());
 	
 	std::string modifiedRegionID = regionID;
 	if(regionID.substr(0, 3) == "chr")
@@ -1534,6 +1599,36 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 				std::cerr << std::flush;
 			}
 			assert(alignment_forLL.sequence_aligned == debug_sequence_aligned_concatenated);
+		}
+		
+		
+		bool haveNonMinusOne = false;
+		for(unsigned int i = 0; i < alignment_forLL.graph_aligned_levels.size(); i++)
+		{
+			if(alignment_forLL.graph_aligned_levels.at(i) != -1)
+			{
+				haveNonMinusOne = true;
+				break;
+			}
+		}
+		
+		if(! haveNonMinusOne) 
+		{
+			std::cerr << "Unexpected problem: apparently all insertions!\n";
+			std::cerr << "\regionID: " << regionID << "\n";
+			std::cerr << "\tPosition: " << al.Position << "\n";			
+			std::cerr << "\talignedBases: " << alignedBases << "\n";
+			std::cerr << "\tqueryBases: " << queryBases << "\n";
+			std::cerr << "\tCIGAR: ";
+			for(unsigned int cigarI = 0; cigarI < CIGAR_Compressed.size(); cigarI++)
+			{
+				std::cerr <<  CIGAR_Compressed.at(cigarI).Type << CIGAR_Compressed.at(cigarI).Length << " ";
+			}
+			std::cerr  << "\n" << std::flush;			
+			std::cerr << "\t" << 
+			std::cerr << "\n" << std::flush;
+			
+			return false;
 		}
 
 		return true;

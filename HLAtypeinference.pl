@@ -47,6 +47,7 @@ my $T = 0;
 my $minCoverage = 0;
 my $all_2_dig = 0;
 my $only_4_dig = 1;
+my $HiSeq250bp = 0;
 my $fastExtraction = 0;
 
 my $referenceGenome;
@@ -65,12 +66,18 @@ GetOptions ('graph:s' => \$graph,
  'minCoverage:s' => \$minCoverage,
  'all_2_dig:s' => \$all_2_dig,
  'only_4_dig:s' => \$only_4_dig,
+ 'HiSeq250bp:s' => \$HiSeq250bp, 
  'fastExtraction:s' => \$fastExtraction, 
 );         
 
 if($minCoverage)
 {
 	print "Minimum coverage threshold in place: $minCoverage\n";
+}
+
+if($fastExtraction)
+{
+	$HiSeq250bp = 1;
 }
 
 my $genome_graph_file = qq(../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx);
@@ -218,9 +225,9 @@ if($actions =~ /p/)
 			$command .= qq( --referenceGenome $referenceGenome);
 		}	
 		
-		if($fastExtraction)
+		if($HiSeq250bp)
 		{
-			$command .= qq( --fastPositiveFiltering);
+			$command .= qq( --HiSeq250bp);
 		}
 		
 		print "Now executing command:\n$command\n\n";

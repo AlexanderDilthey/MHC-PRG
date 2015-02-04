@@ -14,7 +14,7 @@ my $action = '';
 my $iteration = 1;
 my $sampleIDs;
 my $BAMs;
-my $fastExtraction = 0;
+my $HiSeq250bp = 0;
 
 
 my $referenceGenome = qq(/gpfs1/well/chimp/oa/ref/hs37d5.fasta);
@@ -25,7 +25,7 @@ GetOptions ('graph:s' => \$graph,
  'iteration:s' => \$iteration,  
  'sampleIDs:s' => \$sampleIDs,
  'BAMs:s' => \$BAMs,
- 'fastExtraction:s' => \$fastExtraction, 
+ 'HiSeq250bp:s' => \$HiSeq250bp, 
 );         
 
 my $target_directory_for_copying = qq(/Net/birch/data/dilthey/MHC-PRG/tmp/hla);
@@ -69,25 +69,25 @@ if($action eq 'qsub')
 		
 		my $qsub_filename = '../tmp/hla_qsub/'.$sampleID.'.bash';
 		
-		my $command_negative_filtering = qq(perl HLAtypeinference.pl --graph $graph --sampleIDs $sampleID --BAMs $BAM --actions p);
+		my $command_positive_filtering = qq(perl HLAtypeinference.pl --graph $graph --sampleIDs $sampleID --BAMs $BAM --actions p);
 		if($referenceGenome)
 		{
-			$command_negative_filtering .= qq( --referenceGenome $referenceGenome);
+			$command_positive_filtering .= qq( --referenceGenome $referenceGenome);
 		}
 
-		if($fastExtraction)
+		if($HiSeq250bp)
 		{
-			$command_negative_filtering .= qq( --fastExtraction 1);
+			$command_positive_filtering .= qq( --HiSeq250bp 1);
 		}
 		
-		print $command_negative_filtering, "\n";
+		print $command_positive_filtering, "\n";
 		open(QSUB, '>', $qsub_filename) or die "Cannot open $qsub_filename";
 print QSUB qq(#!/bin/bash
 #\$ -P mcvean.prjc -q long.qc
 #\$ -pe shmem 2
 export PERL5LIB=/users/mcvean/dilthey/perl5/lib/perl5:\$PERL5LIB
 cd /gpfs1/well/gsk_hla/MHC-PRG/src
-$command_negative_filtering
+$command_positive_filtering
 );
 		close(QSUB);	
 		
