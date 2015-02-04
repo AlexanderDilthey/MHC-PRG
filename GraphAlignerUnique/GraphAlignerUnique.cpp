@@ -3190,7 +3190,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 	int seedAndExtend_short_maximumBacktraces = 200;  
 
 	// just to remind everyone that this is for short reads
-	assert(sequence_nonReverse.length() < 200);
+	assert(sequence_nonReverse.length() < 300);
 
 	if(verbose)
 		std::cout << Utilities::timestamp() << " Enter GraphAlignerUnique::seedAndExtend_short(..)!\n" << std::flush;

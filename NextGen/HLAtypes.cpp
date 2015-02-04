@@ -660,9 +660,9 @@ void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype, std:
 		bool madePerturbation = false;
 		if(Utilities::randomDouble() >= (1 - rate_perturbation))
 		{
-			int type_of_event = Utilities::randomNumber(10);
+			int type_of_event = Utilities::randomNumber(100);
 
-			if(type_of_event <= 5)
+			if(type_of_event <= 90)
 			{
 				// SNV
 				std::string newAllele;
@@ -673,7 +673,7 @@ void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype, std:
 				}
 				haplotype.at(pI) = newAllele;
 			}
-			else if((type_of_event > 5) && (type_of_event <= 8))
+			else if((type_of_event > 90) && (type_of_event <= 95))
 			{
 				// deletion
 				if(haplotype.at(pI) != "_")
@@ -686,7 +686,7 @@ void simulateHLAreads_perturbHaplotype(std::vector<std::string>& haplotype, std:
 			{
 				// insertion
 				std::string newAllele = haplotype.at(pI);
-				int length = Utilities::randomNumber(2)+1;
+				int length = Utilities::randomNumber(1)+1;
 				// std::cout << "Length: " << length << "\n";
 				std::cout << std::flush;
 				for(int l = 0; l <= length; l++)
@@ -1859,7 +1859,9 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		assert(starting_haplotypes_1_set.size() > 0);
 		assert(starting_haplotypes_2_set.size() > 0);
 
-		std::cout << Utilities::timestamp() << "\thave " << starting_haplotypes_combined_set.size() << " combined starting haplotypes\n" << std::flush;
+		std::cout << "\n\n" << Utilities::timestamp() << "\thave " << starting_haplotypes_combined_set.size() << " combined starting haplotypes\n" << std::flush;
+		std::cout << "\t\t" << Utilities::join(starting_haplotypes_1_vec, ";") << "\n";
+		std::cout << "\t\t" << Utilities::join(starting_haplotypes_2_vec, ";") << "\n\n" << std::flush;
 
 		std::string file_AAmapping = graphDir + "/AAmapping/"+locus+".txt";
 		// std::cerr << "File: " << file_AAmapping << "\n\n" << std::flush;
@@ -2072,7 +2074,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+								thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
 								readAlignment_exonPositions.push_back(thisPosition);
 
@@ -2099,7 +2101,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+								thisPosition.mapQ_position = alignmentQuality_thisPosition;
 	
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
@@ -2129,7 +2131,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+								thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
@@ -2152,7 +2154,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 								thisPosition.mapQ = alignment.mapQ;
 								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+								thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
 								readAlignment_exonPositions.push_back(thisPosition);
 							}
@@ -2224,7 +2226,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			}
 		}
 
-		std::cout << Utilities::timestamp() << "Mapped reads to exons. " << readPairs_OK << " pairs OK, " << readPairs_broken << " pairs broken." << "\n" << std::flush;
+		std::cout << Utilities::timestamp() << "Mapped reads to exons and introns. " << readPairs_OK << " pairs OK, " << readPairs_broken << " pairs broken." << "\n" << std::flush;
 
 		// Pileup of mapped reads
 
@@ -2237,6 +2239,8 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			{
 				oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
 
+				// std::cout << "Read " << positionSpecifierI << " position " << positionI << " mapQ_position: " << onePositionSpecifier.mapQ_position << " (vs " << minimumPerPositionMappingQuality << ")\n" << std::flush;
+				
 				if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
 				{
 					continue;
@@ -2247,10 +2251,10 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			}
 		}
 
-//		std::string fileName_pileUp = outputDirectory + "/R2_pileup_"+locus+".txt";
-//		std::ofstream pileUpStream;
-//		pileUpStream.open(fileName_pileUp.c_str());
-//		assert(pileUpStream.is_open());
+		std::string fileName_pileUp = outputDirectory + "/R2_pileup_"+locus+".txt";
+		std::ofstream pileUpStream;
+		pileUpStream.open(fileName_pileUp.c_str());
+		assert(pileUpStream.is_open());
 
 		class haplotypeAlternative {
 		protected:
@@ -2722,7 +2726,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			
 			void setNormalizedLikelihoods()
 			{
-				bool verbose = ((completedLevel >= 589) && (completedLevel <= 596));
+				bool verbose = ((completedLevel >= 515) && (completedLevel <= 520));
 				verbose = false; // todo activate
 				
 				if(verbose)
@@ -3155,6 +3159,9 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				// std::cout << "\r" << "pI = " << pI << std::flush;
 			}
 			
+			bool verbose = ((pI >= 948) && (pI <= 952));
+			verbose = false;
+			
 			std::set<std::string> alleles_from_h1;
 			std::set<std::string> alleles_from_h2;
 			std::set<std::string> alleles_from_reads;
@@ -3200,6 +3207,31 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			considered_h1_perPosition.push_back(std::vector<std::string>(alleles_from_h1.begin(), alleles_from_h1.end()));
 			considered_h2_perPosition.push_back(std::vector<std::string>(alleles_from_h2.begin(), alleles_from_h2.end()));
 			
+			if(verbose)
+			{
+			
+			std::cout << "\t\tPosition " << pI << " / " << combined_sequences_graphLevels.size() << ": " << alleles_from_reads.size() << " alleles from " << pileUpPerPosition.at(pI).size() << " reads [" << Utilities::join(alleles_from_reads_vec, ", ") << "] and " << possible_haplotype_extensions.size() << " possible haplotype extensions.\n" << std::flush;
+			
+			
+			
+			
+			std::cout << "\t\t\tFrom reads:\n";
+			for(std::set<std::string>::iterator alleleIt = alleles_from_reads.begin(); alleleIt != alleles_from_reads.end(); alleleIt++)
+			{
+				std::cout << "\t\t\t\t" << *alleleIt << "\n";
+			}
+			std::cout << "\n\t\t\tH1:\n";
+			
+			for(std::set<std::string>::iterator alleleIt = alleles_from_h1.begin(); alleleIt != alleles_from_h1.end(); alleleIt++)
+			{
+				std::cout << "\t\t\t\t" << *alleleIt << "\n";
+			}
+			std::cout << "\n\t\t\tH2:\n";
+			for(std::set<std::string>::iterator alleleIt = alleles_from_h2.begin(); alleleIt != alleles_from_h2.end(); alleleIt++)
+			{
+				std::cout << "\t\t\t\t" << *alleleIt << "\n";
+			}						
+			}
 			// if(possible_haplotype_extensions.size() == 0)
 			// {	
 				// std::set<std::string> alleles_from_haplotypes = alleles_from_h1;
@@ -3329,7 +3361,66 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 					runningHaplotypes.pruneAlternatives();					
 				}
 			}
+			
+				if(pileUpPerPosition.at(pI).size())
+				{
+					// int exonPos = exonPosIt->first;
+					std::vector<oneExonPosition> pileUp = pileUpPerPosition.at(pI);
+
+					std::vector<std::string> fieldsPerLine;
+					fieldsPerLine.push_back(Utilities::ItoStr(pI));
+					fieldsPerLine.push_back(Utilities::ItoStr(pileUp.size()));
+
+					std::vector<std::string> piledUpGenotypes;
+
+					for(unsigned int pileUpI = 0; pileUpI < pileUp.size(); pileUpI++)
+					{
+						oneExonPosition piledPosition = pileUp.at(pileUpI);
+
+						std::vector<std::string> qualities_as_strings;
+						for(unsigned int qI = 0; qI < piledPosition.qualities.size(); qI++)
+						{
+							char qC = piledPosition.qualities.at(qI);
+							int qC_i = qC;
+							qualities_as_strings.push_back(Utilities::ItoStr(qC_i));
+						}
+
+						std::string pileUpString = piledPosition.genotype
+							+ " (" + Utilities::join(qualities_as_strings, ", ") + ")"
+							+ " ["
+							// + Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
+							// + Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "
+							// + Utilities::DtoStr(piledPosition.thisRead_fractionOK) + " "
+							// + Utilities::DtoStr(piledPosition.pairedRead_fractionOK) + " | "
+							// + Utilities::ItoStr(piledPosition.pairs_strands_OK) + " "
+							+ Utilities::DtoStr(piledPosition.pairs_strands_distance) + " | "
+							+ Utilities::DtoStr(piledPosition.mapQ_position) + " | "
+							+ Utilities::DtoStr(piledPosition.mapQ) + " "
+							+ Utilities::DtoStr(piledPosition.mapQ_genomic) + " | "
+							+ Utilities::DtoStr(piledPosition.thisRead_WeightedCharactersOK) + " "
+							+ Utilities::DtoStr(piledPosition.pairedRead_WeightedCharactersOK) + " | "						
+							+ piledPosition.thisRead_ID + " "
+							+ piledPosition.pairedRead_ID
+							+ "]";
+
+						piledUpGenotypes.push_back(pileUpString);
+					}
+
+					fieldsPerLine.push_back(Utilities::join(piledUpGenotypes, ", "));
+
+
+					pileUpStream << Utilities::join(fieldsPerLine, "\t") << "\n";
+				}
+				else
+				{
+					std::vector<std::string> fieldsPerLine;
+					fieldsPerLine.push_back(Utilities::ItoStr(pI));
+					fieldsPerLine.push_back(Utilities::ItoStr(0));
+					pileUpStream << Utilities::join(fieldsPerLine, "\t") << "\n";				
+				}				
 		}
+		
+		pileUpStream.close();
 		
 		// std::cout << "\n";
 
@@ -3826,7 +3917,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 	// define loci
 	std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
-	// std::vector<std::string> loci = {"A"}; // todo remove
+	// std::vector<std::string> loci = {"A"}; 
 
 	forReturn_lociString = Utilities::join(loci, ",");
 
