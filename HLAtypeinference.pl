@@ -188,8 +188,8 @@ if(scalar(@sampleIDs) > 5)
 	#warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 }
 
-@sampleIDs = $sampleIDs[0]; # todo remove
-warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples:\n".join("\n", @sampleIDs)."\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
+#@sampleIDs = $sampleIDs[0]; # todo remove
+#warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples:\n".join("\n", @sampleIDs)."\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 
 if($actions =~ /p/)
 {
@@ -1631,7 +1631,7 @@ if($actions =~ /w/)
 			print "\t\tMISSING:  ", $locus_pt_gt_missing, " ", sprintf("%.2f", $locus_pt_gt_missing/$locus_pt_gt_sum * 100), "%\n";
 		}	
 	
-		exit; # todo remove
+		# exit; # todo remove
 	}
 
 	# my $comparions_OK = $comparisons - $compare_problems;
