@@ -179,6 +179,10 @@ double GraphAlignerUnique::scoreOneAlignment(oneRead& underlyingRead, seedAndExt
 				{
 					pCorrect = 0.999;
 				}
+				if(pCorrect == 0)
+				{
+					pCorrect = 0.00001;
+				}	
 				assert((pCorrect > 0) && (pCorrect <= 1));
 				if(sequenceCharacter == graphCharacter)
 				{
