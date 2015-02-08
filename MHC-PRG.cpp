@@ -240,6 +240,7 @@ int main(int argc, char *argv[])
 		double insertSize_mean = 200;
 		double insertSize_sd = 15;
 		int read_length = 101;
+		bool longBadReads = false;
 
 		for(unsigned int i = 5; i < arguments.size(); i++)
 		{
@@ -261,6 +262,12 @@ int main(int argc, char *argv[])
 			{
 				read_length = Utilities::StrtoI(arguments.at(i+1));
 			}
+
+			if(arguments.at(i) == "--longBadReads")
+			{
+				longBadReads = true;
+				assert(read_length == 250);
+			}
 		}
 
 		assert(insertSize_mean > 0);
@@ -268,7 +275,7 @@ int main(int argc, char *argv[])
 		assert(insertSize_sd >= 0);
 		assert(insertSize_sd <= 20);
 
-		GraphAlignerUnique::tests::testSeedAndExtend_local_realGraph(graph_file, read_length, insertSize_mean, insertSize_sd, filename_qualityMatrix);
+		GraphAlignerUnique::tests::testSeedAndExtend_local_realGraph(graph_file, read_length, insertSize_mean, insertSize_sd, filename_qualityMatrix, longBadReads);
 	}
 
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenValidationTest"))

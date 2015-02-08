@@ -21,7 +21,7 @@ namespace tests {
 	void testSeedAndExtend();
 	void testSeedAndExtend_local();
 	void testSeedAndExtend_short();
-	void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_length, double insertSize_mean, double insertSize_sd, std::string qualityMatrixFile);
+	void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_length, double insertSize_mean, double insertSize_sd, std::string qualityMatrixFile, bool longBadReads);
 
 }
 };

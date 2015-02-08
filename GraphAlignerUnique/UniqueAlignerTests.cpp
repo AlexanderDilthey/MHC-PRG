@@ -844,9 +844,16 @@ void testChains()
 }
 
 
-void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_length, double insertSize_mean, double insertSize_sd, std::string qualityMatrixFile)
+void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_length, double insertSize_mean, double insertSize_sd, std::string qualityMatrixFile, bool longBadReads)
 {
-	readSimulator rS(qualityMatrixFile, read_length);
+	char removeUpper = 0;
+	char removeUpper_2nd = 0;
+	if(longBadReads)
+	{
+		removeUpper = 5;
+		removeUpper_2nd = 5;
+	}
+	readSimulator rS(qualityMatrixFile, read_length, longBadReads, removeUpper, removeUpper_2nd);
 
 	double haploidCoverage = 30;
 	int aligner_kMerSize = 25;
@@ -869,6 +876,10 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		std::cout << "Evaluate older aligner!\n" << std::flush;
 	}
 	
+	std::cout << "Read length: " << read_length << "\n";
+	std::cout << "longBadReads: " << longBadReads << "\n";
+	std::cout << std::flush;
+
 	// todo remove
 	// boost::mt19937 rnd_gen;
 		// auto seed = boost::random::random_device()();
@@ -1058,8 +1069,8 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 
 		diploidEdgePointerPath diploidPath = graphs.at(0)->simulateRandomDiploidPath();
 
-		std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_edgePath(diploidPath.h1, haploidCoverage, insertSize_mean, insertSize_sd, false);
-		std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_edgePath(diploidPath.h2, haploidCoverage, insertSize_mean, insertSize_sd, false);
+		std::vector<oneReadPair> simulatedReadPairs_h1 = rS.simulate_paired_reads_from_edgePath(diploidPath.h1, haploidCoverage, insertSize_mean, insertSize_sd, false, false);
+		std::vector<oneReadPair> simulatedReadPairs_h2 = rS.simulate_paired_reads_from_edgePath(diploidPath.h2, haploidCoverage, insertSize_mean, insertSize_sd, false, true);
 
 		std::vector<oneReadPair> combinedPairs_for_alignment;
 		combinedPairs_for_alignment.insert(combinedPairs_for_alignment.end(), simulatedReadPairs_h1.begin(), simulatedReadPairs_h1.end());
