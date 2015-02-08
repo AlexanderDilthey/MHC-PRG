@@ -763,6 +763,16 @@ int Utilities::readStatus(std::string statusFile)
 
 
 
+void Utilities::check_map_is_normalized(std::map<char, double> m)
+{
+	double sum = 0;
+	for(std::map<char, double>::iterator cIt = m.begin(); cIt != m.end(); cIt++)
+	{
+		assert(cIt->second >= 0);
+		sum += cIt->second;
+	}
+	assert(abs(sum - 1) < 1e-5);
+}
 
 std::map<char, double> Utilities::normalize_map(std::map<char, double> m)
 {

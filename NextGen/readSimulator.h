@@ -92,14 +92,24 @@ private:
 	std::vector<std::map<char, double> > read_quality_frequencies;
 	std::vector<std::map<char, double> > read_quality_correctness;
 	std::vector<double> read_INDEL_freq;
+
+	std::vector<std::map<char, double> > read_quality_frequencies_2nd;
+	std::vector<std::map<char, double> > read_quality_correctness_2nd;
+	std::vector<double> read_INDEL_freq_2nd;
+
+
 	unsigned int read_length;
 	unsigned int threads;
 
 	bool paranoid;
 
+	bool interpolateLength;
+
+	static double averageErrorRate(std::vector<std::map<char, double> > q_freq, std::vector<std::map<char, double> > error_freq_conditional_q);
+
 public:
 
-	readSimulator(std::string qualityMatrixFile, unsigned int readLength = 100);
+	readSimulator(std::string qualityMatrixFile, unsigned int readLength = 100, bool interpolateLength_ = false, char removeUpperBaseQualityIndices = 0, char additional_2ndRead_removeUpperBaseQualityIndices = 0);
 
 	// not quite sure whether this function is correct...
 	size_t simulate_paired_reads_from_string(std::string readNamePrefix, std::string& s, double expected_haploid_coverage, std::vector<std::pair<std::ofstream*, std::ofstream*>>& output_FHs_perThread, double starting_coordinates_diff_mean = 450, double starting_coordinates_diff_sd = 100);
@@ -111,7 +121,7 @@ public:
 
 	std::vector<oneReadPair> simulate_paired_reads_from_string(std::string S, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly = false);
 	std::vector<oneRead> simulate_unpaired_reads_from_string(std::string S, double expected_haploid_coverage, bool perfectly = false);
-	std::vector<oneReadPair> simulate_paired_reads_from_edgePath(std::vector<Edge*> edgePath, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly = false);
+	std::vector<oneReadPair> simulate_paired_reads_from_edgePath(std::vector<Edge*> edgePath, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly = false, bool is2nd = false);
 };
 
 #endif /* READSIMULATOR_H_ */

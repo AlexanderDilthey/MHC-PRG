@@ -75,6 +75,7 @@ public:
 
 	static std::string JoinMapUInt2Str(std::map<std::string, unsigned int> M);
 
+	static void check_map_is_normalized(std::map<char, double> m);
 	static std::map<char, double> normalize_map(std::map<char, double> m);
 	static char choose_from_normalized_map(std::map<char, double> m);
 	static char choose_from_normalized_map(std::map<char, double> m, boost::mt19937& rng);

@@ -9,9 +9,11 @@
 #include <algorithm>
 #include <utility>
 #include <fstream>
+#include <cmath>
 
 #include "readSimulator.h"
 #include "../Utilities.h"
+
 
 #include <boost/random.hpp>
 #include <boost/random/poisson_distribution.hpp>
@@ -21,17 +23,52 @@
 
 std::string readName_field_separator = "|||";
 
-readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLength) {
+double readSimulator::averageErrorRate(std::vector<std::map<char, double> > q_freq, std::vector<std::map<char, double> > error_freq_conditional_q)
+{
+	unsigned int readLength = q_freq.size();
+	assert(error_freq_conditional_q.size() == readLength);
+
+	double forReturn = 0;
+
+	for(unsigned int positionInRead = 0; positionInRead < readLength; positionInRead++)
+	{
+		double thisPos_errorRate = 0;
+		assert(q_freq.at(positionInRead).size() == error_freq_conditional_q.at(positionInRead).size());
+		Utilities::check_map_is_normalized(q_freq.at(positionInRead));
+		Utilities::check_map_is_normalized(error_freq_conditional_q.at(positionInRead));
+		for(std::map<char, double>::iterator qIt = q_freq.at(positionInRead).begin(); qIt != q_freq.at(positionInRead).end(); qIt++)
+		{
+			char quality = qIt->first;
+			double p_quality = qIt->second;
+			double p_error = error_freq_conditional_q.at(positionInRead).at(quality);
+
+			thisPos_errorRate += p_quality * p_error;
+		}
+
+		forReturn += thisPos_errorRate;
+	}
+
+	forReturn = forReturn / (double) readLength;
+
+	return forReturn;
+}
+
+readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLength, bool interpolateLength_, char removeUpperBaseQualityIndices, char additional_2ndRead_removeUpperBaseQualityIndices) {
 
 	std::ifstream matrixStream;
 	matrixStream.open (qualityMatrixFile.c_str(), std::ios::in);
 
+	interpolateLength = interpolateLength_;
+
+
 	read_quality_frequencies.resize(readLength);
 	read_quality_correctness.resize(readLength);
-
 	read_INDEL_freq.resize(readLength, 0);
-	std::vector<double> read_nonINDEL_freq;
-	read_nonINDEL_freq.resize(readLength, 0);
+
+	std::map< int, std::vector<std::map<char, double> > > read_quality_frequencies_perLength;
+	std::map< int, std::vector<std::map<char, double> > > read_quality_correctness_perLength;
+	std::map< int, std::vector<double> > read_INDEL_freq_perLength;
+	std::map< int, std::vector<double> > read_nonINDEL_freq_perLength;
 
 	if(matrixStream.is_open())
 	{
@@ -40,7 +77,7 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 		std::string currentSequence;
 
 		size_t lineCounter = 0;
-		bool found_read_length = false;
+
 		while(matrixStream.good())
 		{
 			std::getline(matrixStream, line);
@@ -67,13 +104,14 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 			}
 			else
 			{
-				if(Utilities::StrtoI(line_fields.at(0)) == (int)readLength)
+				int thisLine_readLength = Utilities::StrtoI(line_fields.at(0));
+
+				if(read_quality_frequencies_perLength.count(thisLine_readLength) == 0)
 				{
-					found_read_length = true;
-				}
-				else
-				{
-					continue;
+					read_quality_frequencies_perLength[thisLine_readLength].resize(thisLine_readLength);
+					read_quality_correctness_perLength[thisLine_readLength].resize(thisLine_readLength);
+					read_INDEL_freq_perLength[thisLine_readLength].resize(thisLine_readLength, 0);
+					read_nonINDEL_freq_perLength[thisLine_readLength].resize(thisLine_readLength, 0);
 				}
 
 				char quality = line_fields.at(1).at(0);
@@ -85,32 +123,80 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 
 				if(quality == 0)
 				{
-					read_INDEL_freq.at(positionInRead) += datapoints;
+					read_INDEL_freq_perLength.at(thisLine_readLength).at(positionInRead) += datapoints;
 				}
 				else
 				{
-					read_nonINDEL_freq.at(positionInRead) += datapoints;
+					read_nonINDEL_freq_perLength.at(thisLine_readLength).at(positionInRead) += datapoints;
 
-					if(read_quality_frequencies.at(positionInRead).count(quality) == 0)
+					if(read_quality_frequencies_perLength.at(thisLine_readLength).at(positionInRead).count(quality) == 0)
 					{
-						read_quality_frequencies.at(positionInRead)[quality] = 0;
+						read_quality_frequencies_perLength.at(thisLine_readLength).at(positionInRead)[quality] = 0;
 					}
-					read_quality_frequencies.at(positionInRead)[quality] += datapoints;
+					read_quality_frequencies_perLength.at(thisLine_readLength).at(positionInRead)[quality] += datapoints;
 
-					if(!(read_quality_correctness.at(positionInRead).count(quality) == 0))
+					if(!(read_quality_correctness_perLength.at(thisLine_readLength).at(positionInRead).count(quality) == 0))
 					{
 						throw std::runtime_error("readSimulator::readSimulator(): file "+qualityMatrixFile+", double-defined quality. Line "+Utilities::ItoStr(lineCounter)+".\n"+line+"\n");
 					}
-					assert(read_quality_correctness.at(positionInRead).count(quality) == 0);
-					read_quality_correctness.at(positionInRead)[quality] += Utilities::StrtoD(line_fields.at(5));
+					assert(read_quality_correctness_perLength.at(thisLine_readLength).at(positionInRead).count(quality) == 0);
+					read_quality_correctness_perLength.at(thisLine_readLength).at(positionInRead)[quality] += Utilities::StrtoD(line_fields.at(5));
 				}
 			}
 		}
 		matrixStream.close();
 
-		if(! found_read_length)
+		std::vector<double> read_nonINDEL_freq;
+
+
+		if(read_quality_correctness_perLength.count(readLength))
 		{
-			throw std::runtime_error("Cannot find the right read length "+Utilities::ItoStr(readLength)+" in file "+qualityMatrixFile);
+			read_quality_frequencies = read_quality_frequencies_perLength.at(readLength);
+			read_quality_correctness = read_quality_correctness_perLength.at(readLength);
+			read_INDEL_freq = read_INDEL_freq_perLength.at(readLength);
+			read_nonINDEL_freq = read_nonINDEL_freq_perLength.at(readLength);
+		}
+		else
+		{
+			assert(interpolateLength);
+
+			assert(read_quality_frequencies_perLength.size() > 0);
+			int closestNeighbour_which = -1;
+			int closestNeighbour_distance = -1;
+
+			for(std::map< int, std::vector<std::map<char, double> > >::iterator correctnessIt = read_quality_correctness_perLength.begin(); correctnessIt != read_quality_frequencies_perLength.end(); correctnessIt++ )
+			{
+				int thisDist = abs(correctnessIt->first - (int)readLength);
+				if((correctnessIt == read_quality_correctness_perLength.begin()) || (thisDist < closestNeighbour_distance))
+				{
+					closestNeighbour_which = correctnessIt->first;
+					closestNeighbour_distance = thisDist;
+				}
+			}
+			assert(closestNeighbour_distance >= 0);
+
+			read_quality_frequencies.resize(readLength);
+			read_quality_correctness.resize(readLength);
+			read_INDEL_freq.resize(readLength);
+			read_nonINDEL_freq.resize(readLength);
+
+			for(unsigned int posInRead = 0; posInRead < readLength; posInRead++)
+			{
+				double fraction = (double)posInRead / (double) readLength;
+				double idx_target = fraction * (closestNeighbour_which - 1);
+				int idx_target_int = round(idx_target);
+				assert(idx_target_int >= 0);
+				assert(idx_target_int < (int)read_quality_correctness_perLength.at(closestNeighbour_which).size());
+
+				read_quality_frequencies.at(posInRead) = read_quality_frequencies_perLength.at(closestNeighbour_which).at(idx_target_int);
+				read_quality_correctness.at(posInRead) = read_quality_correctness_perLength.at(closestNeighbour_which).at(idx_target_int);
+				read_INDEL_freq.at(posInRead) = read_INDEL_freq_perLength.at(closestNeighbour_which).at(idx_target_int);
+				read_nonINDEL_freq.at(posInRead) = read_nonINDEL_freq_perLength.at(closestNeighbour_which).at(idx_target_int);
+			}
+
+			read_quality_frequencies_2nd = read_quality_frequencies;
+			read_quality_correctness_2nd = read_quality_correctness;
+			read_INDEL_freq_2nd = read_INDEL_freq;
 		}
 
 		for(unsigned int i = 0; i < readLength; i++)
@@ -128,10 +214,94 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 				read_INDEL_freq.at(i) = 1e-4;
 			}
 		}
+
+		if(removeUpperBaseQualityIndices || additional_2ndRead_removeUpperBaseQualityIndices)
+		{
+			std::cout << "Before adjusting base qualities by " << (int)removeUpperBaseQualityIndices << " and " << (int)additional_2ndRead_removeUpperBaseQualityIndices << ", have average error:\n";
+			std::cout << "\tR1: " << averageErrorRate(read_quality_frequencies, read_quality_correctness) << "\n";
+			std::cout << "\tR2: " << averageErrorRate(read_quality_frequencies_2nd, read_quality_correctness_2nd) << "\n";
+			std::cout << std::flush;
+		}
+
+		if(removeUpperBaseQualityIndices)
+		{
+			for(unsigned int positionInRead = 0; positionInRead < readLength; positionInRead++)
+			{
+				std::map<char, double> new_qualityFrequencies;
+				std::map<char, double> new_correctness;
+				std::vector<char> existingQualities;
+				for(std::map<char, double>::iterator existingFrequencyIt = read_quality_frequencies.at(positionInRead).begin(); existingFrequencyIt != read_quality_frequencies.at(positionInRead).end(); existingFrequencyIt++ )
+				{
+					existingQualities.push_back(existingFrequencyIt->first);
+				}
+				std::sort(existingQualities.begin(), existingQualities.end());
+				if(existingQualities.size() > 1)
+				{
+					assert(existingQualities.at(0) <= existingQualities.at(1));
+				}
+				assert(removeUpperBaseQualityIndices >= 0);
+				assert(removeUpperBaseQualityIndices < (int)(existingQualities.size()-1));
+				for(int baseQualityI = 0; baseQualityI < (int)(existingQualities.size() - removeUpperBaseQualityIndices); baseQualityI++)
+				{
+					char qualityCharacter = existingQualities.at(baseQualityI);
+					double f = read_quality_correctness.at(positionInRead).at(baseQualityI);
+					new_qualityFrequencies[qualityCharacter] = f;
+					new_correctness[qualityCharacter] =  read_quality_correctness.at(positionInRead).at(qualityCharacter);
+				}
+				new_qualityFrequencies = Utilities::normalize_map(new_qualityFrequencies);
+				read_quality_frequencies.at(positionInRead) = new_qualityFrequencies;
+				read_quality_correctness.at(positionInRead) = new_correctness;
+			}
+		}
+
+
+		if(additional_2ndRead_removeUpperBaseQualityIndices)
+		{
+			char shift_read_2 = additional_2ndRead_removeUpperBaseQualityIndices + additional_2ndRead_removeUpperBaseQualityIndices;
+			for(unsigned int positionInRead = 0; positionInRead < readLength; positionInRead++)
+			{
+				std::map<char, double> new_qualityFrequencies;
+				std::map<char, double> new_correctness;
+
+				std::vector<char> existingQualities;
+				for(std::map<char, double>::iterator existingFrequencyIt = read_quality_frequencies_2nd.at(positionInRead).begin(); existingFrequencyIt != read_quality_frequencies_2nd.at(positionInRead).end(); existingFrequencyIt++ )
+				{
+					existingQualities.push_back(existingFrequencyIt->first);
+				}
+				std::sort(existingQualities.begin(), existingQualities.end());
+				if(existingQualities.size() > 1)
+				{
+					assert(existingQualities.at(0) <= existingQualities.at(1));
+				}
+				assert(shift_read_2 >= 0);
+				assert(shift_read_2 < (int)(existingQualities.size()-1));
+				for(int baseQualityI = 0; baseQualityI < (int)(existingQualities.size() - shift_read_2); baseQualityI++)
+				{
+					char qualityCharacter = existingQualities.at(baseQualityI);
+					double f = read_quality_frequencies_2nd.at(positionInRead).at(baseQualityI);
+					new_qualityFrequencies[qualityCharacter] = f;
+					new_correctness[qualityCharacter] =  read_quality_correctness_2nd.at(positionInRead).at(qualityCharacter);
+				}
+
+				new_qualityFrequencies = Utilities::normalize_map(new_qualityFrequencies);
+				read_quality_frequencies_2nd.at(positionInRead) = new_qualityFrequencies;
+				read_quality_correctness_2nd.at(positionInRead) = new_correctness;
+
+			}
+		}
+
 	}
 	else
 	{
 		throw std::runtime_error("readSimulator::readSimulator(): Cannot open file "+qualityMatrixFile);
+	}
+
+	for(unsigned i = 0; i < readLength; i++)
+	{
+		Utilities::check_map_is_normalized(read_quality_frequencies.at(i));
+		Utilities::check_map_is_normalized(read_quality_correctness.at(i));
+		Utilities::check_map_is_normalized(read_quality_frequencies_2nd.at(i));
+		Utilities::check_map_is_normalized(read_quality_correctness_2nd.at(i));
 	}
 
 	read_length = readLength;
@@ -625,7 +795,7 @@ std::vector<oneRead> readSimulator::simulate_unpaired_reads_from_string(std::str
 	return forReturn;
 }
 
-std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std::vector<Edge*> edgePath, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly)
+std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std::vector<Edge*> edgePath, double expected_haploid_coverage, double starting_coordinates_diff_mean, double starting_coordinates_diff_sd, bool perfectly, bool is2nd)
 {
 	std::vector<oneReadPair> forReturn;
 
@@ -686,11 +856,28 @@ std::vector<oneReadPair> readSimulator::simulate_paired_reads_from_edgePath(std:
 			assert(position_in_read < this->read_quality_frequencies.size());
 			assert(position_in_read < this->read_quality_correctness.size());
 
-			returnedQuality = Utilities::choose_from_normalized_map(this->read_quality_frequencies.at(position_in_read), rnd_gen);
+			if(is2nd)
+			{
+				returnedQuality = Utilities::choose_from_normalized_map(this->read_quality_frequencies_2nd.at(position_in_read), rnd_gen);
+			}
+			else
+			{
+				returnedQuality = Utilities::choose_from_normalized_map(this->read_quality_frequencies.at(position_in_read), rnd_gen);
+			}
+
 
 			assert(returnedQuality > 0);
 
-			bool generateError = Utilities::oneBernoulliTrial( 1 - this->read_quality_correctness.at(position_in_read).at(returnedQuality), rnd_gen);
+			bool generateError;
+
+			if(is2nd)
+			{
+				generateError = Utilities::oneBernoulliTrial( 1 - this->read_quality_correctness_2nd.at(position_in_read).at(returnedQuality), rnd_gen);
+			}
+			else
+			{
+				generateError = Utilities::oneBernoulliTrial( 1 - this->read_quality_correctness.at(position_in_read).at(returnedQuality), rnd_gen);
+			}
 						
 			if(generateError && (! perfectly))
 			{
