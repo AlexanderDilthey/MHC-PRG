@@ -414,7 +414,7 @@ if($actions =~ /v/)
 	chomp($headerLine);
 	$headerLine =~ s/\n//g;
 	$headerLine =~ s/\r//g;
-	my @header_fields = split(/\t/, $headerLine);
+	my @header_fields = split(/[\t ]/, $headerLine);
 	@header_fields = map {if($_ =~ /HLAD((QA)|(QB)|(RB))$/){$_ .= '1';} $_} @header_fields;	
 	while(<REFERENCE>)
 	{
@@ -424,7 +424,7 @@ if($actions =~ /v/)
 		$line =~ s/\n//g;
 		$line =~ s/\r//g;
 		
-		my @fields = split(/\t/, $line);
+		my @fields = split(/[\t ]/, $line);
 		my %line = (mesh @header_fields, @fields);
 		
 		my $primary_key = $line{'IndividualID'};
@@ -570,6 +570,10 @@ if($actions =~ /v/)
 			my @reference_hla_values;
 			
 			next INDIV unless($#imputed_hla_values == 1);
+			unless(exists $reference_data{$indivID})
+			{
+				warn "No reference data for $locus $indivID";
+			}
 			next INDIV unless(exists $reference_data{$indivID});
 			
 			$reference_data{$indivID}{'HLA'.$locus} or die;
@@ -1169,7 +1173,7 @@ if($actions =~ /v/)
 			}
 			close(CALIBRATION);		
 			
-			die unless($totalAlleles == $imputed_HLA_Calls{$locus}{called});
+			die "Problem $totalAlleles vs $imputed_HLA_Calls{$locus}{called}" unless($totalAlleles == $imputed_HLA_Calls{$locus}{called});
 					
 			my $spatial_coverage_file = 'temp/spatialCoverage_' . $locus . '_' . $sample_IDs_abbr . '.txt';	
 			open(SPATIALCOVERAGE, ">", $spatial_coverage_file) or die "Cannot open $spatial_coverage_file";			

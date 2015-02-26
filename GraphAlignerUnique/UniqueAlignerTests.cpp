@@ -18,6 +18,7 @@
 #include "../Graph/Graph.h"
 #include "../Utilities.h"
 #include "../NextGen/Validation.h"
+#include <ctime>
 
 #include "../GraphAligner/GraphAlignerAffine.h"
 #include "../GraphAligner/AlignerTests.h"
@@ -856,6 +857,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 	readSimulator rS(qualityMatrixFile, read_length, longBadReads, removeUpper, removeUpper_2nd);
 
 	double haploidCoverage = 30;
+	// double haploidCoverage = 5;
 	int aligner_kMerSize = 25;
 	int simulateGenomePairs = 3;
 	int outerThreads = 4;
@@ -1223,6 +1225,11 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 		
 		auto alignReadPairs = [&](std::vector<oneReadPair>& readPairs, std::vector< std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> >& alignments_perThread, std::vector< std::vector<int> >& alignments_readPairI_perThread, bool usePairing) -> void
 		{
+			int thread1_pairs = 0;
+			
+			time_t thread1_lastTime;
+			int thread1_lastPairs = -1;
+			
 			unsigned int pairI = 0;
 			unsigned int pairMax = readPairs.size();
 			#pragma omp parallel for schedule(dynamic)
@@ -1261,6 +1268,20 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 				if(tI == 0)
 				{
 					std::cout  << Utilities::timestamp() << "\t\t" << "Thread " << tI << ": align pair " << pairI << "\n" << std::flush;
+					thread1_pairs++;
+					if((thread1_pairs % 10) == 0)
+					{
+						time_t N = std::time(0);
+						if(thread1_lastPairs != -1)
+						{
+							int d_pairs = thread1_pairs - thread1_lastPairs;
+							double d_time = N - thread1_lastTime;
+							double rate = (double)d_pairs / d_time;
+							std::cout << "\t Rate: " << rate << "\n" << std::flush;
+						}
+						thread1_lastPairs = thread1_pairs;
+						thread1_lastTime = N;
+					}
 				}
 			}
 		};

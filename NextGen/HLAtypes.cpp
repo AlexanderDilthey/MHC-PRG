@@ -433,7 +433,7 @@ double alignmentWeightedOKFraction(oneRead& underlyingRead, seedAndExtend_return
 				// two well-defined characters
 				char qualityCharacter = underlyingRead.quality.at(indexIntoOriginalReadData_correctlyAligned);
 				double pCorrect = Utilities::PhredToPCorrect(qualityCharacter);
-				assert((pCorrect > 0) && (pCorrect <= 1));
+				assert((pCorrect >= 0) && (pCorrect <= 1));
 				if(sequenceCharacter == graphCharacter)
 				{
 					// match!
@@ -546,8 +546,19 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 					std::cout << "\t\t" << "Insertion " << (1 + l_diff) << "\n";
 				}
 				
-				assert(l_diff >= 0);			
-				log_likelihood += (log_likelihood_insertion_actualAllele + log(pdf(poisson1, l_diff)));
+				assert(l_diff >= 0);	
+				double p_pdf = pdf(poisson1, l_diff);
+				double log_from_pdf;
+				if(p_pdf == 0)
+				{
+					log_from_pdf = log(1e-30);
+				}
+				else
+				{
+					log_from_pdf = log(p_pdf);
+				}
+				
+				log_likelihood += (log_likelihood_insertion_actualAllele + log_from_pdf);
 			}
 		}
 		else
@@ -580,13 +591,13 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 					if(pCorrect > 0.999)
 						pCorrect = 0.999;
 				}
-				assert((pCorrect > 0) && (pCorrect <= 1));
+				assert((pCorrect >= 0) && (pCorrect <= 1));
 
-				if(!(pCorrect >= 0.25))
-				{
-					std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
-				}
-				assert(pCorrect >= 0.25);
+				// if(!(pCorrect >= 0.25))
+				// {
+					// std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
+				// }
+				// assert(pCorrect >= 0.25);
 
 				if(exonGenotype == readGenotype.substr(0, 1))
 				{
@@ -619,7 +630,17 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 			else
 			{
 				assert(l_diff >= 1);
-				log_likelihood += (log_likelihood_insertion_actualAllele + log(pdf(poisson1, l_diff - 1)));				
+				double p_pdf = pdf(poisson1, l_diff - 1);
+				double log_from_pdf;
+				if(p_pdf == 0)
+				{
+					log_from_pdf = log(1e-30);
+				}
+				else
+				{
+					log_from_pdf = log(p_pdf);
+				}
+				log_likelihood += (log_likelihood_insertion_actualAllele + log_from_pdf);				
 			}
 
 			if(l_diff > 0)
@@ -638,6 +659,22 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 		std::cout << "\t\t" << "Running log likelihood: " << log_likelihood << "\n";
 	}
 
+	double l = exp(log_likelihood);
+	
+	if(!((l >= 0) && (l <= 1)))  
+	{
+		std::cerr << "l" << ": " << l << "\n";
+		std::cerr << "exonGenotypeR" << ": " << exonGenotypeR << "\n";
+		std::cerr << "readGenotypeR" << ": " << readGenotypeR << "\n";
+		std::cerr << "readQualities" << ": " << readQualities << "\n";
+		std::cerr << "alignmentGraphLevel" << ": " << alignmentGraphLevel << "\n";
+		
+		std::cerr << std::flush;
+	}
+	
+	assert(l >= 0);
+	assert(l <= 1);
+	
 	return log_likelihood;
 }
 
@@ -2506,6 +2543,19 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 						
 						double combined_LL =  logAvg(position_likelihood_h1, position_likelihood_h2);
 						double combined_L = exp(combined_LL);
+						if(!((combined_L >= 0) && (combined_L <= 1)))
+						{
+							std::cerr << "h1_underlying_position" << ": " << h1_underlying_position << "\n";
+							std::cerr << "h2_underlying_position" << ": " << h2_underlying_position << "\n";
+							std::cerr << "r.genotype" << ": " << r.genotype << "\n";
+							std::cerr << "r.qualities" << ": " << r.qualities << "\n";
+							std::cerr << "r.graphLevel" << ": " << r.graphLevel << "\n\n";
+						
+							std::cerr << "position_likelihood_h1" << ": " << position_likelihood_h1 << "\n";
+							std::cerr << "position_likelihood_h2" << ": " << position_likelihood_h2 << "\n";
+							std::cerr << "combined_L" << ": " << combined_L << "\n";
+							std::cerr << std::flush;
+						}
 						assert(combined_L >= 0);
 						assert(combined_L <= 1);
 						
@@ -3183,10 +3233,25 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			for(unsigned int pileUpI = 0; pileUpI < pileUpPerPosition.at(pI).size(); pileUpI++)
 			{
 				oneExonPosition& onePositionSpecifier = pileUpPerPosition.at(pI).at(pileUpI);
-				alleles_from_reads.insert(onePositionSpecifier.genotype);
+				if(onePositionSpecifier.genotype.find("N") == std::string::npos)
+				{
+					alleles_from_reads.insert(onePositionSpecifier.genotype);
+				}				
+				// alleles_from_reads.insert(onePositionSpecifier.genotype);
 			}
-			alleles_from_reads.insert(alleles_from_h1.begin(), alleles_from_h1.end());
-			alleles_from_reads.insert(alleles_from_h2.begin(), alleles_from_h2.end());
+			
+			for(std::set<std::string>::iterator alleleIt = alleles_from_h1.begin(); alleleIt != alleles_from_h1.end(); alleleIt++)
+			{
+				std::string allele = *alleleIt;
+				alleles_from_reads.insert(allele);
+			}
+			
+			for(std::set<std::string>::iterator alleleIt = alleles_from_h2.begin(); alleleIt != alleles_from_h2.end(); alleleIt++)
+			{
+				std::string allele = *alleleIt;
+				alleles_from_reads.insert(allele);
+			}
+						
 			
 			std::vector<std::string> alleles_from_reads_vec(alleles_from_reads.begin(), alleles_from_reads.end());
 
@@ -3917,7 +3982,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 	// define loci
 	std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
-	// std::vector<std::string> loci = {"A"}; 
+	//std::vector<std::string> loci = {"A"}; // todo activate later
 
 	forReturn_lociString = Utilities::join(loci, ",");
 
@@ -4499,9 +4564,34 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				{
 					oneExonPosition& thisPosition = readAlignment_exonPositions.at(posInAlignment);
 					assert(thisPosition.graphLevel != -1);
+					
+					// std::cout << alongReadMode << " " << thisPosition.graphLevel << " " << (int)graphLevel_2_exonPosition.count(thisPosition.graphLevel) << "\n" << std::flush;
+					
 					if(graphLevel_2_exonPosition.count(thisPosition.graphLevel))
 					{
-						assert((alongReadMode == 0) || (alongReadMode == 1));
+						// if(!((alongReadMode == 0) || (alongReadMode == 1)))
+						// {
+							// std::cerr << "alongReadMode" << ": " << alongReadMode << "\n";
+							// std::cerr << "alignment.sequence_aligned.substr(cI, 1)" << ": " << alignment.sequence_aligned << "\n";
+							// std::cerr << "alignment.graph_aligned.substr(cI, 1)" << ": " << alignment.graph_aligned << "\n";
+							// std::cerr << "alignment.graph_aligned_levels)" << ": " << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), ", ") << "\n";						
+							// std::cerr << "alignment_firstLevel" << ": " << alignment_firstLevel << "\n";
+							// std::cerr << "alignment_lastLevel" << ": " << alignment_lastLevel << "\n";
+							// std::cerr << "combined_exon_sequences_graphLevels.front()" << ": " << combined_exon_sequences_graphLevels.front() << "\n";
+							// std::cerr << "combined_exon_sequences_graphLevels.back()" << ": " << combined_exon_sequences_graphLevels.back() << "\n";
+							// for(unsigned int i = 0; i < alignment.graph_aligned_levels.size(); i++)
+							// {
+								// std::cout << "\t" << i << " " << alignment.graph_aligned_levels.at(i) << " " << (int)graphLevel_2_exonPosition.count(thisPosition.graphLevel) << "\n";
+							// }
+							// std::cerr << std::flush;
+						// }
+						if(alongReadMode == 2)
+						{
+							lastPositionInExon = -1;
+						}
+						// assert((alongReadMode == 0) || (alongReadMode == 1));
+
+						
 						thisPosition.positionInExon = graphLevel_2_exonPosition.at(thisPosition.graphLevel);
 						assert((lastPositionInExon == -1) || ((int)thisPosition.positionInExon == ((int)lastPositionInExon + 1)));
 						lastPositionInExon = thisPosition.positionInExon;
@@ -4517,6 +4607,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 						}
 					}
 				}
+				
+				// std::cout << "\n";
 			}
 
 		};
@@ -4849,14 +4941,14 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 								if(pCorrect > 0.999)
 									pCorrect = 0.999;
 							}
-							assert((pCorrect > 0) && (pCorrect <= 1));
+							assert((pCorrect >= 0) && (pCorrect <= 1));
 
-							if(!(pCorrect >= 0.25))
-							{
-								std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
-							}
-							assert(pCorrect >= 0.25);
-
+							// if(!(pCorrect >= 0.25))
+							// {
+								// std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
+							// }
+							// assert(pCorrect >= 0.25);
+					
 							if(exonGenotype == readGenotype.substr(0, 1))
 							{
 								if(verbose)

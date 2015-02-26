@@ -35,13 +35,13 @@ double readSimulator::averageErrorRate(std::vector<std::map<char, double> > q_fr
 		double thisPos_errorRate = 0;
 		assert(q_freq.at(positionInRead).size() == error_freq_conditional_q.at(positionInRead).size());
 		Utilities::check_map_is_normalized(q_freq.at(positionInRead));
-		Utilities::check_map_is_normalized(error_freq_conditional_q.at(positionInRead));
 		for(std::map<char, double>::iterator qIt = q_freq.at(positionInRead).begin(); qIt != q_freq.at(positionInRead).end(); qIt++)
 		{
 			char quality = qIt->first;
 			double p_quality = qIt->second;
-			double p_error = error_freq_conditional_q.at(positionInRead).at(quality);
-
+			double p_error = 1 - error_freq_conditional_q.at(positionInRead).at(quality);
+			assert(p_error >= 0);
+			assert(p_error <= 1);
 			thisPos_errorRate += p_quality * p_error;
 		}
 
@@ -55,6 +55,12 @@ double readSimulator::averageErrorRate(std::vector<std::map<char, double> > q_fr
 
 readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLength, bool interpolateLength_, char removeUpperBaseQualityIndices, char additional_2ndRead_removeUpperBaseQualityIndices) {
 
+	// attention - these are chars - make sure that there are no overflows
+	assert(removeUpperBaseQualityIndices >= 0);
+	assert(removeUpperBaseQualityIndices <= 20);
+	assert(additional_2ndRead_removeUpperBaseQualityIndices >= 0);
+	assert(additional_2ndRead_removeUpperBaseQualityIndices <= 20);
+	
 	std::ifstream matrixStream;
 	matrixStream.open (qualityMatrixFile.c_str(), std::ios::in);
 
@@ -164,7 +170,7 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 			int closestNeighbour_which = -1;
 			int closestNeighbour_distance = -1;
 
-			for(std::map< int, std::vector<std::map<char, double> > >::iterator correctnessIt = read_quality_correctness_perLength.begin(); correctnessIt != read_quality_frequencies_perLength.end(); correctnessIt++ )
+			for(std::map< int, std::vector<std::map<char, double> > >::iterator correctnessIt = read_quality_correctness_perLength.begin(); correctnessIt != read_quality_correctness_perLength.end(); correctnessIt++ )
 			{
 				int thisDist = abs(correctnessIt->first - (int)readLength);
 				if((correctnessIt == read_quality_correctness_perLength.begin()) || (thisDist < closestNeighbour_distance))
@@ -193,10 +199,6 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 				read_INDEL_freq.at(posInRead) = read_INDEL_freq_perLength.at(closestNeighbour_which).at(idx_target_int);
 				read_nonINDEL_freq.at(posInRead) = read_nonINDEL_freq_perLength.at(closestNeighbour_which).at(idx_target_int);
 			}
-
-			read_quality_frequencies_2nd = read_quality_frequencies;
-			read_quality_correctness_2nd = read_quality_correctness;
-			read_INDEL_freq_2nd = read_INDEL_freq;
 		}
 
 		for(unsigned int i = 0; i < readLength; i++)
@@ -214,6 +216,11 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 				read_INDEL_freq.at(i) = 1e-4;
 			}
 		}
+		
+		read_quality_frequencies_2nd = read_quality_frequencies;
+		read_quality_correctness_2nd = read_quality_correctness;
+		read_INDEL_freq_2nd = read_INDEL_freq;		
+		
 
 		if(removeUpperBaseQualityIndices || additional_2ndRead_removeUpperBaseQualityIndices)
 		{
@@ -244,7 +251,7 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 				for(int baseQualityI = 0; baseQualityI < (int)(existingQualities.size() - removeUpperBaseQualityIndices); baseQualityI++)
 				{
 					char qualityCharacter = existingQualities.at(baseQualityI);
-					double f = read_quality_correctness.at(positionInRead).at(baseQualityI);
+					double f = read_quality_frequencies.at(positionInRead).at(qualityCharacter);
 					new_qualityFrequencies[qualityCharacter] = f;
 					new_correctness[qualityCharacter] =  read_quality_correctness.at(positionInRead).at(qualityCharacter);
 				}
@@ -255,9 +262,10 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 		}
 
 
-		if(additional_2ndRead_removeUpperBaseQualityIndices)
+		if(removeUpperBaseQualityIndices || additional_2ndRead_removeUpperBaseQualityIndices)
 		{
-			char shift_read_2 = additional_2ndRead_removeUpperBaseQualityIndices + additional_2ndRead_removeUpperBaseQualityIndices;
+			char shift_read_2 = removeUpperBaseQualityIndices + additional_2ndRead_removeUpperBaseQualityIndices;
+			
 			for(unsigned int positionInRead = 0; positionInRead < readLength; positionInRead++)
 			{
 				std::map<char, double> new_qualityFrequencies;
@@ -278,7 +286,7 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 				for(int baseQualityI = 0; baseQualityI < (int)(existingQualities.size() - shift_read_2); baseQualityI++)
 				{
 					char qualityCharacter = existingQualities.at(baseQualityI);
-					double f = read_quality_frequencies_2nd.at(positionInRead).at(baseQualityI);
+					double f = read_quality_frequencies_2nd.at(positionInRead).at(qualityCharacter);
 					new_qualityFrequencies[qualityCharacter] = f;
 					new_correctness[qualityCharacter] =  read_quality_correctness_2nd.at(positionInRead).at(qualityCharacter);
 				}
@@ -299,9 +307,16 @@ readSimulator::readSimulator(std::string qualityMatrixFile, unsigned int readLen
 	for(unsigned i = 0; i < readLength; i++)
 	{
 		Utilities::check_map_is_normalized(read_quality_frequencies.at(i));
-		Utilities::check_map_is_normalized(read_quality_correctness.at(i));
 		Utilities::check_map_is_normalized(read_quality_frequencies_2nd.at(i));
-		Utilities::check_map_is_normalized(read_quality_correctness_2nd.at(i));
+	}
+	
+	if(1 == 1)
+	{
+		std::cout << "Summary error probabilities:\n";
+		std::cout << "After adjusting base qualities by " << (int)removeUpperBaseQualityIndices << " and " << (int)additional_2ndRead_removeUpperBaseQualityIndices << ", have average error:\n";
+		std::cout << "\tR1: " << averageErrorRate(read_quality_frequencies, read_quality_correctness) << "\n";
+		std::cout << "\tR2: " << averageErrorRate(read_quality_frequencies_2nd, read_quality_correctness_2nd) << "\n";
+		std::cout << std::flush;	
 	}
 
 	read_length = readLength;
