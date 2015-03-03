@@ -50,6 +50,8 @@ my $only_4_dig = 1;
 my $HiSeq250bp = 0;
 my $fastExtraction = 0;
 
+my $fromPHLAT = 0;
+
 my $referenceGenome;
 
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
@@ -68,6 +70,7 @@ GetOptions ('graph:s' => \$graph,
  'only_4_dig:s' => \$only_4_dig,
  'HiSeq250bp:s' => \$HiSeq250bp, 
  'fastExtraction:s' => \$fastExtraction, 
+ 'fromPHLAT:s' => \$fromPHLAT,
 );         
 
 if($minCoverage)
@@ -406,7 +409,7 @@ if($actions =~ /v/)
 {
 	my $validation_round = 'R1';
 	die "Please specify --trueHLA for validation" unless($trueHLA);
-		
+			
 	# read reference dataset
 	my %reference_data;
 	open(REFERENCE, "<", $trueHLA) or die "Cannot open $trueHLA";
@@ -451,12 +454,27 @@ if($actions =~ /v/)
 		my $sampleID_noI = $sampleID;
 		$sampleID_noI =~ s/^I\d+_//g;
 		
-
-		my $bestGuess_file = '../tmp/hla/'.$sampleID.'/'.$validation_round.'_bestguess.txt';
-		unless(-e $bestGuess_file)
+		
+		my $bestGuess_file;
+		
+		if($fromPHLAT)
 		{
-			warn "Best-guess file $bestGuess_file not existing";
-			next;
+			$bestGuess_file = '/gpfs1/well/gsk_hla/PHLAT/'.$sampleID.'/'.$validation_round.'_bestguess.txt';	
+			unless(-e $bestGuess_file)
+			{
+				warn "Best-guess file $bestGuess_file not existing";
+				next;
+			}		
+			
+		}
+		else
+		{
+			$bestGuess_file = '../tmp/hla/'.$sampleID.'/'.$validation_round.'_bestguess.txt';
+			unless(-e $bestGuess_file)
+			{
+				warn "Best-guess file $bestGuess_file not existing";
+				next;
+			}		
 		}
 		  
 		open(BESTGUESS, '<', $bestGuess_file) or die "Cannot open $bestGuess_file";
@@ -961,7 +979,7 @@ if($actions =~ /v/)
 				}
 			}
 
-			if(($thisIndiv_problems > 0) and (not $all_2_dig))
+			if(($thisIndiv_problems > 0) and (not $all_2_dig) and not ($fromPHLAT))
 			{
 				my %readIDs;
 				
