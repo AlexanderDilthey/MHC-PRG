@@ -298,7 +298,7 @@ void coveredIntervals::validate()
 	std::set<oneInterval*> found_intervals_in_start_indices;
 	std::set<oneInterval*> found_intervals_in_stop_indices;
 
-	for(std::map<std::string, std::map<int, oneInterval* > >::iterator regionIt = intervals_start.begin(); regionIt != intervals_stop.begin(); regionIt++)
+	for(std::map<std::string, std::map<int, oneInterval* > >::iterator regionIt = intervals_start.begin(); regionIt != intervals_start.end(); regionIt++)
 	{
 		std::string regionID = regionIt->first;
 		for(std::map<int, oneInterval* >::iterator positionIt = regionIt->second.begin(); positionIt != regionIt->second.end(); positionIt++)
@@ -314,7 +314,7 @@ void coveredIntervals::validate()
 		}
 	}
 
-	for(std::map<std::string, std::map<int, oneInterval* > >::iterator regionIt = intervals_stop.begin(); regionIt != intervals_stop.begin(); regionIt++)
+	for(std::map<std::string, std::map<int, oneInterval* > >::iterator regionIt = intervals_stop.begin(); regionIt != intervals_stop.end(); regionIt++)
 	{
 		std::string regionID = regionIt->first;
 		for(std::map<int, oneInterval* >::iterator positionIt = regionIt->second.begin(); positionIt != regionIt->second.end(); positionIt++)

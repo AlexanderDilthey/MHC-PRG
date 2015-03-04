@@ -48,11 +48,11 @@ void filterLongOverlappingReads::doFilter()
 				assert(fP_parts.size() == 2);
 
 				std::string regionID = fP_parts.at(0);
-				assert(regionID == "6"); // if not, we have to scan the complete BAM and not just chromosome 6 - arguments to filterBAM!
-
-				int part_pos = Utilities::StrtoI(fP_parts.at(1));
-
-				myGraph_coveredIntervals.addPoint(regionID, part_pos);
+				if(regionID == "chr6"); // if not, we have to scan the complete BAM and not just chromosome 6 - arguments to filterBAM!
+				{
+					int part_pos = Utilities::StrtoI(fP_parts.at(1));
+					myGraph_coveredIntervals.addPoint(regionID, part_pos);
+				}
 			}
 		}
 	}
