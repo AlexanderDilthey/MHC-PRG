@@ -211,7 +211,7 @@ public:
 
 std::vector<BAMRegionSpecifier> getBAMregions(std::string BAMfile);
 
-void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print, bool HiSeq250bp);
+void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print, bool limitToChromosome6);
 void filterFastQPairs(int threads, std::string fastq_basePath, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print);
 void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2_path, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print);
 

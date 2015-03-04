@@ -113,4 +113,7 @@ Our examples use the sample ID "AA02O9Q_Z2". Change as necessary.
   
   "--collect 3" takes the Viterbi-generated haplotypes and carries out read re-mapping and de novo variant calling on top of the inferred haplotypes. Specifically, we create two "personalized reference genomes", by taking the original reference genome, removing the xMHC and inserting our two "haplotypes". We then (independently) re-map all sample reads to both "personalized reference genomes". We examine the "personalized xMHC" in both genomes. For each read in the union of reads that map to the "personalized xMHC" in either "personalized reference genome", we want to make a decision which of the genomes it "comes from". We use mapping quality to make this decision. When mapping quality is equal for both genomes, we make a random decision. We produce 2 SAM files, one for each "personalized xMHC", containing the reads we assigned to each "haplotype". We then carry out variant discovery (currently using Platypus), and modify the Viterbi haplotype VCF to take into account the variants discovered by Platypus. 
 
+## Acknowledgements
+
+This software uses code from Zamin Iqbal's and Mario Caccamo's Cortex (http://cortexassembler.sourceforge.net/index.html) and Erik K Garrison's intervaltree package (https://github.com/ekg/intervaltree).
 

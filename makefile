@@ -67,6 +67,7 @@ OBJS = \
         $(DIR_OBJ)/GraphAndEdgeIndex.o \
         $(DIR_OBJ)/UniqueAlignerTests.o \
         $(DIR_OBJ)/readFilter.o \
+        $(DIR_OBJ)/filterLongOverlappingReads.o \
         $(DIR_OBJ)/GraphAndIndex.o \
         $(DIR_OBJ)/AlignerTests.o \
         $(DIR_OBJ)/VirtualNW.o \

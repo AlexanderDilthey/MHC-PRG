@@ -797,7 +797,7 @@ void filterFastQPairs(int threads, std::string fastq_1_path, std::string fastq_2
 	}
 }
 
-void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print, bool HiSeq250bp)
+void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile, std::string outputFile, std::function<bool(const fastq_readPair&, bool)>* decide, std::function<void(const fastq_readPair&)>* print, bool limitToChromosome6)
 {
 	GraphAlignerUnique::GraphAlignerUnique gA_for_scoring(0, 0);
 
@@ -846,7 +846,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 	//std::cout << "Star: " << thread_readers.at(0).GetReferenceID("*") << "\n" << std::flush;
 	// std::cout << "Jump to unmapped: " << thread_readers.at(0).Jump(-1) << "\n" << std::flush;
 	
-	std::cout << "HiSeq250bp: " << HiSeq250bp << "\n" << std::flush;
+	std::cout << "Limit to chromosome 6: " << limitToChromosome6 << "\n" << std::flush;
 	
 	std::map<std::string, size_t> reads_from_regions;
 	#pragma omp parallel for
@@ -898,7 +898,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 		}
 		
 		bool isChromosome6 = false;
-		if(HiSeq250bp)
+		if(limitToChromosome6)
 		{
 			if((!((regionID == "6") || (regionID == "chr6")))) 
 			{

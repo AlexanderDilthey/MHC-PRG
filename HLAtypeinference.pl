@@ -96,9 +96,9 @@ unless(-e $expected_kMer_file)
 }
 
 my $exon_folder = qq(../tmp2/GS_nextGen/${graph}/);
-unless(-e $expected_kMer_file)
+unless(-e $exon_folder)
 {
-	die "Please provide a kMerified graph -- exepcted file $expected_kMer_file not there!";
+	die "Please provide a kMerified graph -- exon folder not there!";
 }
 
 my $normal_bin = qq(../bin/MHC-PRG);
@@ -196,6 +196,8 @@ if(scalar(@sampleIDs) > 5)
 
 if($actions =~ /p/)
 {
+	die "No positive (-p) and long-read-positive (-p) filtering at the same time" if($actions =~ /l/);
+
 	unless(@BAMs)
 	{
 		die "Please provide --BAMs for positive filtering";
@@ -232,6 +234,48 @@ if($actions =~ /p/)
 		{
 			$command .= qq( --HiSeq250bp);
 		}
+		
+		print "Now executing command:\n$command\n\n";
+		
+		system($command);
+	}
+}
+
+if($actions =~ /l/)
+{
+	die "No positive (-p) and long-read-positive (-p) filtering at the same time" if($actions =~ /p/);
+	
+	unless(@BAMs)
+	{
+		die "Please provide --BAMs for positive filtering";
+	}
+	unless($#BAMs == $#sampleIDs)
+	{
+		die "Please provide an equal number of --BAMs and --sampleIDs";
+	}
+	
+	for(my $bI = 0; $bI <= $#BAMs; $bI++)
+	{
+		my $BAM = $BAMs[$bI];
+		my $sampleID = $sampleIDs[$bI];
+		
+		unless(-e $BAM)
+		{
+			die "Specified BAM $BAM (in --BAMs) does not exist!\n";
+		}
+		
+		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p';
+		unless(-e '../tmp/hla/'.$sampleID)
+		{
+			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
+		}
+		
+		my $command = qq($use_bin domode filterLongOverlappingReads --input_BAM $BAM --output_FASTQ $output_file --graphDir ../tmp2/GS_nextGen/${graph});
+		
+		if($referenceGenome)
+		{
+			$command .= qq( --referenceGenome $referenceGenome);
+		}	
 		
 		print "Now executing command:\n$command\n\n";
 		

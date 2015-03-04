@@ -38,6 +38,7 @@
 #include "GraphAlignerUnique/UniqueAlignerTests.h"
 
 #include "readFilter/readFilter.h"
+#include "readFilter/filterLongOverlappingReads.h"
 
 #include "Utilities.h"
 
@@ -1296,6 +1297,53 @@ int main(int argc, char *argv[])
 		F.uniqueness_subtract = uniqueness_subtract;
 		F.referenceGenomeFile = referenceGenome;
 		F.HiSeq250bp = HiSeq250bp;
+
+		F.doFilter();
+
+	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "filterLongOverlappingReads"))
+	{
+		std::string referenceGenome;
+
+		vector<string> arguments (argv + 1, argv + argc + !argc);
+
+		std::string input_BAM;
+		std::string output_FASTQ;
+		std::string graphDir;
+
+		int minimumOverlap = 0;
+
+		for(unsigned int i = 2; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--input_BAM")
+			{
+				input_BAM = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--referenceGenome")
+			{
+				referenceGenome = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--output_FASTQ")
+			{
+				output_FASTQ = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--minimumOverlap")
+			{
+				minimumOverlap = Utilities::StrtoD(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--graphDir")
+			{
+				graphDir = arguments.at(i+1);
+			}
+		}
+
+		filterLongOverlappingReads F;
+		F.input_BAM = input_BAM;
+		F.output_FASTQ = output_FASTQ;
+		F.referenceGenomeFile = referenceGenome;
+		F.graphDir = graphDir;
+		F.minimumOverlap = minimumOverlap;
 
 		F.doFilter();
 
