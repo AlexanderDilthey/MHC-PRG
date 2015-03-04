@@ -64,81 +64,48 @@ void filterLongOverlappingReads::doFilter()
 
 	myGraph_coveredIntervals.reduceIntervalsBy(minimumOverlap);
 
-	std::string fn_1 = output_FASTQ + "_1";
-	std::string fn_2 = output_FASTQ + "_2";
+	std::string fn = output_FASTQ;
 
-	std::ofstream fastq_1_output;
-	fastq_1_output.open(fn_1.c_str());
-	if(! fastq_1_output.is_open())
+	std::ofstream fastq_output;
+	fastq_output.open(output_FASTQ.c_str());
+	if(! fastq_output.is_open())
 	{
-		throw std::runtime_error("readFilter::doFilter(): Cannot open file "+fn_1);
-	}
-
-	std::ofstream fastq_2_output;
-	fastq_2_output.open(fn_2.c_str());
-	if(! fastq_2_output.is_open())
-	{
-		throw std::runtime_error("readFilter::doFilter(): Cannot open file "+fn_2);
+		throw std::runtime_error("readFilter::doFilter(): Cannot open file "+output_FASTQ);
 	}
 
 	std::function<void(const fastq_readPair&)> printFunction = [&](const fastq_readPair& read) -> void {
+			std::string normalAlignmentInfoString = ":"+read.getNormalAlignmentString();
 
-		std::string normalAlignmentInfoString = ":"+read.getNormalAlignmentString();
+			std::string read1_readID = read.a1.readID + normalAlignmentInfoString;		
 
-			std::string read1_readID = read.a1.readID;
+			assert(read.a2.sequence.length() == 0);
+			assert(read.a2.qualities.length() == 0);
 
-			{
-				assert((read1_readID.substr(read1_readID.length() - 2) == "/1") || (read1_readID.substr(read1_readID.length() - 2) == "/2"));
-				std::string read1_suffix = read1_readID.substr(read1_readID.length() - 2);
-				read1_readID = read1_readID.substr(0, read1_readID.length() - 2);
-				read1_readID.append(normalAlignmentInfoString);
-				read1_readID.append(read1_suffix);
-			}
-
-			std::string read2_readID = read.a2.readID;
-
-			{
-				assert((read2_readID.substr(read2_readID.length() - 2) == "/1") || (read2_readID.substr(read2_readID.length() - 2) == "/2"));
-				std::string read1_suffix = read2_readID.substr(read2_readID.length() - 2);
-				read2_readID = read2_readID.substr(0, read2_readID.length() - 2);
-				read2_readID.append(normalAlignmentInfoString);
-				read2_readID.append(read1_suffix);
-			}
-
-
-
-			fastq_1_output << "@" << read1_readID << ":FROM:" << read.a1.fromString << "\n"
+			fastq_output << "@" << read1_readID << ":FROM:" << read.a1.fromString << "\n"
 					  << read.a1.sequence    << "\n"
 					  << "+"         << "\n"
 					  << read.a1.qualities   << "\n";
-
-			// todo check - reverse complement
-			// std::string read_2_sequence_forPrint = seq_reverse_complement(read.a2.sequence);
-			// std::string read_2_qualities_forPrint = read.a2.qualities;
-			// std::reverse(read_2_qualities_forPrint.begin(), read_2_qualities_forPrint.end());
-
-			std::string read_2_sequence_forPrint = read.a2.sequence;
-			std::string read_2_qualities_forPrint = read.a2.qualities;
-
-			fastq_2_output << "@" << read2_readID << ":FROM:" << read.a2.fromString << "\n"
-							  << read_2_sequence_forPrint    << "\n"
-							  << "+"         << "\n"
-							  << read_2_qualities_forPrint   << "\n";
 	};
 
 	std::function<bool(const fastq_readPair&, bool)> decisionFunction = [&](const fastq_readPair& read, bool verboseDecisionFunction) -> bool {
 		bool forReturn = false;
 
+		assert(read.a2.sequence.length() == 0);
+		assert(read.a2.qualities.length() == 0);
+		
 		if(read.a1.fromID.length())
 			forReturn = forReturn || alignmentOverlapsRegionCoveredByGraph(myGraph_coveredIntervals, read.a1.fromID, read.a1.fromPosition, read.a1.toPosition);
 
-		if(read.a2.fromID.length())
-			forReturn = forReturn || alignmentOverlapsRegionCoveredByGraph(myGraph_coveredIntervals, read.a2.fromID, read.a2.fromPosition, read.a2.toPosition);
+		
+		//if(read.a2.fromID.length())
+		//	forReturn = forReturn || alignmentOverlapsRegionCoveredByGraph(myGraph_coveredIntervals, read.a2.fromID, read.a2.fromPosition, read.a2.toPosition);
 
 		return forReturn;
 	};
 
 	filterBAM(threads, input_BAM, referenceGenomeFile, output_FASTQ, &decisionFunction, &printFunction, true);
+	
+	fastq_output.close();
 }
 
 

@@ -978,7 +978,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 				std::string nameWithPairID = name;
 
 				int whichMate = 0;
-				assert(al.IsPaired());
+				//assert(al.IsPaired());
 				if ( al.IsPaired() )
 				{
 				   nameWithPairID.append( (al.IsFirstMate() ? "/1" : "/2") );
@@ -1077,48 +1077,68 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 				// std::cout << name << " " << sequence << "\n";
 
 				// std::cout << name << " " << reads.count(name) << "\n";
-				if(thread_reads.count(name) == 0)
+				if ( al.IsPaired() )
 				{
-					fastq_readPair p;
-					bool success = p.takeAlignment(simpleAlignment, whichMate);
-					assert(success);
-					thread_reads[name] = p;
+					if(thread_reads.count(name) == 0)
+					{
+						fastq_readPair p;
+						bool success = p.takeAlignment(simpleAlignment, whichMate);
+						assert(success);
+						thread_reads[name] = p;
+					}
+					else
+					{
+						fastq_readPair& thisPair = thread_reads.at(name);
+						bool success = thisPair.takeAlignment(simpleAlignment, whichMate);
+						if(! success)
+						{
+							std::cerr << "There is a problem with the read IDs in this BAM.\n";
+							std::cerr << "Read ID: " << name << " / " << nameWithPairID << "\n";
+							std::cerr << "whichMate: " << whichMate << "\n";
+							std::cerr << "thisPair.have1: " << thisPair.have1 << " with ID " << thisPair.a1.readID << "\n";
+							std::cerr << "thisPair.have2: " << thisPair.have2 << " with ID " << thisPair.a2.readID << "\n" << std::flush;
+						}
+						assert(success);
+						if(thisPair.isComplete())
+						{
+							bool verbose = false;
+							if(isChromosome6 && (alignmentMappedPosition != -1) && (alignmentMappedPosition >= 29910247) && (alignmentMappedPosition <= 29913661))
+							{
+								verbose = true;
+							}
+							// process
+							if((*decide)(thisPair, verbose))
+							{
+								thread_reads_forPrint[name] = thisPair;
+								if(thread_reads_forPrint.size() > print_at_once)
+								{
+									#pragma omp critical
+									{
+										print_threaded_reads();
+									}
+								}
+							}
+
+							thread_reads.erase(name);
+						}
+					}
 				}
 				else
 				{
-					fastq_readPair& thisPair = thread_reads.at(name);
-					bool success = thisPair.takeAlignment(simpleAlignment, whichMate);
-					if(! success)
-					{
-						std::cerr << "There is a problem with the read IDs in this BAM.\n";
-						std::cerr << "Read ID: " << name << " / " << nameWithPairID << "\n";
-						std::cerr << "whichMate: " << whichMate << "\n";
-						std::cerr << "thisPair.have1: " << thisPair.have1 << " with ID " << thisPair.a1.readID << "\n";
-						std::cerr << "thisPair.have2: " << thisPair.have2 << " with ID " << thisPair.a2.readID << "\n" << std::flush;
-					}
+					fastq_readPair p;
+					bool success = p.takeAlignment(simpleAlignment, 1);
 					assert(success);
-					if(thisPair.isComplete())
+					if((*decide)(p, false))
 					{
-						bool verbose = false;
-						if(isChromosome6 && (alignmentMappedPosition != -1) && (alignmentMappedPosition >= 29910247) && (alignmentMappedPosition <= 29913661))
+						thread_reads_forPrint[name] = p;
+						if(thread_reads_forPrint.size() > print_at_once)
 						{
-							verbose = true;
-						}
-						// process
-						if((*decide)(thisPair, verbose))
-						{
-							thread_reads_forPrint[name] = thisPair;
-							if(thread_reads_forPrint.size() > print_at_once)
+							#pragma omp critical
 							{
-								#pragma omp critical
-								{
-									print_threaded_reads();
-								}
+								print_threaded_reads();
 							}
 						}
-
-						thread_reads.erase(name);
-					}
+					}					
 				}
 			}
 
