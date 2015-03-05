@@ -1457,6 +1457,410 @@ seedAndExtend_return GraphAlignerUnique::seedAndExtend(std::string sequence_nonR
 }   
 
 
+std::vector<seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_longlocal_allAlignments(oneRead R)
+{
+	assert(g != 0);
+
+	bool verbose = false;
+
+	std::map<std::string, std::string> readID_2_group;
+
+	// this section here can be filled with output from extractReadsAlignment.pl
+	// there are two of those - here and in seedAndExtend_local_paired_or_short
+	readID_2_group["@@B819A2ABXX:8:1207:13886:194936#ATCACGAT:normalAlignment=1.41234e-08[6:31324085-31324174];6.94743e-18[6:31323989-31324078];1;7/1:FROM:6:31324085:FROM:"] = "mapperSaysThere";
+
+
+	// end output from extractReadsAlignment.pl
+
+	verbose = ( readID_2_group.count(R.name));
+
+	if(verbose)
+	{
+		std::cout << "=======================================================================================\n";
+		std::cout << "[ Unpaired long-read alignment of " << R.name << "\n";
+		std::cout << "=======================================================================================\n\n";
+
+	}
+
+	seedAndExtend_return_local read_maxBacktrace;
+	std::vector<seedAndExtend_return_local> read_backtraces;
+
+	bool verbose_before = this->verbose;
+	if(verbose)
+	{
+		this->verbose = true;
+		this->verbose = false;
+	}
+
+	read_maxBacktrace = seedAndExtend_short(R.sequence, read_backtraces);
+
+	this->verbose = verbose_before;
+
+
+	if(verbose)
+	{
+		std::cout << "Pre-filtering read_backtraces.size(): " << read_backtraces.size() << "\n";
+	}
+
+	auto filterBacktraces = [](std::vector<seedAndExtend_return_local> backtraces) -> std::vector<seedAndExtend_return_local> {
+		std::set<std::string> backtraces_present;
+		std::vector<seedAndExtend_return_local> forReturn;
+		for(unsigned int i = 0; i < backtraces.size(); i++)
+		{
+			seedAndExtend_return_local& thisBacktrace = backtraces.at(i);
+			std::string separator = "///!!!///";
+			std::string serialization = thisBacktrace.graph_aligned + separator +
+										thisBacktrace.sequence_aligned + separator +
+										Utilities::join(Utilities::ItoStr(thisBacktrace.graph_aligned_levels), ";") + separator +
+										Utilities::ItoStr(thisBacktrace.reverse);
+
+			if(! backtraces_present.count(serialization))
+			{
+				backtraces_present.insert(serialization);
+				forReturn.push_back(backtraces.at(i));
+			}
+		}
+		return forReturn;
+	};
+
+	auto normalize_loglikelihoods = [](std::vector<double>& v) -> void {
+		std::pair<double, unsigned int> v_max = Utilities::findVectorMax(v);
+		double v_exp_sum = 0;
+		for(unsigned int i = 0; i < v.size(); i++)
+		{
+			assert(v.at(i) <= v_max.first);
+			v.at(i) = exp(v.at(i) - v_max.first);
+			if(!(v.at(i) >= 0))
+			{
+				std::cerr << "! (v.at(i) >= 0)" << "\n" << std::flush;
+				std::cerr << v.at(i) << "\n" << std::flush;
+			}
+			assert(v.at(i) >= 0);
+			assert(v.at(i) <= 1);
+			v_exp_sum += v.at(i);
+		}
+
+		for(unsigned int i = 0; i < v.size(); i++)
+		{
+			assert(v.at(i) <= 1);
+			v.at(i) = v.at(i) / v_exp_sum;
+		}
+	};
+
+	read_backtraces = filterBacktraces(read_backtraces);
+
+	if(verbose)
+	{
+		std::cout << "GraphAlignerUnique::seedAndExtend_longlocal_allAlignments(..): Post-filtering read_backtraces.size(): " << read_backtraces.size() << "\n";
+	}
+
+	auto alignmentLevel = [](std::vector<int> levels, int firstLast) -> int {
+		if(firstLast == -1)
+		{
+			unsigned int i = 0;
+			while(levels.at(i) == -1)
+			{
+				i++;
+				if(i >= levels.size())
+					break;
+			}
+			if(i == levels.size())
+			{
+				return -1;
+			}
+			else
+			{
+				return levels.at(i);
+			}
+		}
+		else if(firstLast == 1)
+		{
+			int i = levels.size() - 1;
+			while(levels.at(i) == -1)
+			{
+				i--;
+				if(i == -1)
+					break;
+			}
+			if(i == -1)
+			{
+				return -1;
+			}
+			else
+			{
+				return levels.at(i);
+			}
+		}
+		else
+		{
+			assert( 1 == 0 );
+			return -1;
+		}
+	};
+
+	if(verbose) std::cout << "GraphAlignerUnique::seedAndExtend_longlocal_allAlignments(..): Read alternatives:\n" << std::flush;
+	std::vector<double> likelihoods_read_alternatives;
+	for(unsigned int i = 0; i < read_backtraces.size(); i++)
+	{
+		seedAndExtend_return_local& thisBacktrace = read_backtraces.at(i);
+		int ignore;
+		double LL = scoreOneAlignment(R, thisBacktrace, ignore);
+		likelihoods_read_alternatives.push_back(LL);
+
+		if(verbose)
+		{
+			int firstLevel = alignmentLevel(thisBacktrace.graph_aligned_levels, -1);
+			int lastLevel = alignmentLevel(thisBacktrace.graph_aligned_levels, 1);
+			std::string firstLocus = (firstLevel != -1) ? g->getOneLocusIDforLevel(firstLevel) : "";
+			std::string lastLocus = (lastLevel != -1) ? g->getOneLocusIDforLevel(lastLevel) : "";
+
+			std::cout << "\t" << i << " " << LL << " [" << thisBacktrace.graph_aligned_levels.front() << " - " << thisBacktrace.graph_aligned_levels.back() << "]\n" << std::flush;
+			std::cout << "\t\t" << firstLocus << " - " << lastLocus << "\n";
+			std::cout << "\t\t" << read_backtraces.at(i).graph_aligned << "\n";
+			std::cout << "\t\t" << read_backtraces.at(i).sequence_aligned << "\n";
+			std::cout << std::flush;
+		}
+	}
+	assert(likelihoods_read_alternatives.size() == read_backtraces.size());
+
+
+	std::pair<double, unsigned int> combinedScores_max = Utilities::findVectorMax(likelihoods_read_alternatives);
+
+	std::vector<double> combinedScores_nonGenomic = likelihoods_read_alternatives;
+	std::vector<double> combinedScores_withGenomic = likelihoods_read_alternatives;
+
+	double sum_LL = 0;
+	normalize_loglikelihoods(combinedScores_nonGenomic);
+
+	if(verbose)
+	{
+		std::cout << "\tBest log likelihood: " << combinedScores_max.first << " / normalized: " << combinedScores_nonGenomic.at(combinedScores_max.second) << "\n";
+		std::cout << std::flush;
+	}
+
+	for(unsigned int i = 0; i < combinedScores_nonGenomic.size(); i++)
+	{
+		double q = combinedScores_nonGenomic.at(i);
+		read_backtraces.at(i).mapQ = q;
+		read_backtraces.at(i).mapQ_genomic = q;
+
+		sum_LL += q;
+	}
+	assert(abs(sum_LL - 1) <= 1e-5);
+
+	bool have_combined_log_likelihood_BAMalignment = false;
+	double combined_log_likelihood_BAMalignment = 0;
+
+	if(R.name.find("normalAlignment=") != std::string::npos)
+	{
+		std::string nA_string_start = "normalAlignment=";
+		size_t start_nA_string = R.name.find(nA_string_start);
+		assert(!(R.name.find(":FROM:") != std::string::npos));
+		size_t stop_nA_string = R.name.find(":FROM:");
+		assert((stop_nA_string != std::string::npos));
+		assert(stop_nA_string > 0);
+		stop_nA_string = stop_nA_string - 1;
+		assert(stop_nA_string >= start_nA_string);
+
+		std::string nA_string = R.name.substr(start_nA_string, stop_nA_string - start_nA_string + 1);
+
+		std::string part_noNA = nA_string.substr(nA_string_start.length());
+
+		std::vector<std::string> normalAlignment_parts = Utilities::split(part_noNA, ";");
+
+		if(!(normalAlignment_parts.size() == 4))
+		{
+			std::cerr << "normalAlignment_parts.size(): " << normalAlignment_parts.size() << "\n";
+			std::cerr << "part_noNA: " << part_noNA << "\n" << std::flush;
+		}
+		assert(normalAlignment_parts.size() == 4);
+
+		if(normalAlignment_parts.at(0) != "NA")
+		{
+			auto extractAlignmentInfo = [](std::string input, double& ret_likelihood, std::string& ret_regionID, int& ret_start, int& ret_stop) {
+				std::vector<std::string> p = Utilities::split(input, "[");
+				assert(p.size() == 2);
+				ret_likelihood = Utilities::StrtoD(p.at(0));
+
+				std::string p_2 = p.at(1);
+				p_2 = p_2.substr(0, p_2.length() - 1);
+
+				std::vector<std::string> p2_parts = Utilities::split(p_2, ":");
+				assert(p2_parts.size() == 2);
+				ret_regionID = p2_parts.at(0);
+
+				std::vector<std::string> position_parts = Utilities::split(p2_parts.at(1), "-");
+				assert(position_parts.size() == 2);
+
+				ret_start = Utilities::StrtoI(position_parts.at(0));
+				ret_stop = Utilities::StrtoI(position_parts.at(1));
+			};
+
+			double read_alignment_likelihood;
+			std::string read_alignment_regionID;
+			int read_alignment_start;
+			int read_alignment_stop;
+
+
+			extractAlignmentInfo(normalAlignment_parts.at(0), read_alignment_likelihood, read_alignment_regionID, read_alignment_start, read_alignment_stop);
+
+
+			bool completelyInsideGraph = alignmentContainedWithinAreaCoveredByMyGraph(read_alignment_regionID, read_alignment_start, read_alignment_stop);
+			if((! completelyInsideGraph))
+			{
+				combined_log_likelihood_BAMalignment = log(read_alignment_likelihood);
+			}
+		}
+	}
+
+	if(have_combined_log_likelihood_BAMalignment)
+	{
+		combinedScores_withGenomic.push_back(combined_log_likelihood_BAMalignment);
+		normalize_loglikelihoods(combinedScores_withGenomic);
+		for(unsigned int i = 0; i < combinedScores_nonGenomic.size(); i++)
+		{
+			double q = combinedScores_withGenomic.at(i);
+			read_backtraces.at(i).mapQ_genomic = q;
+		}
+	}
+
+	auto alignedSequence2SequenceIndex = [](std::string sequence_aligned, bool reverse) -> std::vector<int> {
+		std::vector<int> forReturn;
+		forReturn.reserve(sequence_aligned.length());
+		int i_noGap = -1;
+		int sequenceLength_noGap = 0;
+		for(unsigned int i = 0; i < sequence_aligned.length(); i++)
+		{
+			char sequenceAlignmentChar = sequence_aligned.at(i);
+			if(sequenceAlignmentChar != '_')
+			{
+				sequenceLength_noGap++;
+			}
+		}
+
+		for(unsigned int i = 0; i < sequence_aligned.length(); i++)
+		{
+			char sequenceAlignmentChar = sequence_aligned.at(i);
+			int sequenceIndex;
+			if(sequenceAlignmentChar == '_')
+			{
+				sequenceIndex = -1;
+			}
+			else
+			{
+				i_noGap++;
+				if(reverse)
+				{
+					sequenceIndex = sequenceLength_noGap - i_noGap - 1;
+				}
+				else
+				{
+					sequenceIndex = i_noGap;
+				}
+				assert(sequenceIndex >= 0);
+				assert(sequenceIndex < sequenceLength_noGap);
+			}
+
+			forReturn.push_back(sequenceIndex);
+		}
+
+		return forReturn;
+	};
+
+	std::map<std::string, double> alignmentPositionConfidences;
+	for(unsigned int i = 0; i < read_backtraces.size(); i++)
+	{
+		std::vector<int> first_sequence_index = alignedSequence2SequenceIndex(read_backtraces.at(i).sequence_aligned, read_backtraces.at(i).reverse);
+
+		std::string r_reverse = (read_backtraces.at(i).reverse) ? "minus" : "plus";
+
+		for(unsigned int j = 0; j < read_backtraces.at(i).graph_aligned.length(); j++)
+		{
+			std::string c_graph = read_backtraces.at(i).graph_aligned.substr(j, 1);
+			int l_graph = read_backtraces.at(i).graph_aligned_levels.at(j);
+			int idx_sequence = first_sequence_index.at(j);
+			std::string positionID = c_graph + ":" + Utilities::ItoStr(l_graph) + ":" +"r1" + ":" + r_reverse +":" + Utilities::ItoStr(idx_sequence);
+			if(alignmentPositionConfidences.count(positionID) == 0)
+			{
+				alignmentPositionConfidences[positionID] = 0;
+			}
+			alignmentPositionConfidences.at(positionID) += read_backtraces.at(i).mapQ_genomic;
+		}
+	}
+
+	auto test_phredConversion = [](double p, double tolerance)
+	{
+		assert(p >= 0);
+		assert(p <= 1);
+		char phred = Utilities::PCorrectToPhred(p);
+		double pBack = Utilities::PhredToPCorrect(phred);
+		if(!(abs(p - pBack) <= pBack))
+		{
+			std::cerr << "p = " << p << "\n";
+			std::cerr << "phred = " << (int)phred << "\n";
+			std::cerr << "pBack = " << pBack << "\n";
+			std::cerr << "abs(p - pBack) = " << abs(p - pBack) << "\n";
+			std::cerr << "tolerance: " << tolerance << "\n";
+			std::cerr << std::flush;
+		}
+		assert(abs(p - pBack) <= pBack);
+	};
+
+	test_phredConversion(0.0, 1e-5);
+	test_phredConversion(0.5, 1e-1);
+	test_phredConversion(0.6, 1e-1);
+	test_phredConversion(0.7, 1e-1);
+	test_phredConversion(0.8, 1e-2);
+	test_phredConversion(0.9, 1e-2);
+	test_phredConversion(0.9, 1e-2);
+	test_phredConversion(0.99, 1e-3);
+	test_phredConversion(0.999, 1e-3);
+	test_phredConversion(0.9999, 1e-4);
+	test_phredConversion(1, 1e-5);
+
+	for(unsigned int i = 0; i < read_backtraces.size(); i++)
+	{
+		std::vector<int> first_sequence_index = alignedSequence2SequenceIndex(read_backtraces.at(i).sequence_aligned, read_backtraces.at(i).reverse);
+
+
+		std::string r_reverse = (read_backtraces.at(i).reverse) ? "minus" : "plus";
+
+		read_backtraces.at(i).mapQ_genomic_perPosition.reserve(read_backtraces.at(i).graph_aligned.length());
+		for(unsigned int j = 0; j < read_backtraces.at(i).graph_aligned.length(); j++)
+		{
+			std::string c_graph = read_backtraces.at(i).graph_aligned.substr(j, 1);
+			int l_graph = read_backtraces.at(i).graph_aligned_levels.at(j);
+			int idx_sequence = first_sequence_index.at(j);
+			std::string positionID = c_graph + ":" + Utilities::ItoStr(l_graph) + ":" +"r1" + ":" + r_reverse +":" + Utilities::ItoStr(idx_sequence);
+
+			double Q = alignmentPositionConfidences.at(positionID);
+			if(!((Q - 1) <= 1e-5))
+			{
+				std::cerr << "Q: " << Q << "\n";
+				std::cerr << "positionID: " << positionID << "\n";
+				std::cerr << "j: " << j << "\n";
+				std::cerr << "forReturn.at(i).first.graph_aligned.length(): " << read_backtraces.at(i).graph_aligned.length() << "\n";
+				std::cerr << std::flush;
+			}
+			assert((Q - 1) <= 1e-5);
+			if(Q > 1)
+			{
+				Q = 1;
+			}
+			assert(Q >= read_backtraces.at(i).mapQ_genomic);
+			read_backtraces.at(i).mapQ_genomic_perPosition.push_back(Utilities::PCorrectToPhred(Q));
+		}
+	}
+
+	std::sort(read_backtraces.begin(), read_backtraces.end(), [](const seedAndExtend_return_local& a, const seedAndExtend_return_local& b){
+		return (a.mapQ < b.mapQ);
+	});
+
+	std::reverse(read_backtraces.begin(), read_backtraces.end());
+
+	return read_backtraces;
+}
+
 std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > GraphAlignerUnique::seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd)
 {
 	assert(g != 0);
@@ -1820,6 +2224,7 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 
 			if((! completelyInsideGraph))
 			{
+				// this is likely a BUG!
 				double combined_log_likelihood_BAMalignment = log(read1_alignment_likelihood) + log(read2_alignment_likelihood);
 
 				if(strandsOK)
@@ -2043,9 +2448,6 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 	
 	return forReturn;   
 }
-
-
-
 
 
 std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired_or_short(oneReadPair readPair, bool usePairing, bool use_short, double insertSize_mean, double insertSize_sd, bool estimateInsertSize, std::map<int, double>& insertSize_posterior_ret)

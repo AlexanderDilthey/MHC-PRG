@@ -363,6 +363,35 @@ if($actions =~ /a/)
 }
 
 
+if($actions =~ /u/)
+{
+	unless(scalar(@sampleIDs))
+	{
+		die "Please provide some --sampleIDs for alignment.";
+	}
+		
+	my @fastQ_files;
+	foreach my $sampleID (@sampleIDs)
+	{
+		my $fastQ_file = '../tmp/hla/'.$sampleID.'/reads.p';
+		push(@fastQ_files, $fastQ_file);
+	}
+	
+	my $fastQ_files = join(',', @fastQ_files);
+	
+	my $pseudoReferenceGenome = qq(../tmp2/GS_nextGen/${graph}/pseudoReferenceGenome.txt);
+	unless(-e $pseudoReferenceGenome)
+	{
+		die "Pseudo-reference file $pseudoReferenceGenome not existing.";
+	}
+	my $command = qq($use_bin domode alignLongUnpairedReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ../tmp2/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
+	
+	print "Now executing command:\n$command\n\n";
+	
+	system($command);
+}
+
+
 if($actions =~ /i/)
 {
 	unless(scalar(@sampleIDs))

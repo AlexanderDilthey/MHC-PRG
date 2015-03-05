@@ -411,6 +411,41 @@ int main(int argc, char *argv[])
 
 		alignShortReadsToHLAGraph_multipleAlignments(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile);
 	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "alignLongUnpairedReadsToHLAGraph"))
+	{
+		bool labelOnly = false;
+		// omp_set_num_threads(40);
+		CONFIG.threads=40;
+
+
+		std::string input_FASTQ;
+		std::string graph_dir;
+		std::string referenceGenome;
+
+		for(unsigned int i = 0; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--input_FASTQ")
+			{
+				input_FASTQ = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--graphDir")
+			{
+				graph_dir = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--referenceGenome")
+			{
+				referenceGenome = arguments.at(i+1);
+			}
+		}
+
+		assert(input_FASTQ.length());
+		assert(graph_dir.length());
+		assert(referenceGenome.length());
+
+		alignLongUnpairedReadsToHLAGraph(input_FASTQ, graph_dir, referenceGenome);
+	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "simulateHLAreads"))
 	{
 		std::string graph_dir;

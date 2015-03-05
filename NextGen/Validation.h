@@ -20,6 +20,7 @@ using namespace std;
 
 class seedAndExtend_return_local;
 class oneReadPair;
+class oneRead;
 
 typedef std::vector< std::vector<std::string> > diploidGenomeString;
 
@@ -44,6 +45,7 @@ void validateAllChromotypesVsVCF(std::string chromotypes_file, std::string amend
 void alignContigsToAllChromotypes(std::string chromotypes_file, std::string amended_chromotypes_file, int chromotypes_startCoordinate, int chromotypes_stopCoordinate, std::string VCFfile, int VCF_minRange, int VCF_maxRange, std::string referenceGenome, std::string deBruijnGraph, int kMer_size, int cortex_height, int cortex_width, std::string outputDir_contigs, std::string contigsFile_Fasta, std::string graphDir);
 void alignShortReadsToHLAGraph(std::string FASTQs, std::string graphDir, std::string referenceGenome, std::vector<std::pair<double, double>> inserSize_mean_sd_perFile);
 void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::string graphDir, std::string referenceGenomeFile, std::vector<std::pair<double, double>> inserSize_mean_sd_perFile);
+void alignLongUnpairedReadsToHLAGraph(std::string FASTQs, std::string graphDir, std::string referenceGenomeFile);
 
 void vennDiagrams(std::vector<std::string> setNames, std::vector<std::set<std::string>*> kMers, std::vector<std::set<std::string>*> kMers_present, std::vector<std::map<std::string, double>* > kMer_optimalities, std::string outputFile);
 
@@ -58,6 +60,8 @@ std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string
 std::vector<std::string> filesInDirectory(std::string path);
 std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_base_path);
 std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string fastq_2_path);
+std::vector<oneRead> getUnpairedReadsFromFastQ(std::string fastq_path);
+
 void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads, double& ret_IS_mean, double& ret_IS_sd);
 
 #endif /* VALIDATION_H_ */
