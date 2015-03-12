@@ -629,11 +629,23 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 		}
 		else
 		{
-			if(!(lines.at(0).substr(0, 5) == "\tRead"))
+			if(longUnpairedReads)
 			{
-				std::cerr << "Line 0 should be TABRead, but is not!\n" << lines.at(0) << "\n" << std::flush;
-			}	
-			assert(lines.at(0).substr(0, 6) == "\tRead ");
+				if(!(lines.at(0).substr(0, 8) == "\tAligned"))
+				{
+					std::cerr << "Line 0 should be TABAligned, but is not!\n" << lines.at(0) << "\n" << "'" << lines.at(0).substr(0, 8) << "'\n" << std::flush;
+				}			
+				assert(lines.at(0).substr(0, 9) == "\tAligned ");
+				
+			}
+			else
+			{
+				if(!(lines.at(0).substr(0, 5) == "\tRead"))
+				{
+					std::cerr << "Line 0 should be TABRead, but is not!\n" << lines.at(0) << "\n" << std::flush;
+				}
+				assert(lines.at(0).substr(0, 6) == "\tRead ");
+			}
 			std::string str_readID = lines.at(0).substr(6);
 			std::string str_score = lines.at(1).substr(2);
 			std::string str_reverse = lines.at(2).substr(2);
@@ -682,7 +694,7 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 	assert(inputStream.good());
 	std::getline(inputStream, line);
 	
-	if(longUnpairedReads)
+	if(! longUnpairedReads)
 	{
 		std::vector<std::string> firstLine_fields = Utilities::split(line, " ");
 		assert(firstLine_fields.size() == 3);
@@ -722,7 +734,6 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 			oneRead r1("", "", "");
 			oneRead r2("", "", "");
 			getAlignment(inputStream, fail_1, a1, r1, lineForInsertion);
-			getAlignment(inputStream, fail_2, a2, r2, "");
 			oneReadPair rP(r1, r2, 0);			 
 			if(fail_1 || fail_2)
 			{
