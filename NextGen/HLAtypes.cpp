@@ -1613,7 +1613,7 @@ std::set<std::string> getCompletelyDefinedHLAAlleles(std::string graphDir, std::
 }
 
 
-void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotypes_perLocus_1_str, std::string starting_haplotypes_perLocus_2_str)
+void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotypes_perLocus_1_str, std::string starting_haplotypes_perLocus_2_str, bool longUnpairedReads)
 {
 	
 	std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Start.\n";
@@ -3975,7 +3975,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 	outputFN_parameters_outputStream.close();
 }
 
-void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2)
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads)
 {
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));

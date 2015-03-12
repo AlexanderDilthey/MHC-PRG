@@ -401,12 +401,30 @@ if($actions =~ /i/)
 		
 	my @aligned_files;
 	my @stdout_files;
+	
+	my $switch_long_reads;
+
 	foreach my $sampleID (@sampleIDs)
 	{
+		my $local_switch_long_reads = '';
 		my $aligned_file = '../tmp/hla/'.$sampleID.'/reads.p.n.aligned';
 		unless(-e $aligned_file)
 		{
-			die "Expected file $aligned_file not found";
+			$aligned_file = '../tmp/hla/'.$sampleID.'/reads.p.aligned';
+			$local_switch_long_reads = '--longUnpairedReads';
+			unless(-e $aligned_file)
+			{			
+				die "Expected file $aligned_file not found";
+			}
+		}
+		
+		if(defined $switch_long_reads)
+		{
+			die unless($switch_long_reads eq $local_switch_long_reads);
+		}
+		else
+		{
+			$switch_long_reads = $local_switch_long_reads;
 		}
 	
 		push(@aligned_files, $aligned_file);
@@ -424,6 +442,7 @@ if($actions =~ /i/)
 			}
 		}
 	}
+	die unless(defined $switch_long_reads);
 		
 	for(my $sI = 0; $sI <= $#aligned_files; $sI++)
 	{
@@ -434,7 +453,7 @@ if($actions =~ /i/)
 		
 		my ($aligned_file_name, $aligned_file_path) = fileparse($aligned_file);
 					
-		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ../tmp2/GS_nextGen/${graph} --sampleID $sampleID > $stdout_file);
+		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ../tmp2/GS_nextGen/${graph} ${switch_long_reads} --sampleID $sampleID > $stdout_file);
 	
 		print "Now executing command:\n$command\n\n";
 		

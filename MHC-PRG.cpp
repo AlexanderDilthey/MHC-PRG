@@ -540,6 +540,8 @@ int main(int argc, char *argv[])
 		std::string graph_dir;
 		std::string sampleID;
 
+		bool longUnpairedReads = false;
+		
 		for(unsigned int i = 0; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--input_alignedReads")
@@ -555,6 +557,11 @@ int main(int argc, char *argv[])
 			if(arguments.at(i) == "--sampleID")
 			{
 				sampleID = arguments.at(i+1);
+			}
+			
+			if(arguments.at(i) == "--longUnpairedReads")
+			{
+				longUnpairedReads = true;
 			}
 		}
 
@@ -579,9 +586,9 @@ int main(int argc, char *argv[])
 		
 		// todo activate
 		   
-		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads);
 		
-		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str);
+		HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "nextGenContigValidation"))
 	{
