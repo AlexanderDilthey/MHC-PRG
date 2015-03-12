@@ -936,14 +936,16 @@ void alignLongUnpairedReadsToHLAGraph(std::string FASTQs, std::string graphDir, 
 			int tI = omp_get_thread_num();
 			assert(omp_get_num_threads() == outerThreads);
 			assert((tI >= 0) && (tI < outerThreads));
-
+				
 			assert((readI >= 0) && (readI < reads.size()));
 			oneRead R= reads.at(readI);
 
 			assert((tI >= 0) && (tI < graphAligners.size()));
 
 			std::map<int, double> _IS_ignore;
+						
 			std::vector<seedAndExtend_return_local> alignments = graphAligners.at(tI)->seedAndExtend_longlocal_allAlignments(R);
+
 
 			if(alignments.size() > 1)
 			{
@@ -954,7 +956,9 @@ void alignLongUnpairedReadsToHLAGraph(std::string FASTQs, std::string graphDir, 
 			std::vector<seedAndExtend_return_local> alignments_forPrint;
 			unsigned int max_print_index = (alignments.size() > print_max_alignments) ? print_max_alignments : alignments.size();
 			double accumulated_LL = 0;
-			double accumulated_genomic_LL = 0;
+			double accumulated_genomic_LL = 0;   
+			assert(alignments.size() > 0);
+			assert(max_print_index <= alignments.size());
 			for(unsigned int i = 0; i < max_print_index; i++)
 			{
 				alignments_forPrint.push_back(alignments.at(i));
@@ -982,14 +986,13 @@ void alignLongUnpairedReadsToHLAGraph(std::string FASTQs, std::string graphDir, 
 			}
 			printedAlignments_perRead_combinedGenomicLL_perThread.at(tI).at(accumulated_genomic_LL_asInt)++;
 
-
 			alignments_perThread.at(tI).push_back(alignments_forPrint);
 			alignments_readPairI_perThread.at(tI).push_back(readI);
 
 			if(tI == 0)
 			{
 				std::cout  << Utilities::timestamp() << "\t\t" << "Thread " << tI << ": align read " << readI << "\n" << std::flush;
-			}
+			}			
 		}
 	};
 
@@ -1073,7 +1076,7 @@ void alignLongUnpairedReadsToHLAGraph(std::string FASTQs, std::string graphDir, 
 
 		std::string FASTQ = FASTQ_files.at(fI);
 
-		std::cout << Utilities::timestamp() << "alignShortReadsToHLAGraph_multipleAlignments(..): Loading reads from " << FASTQ << ".\n" << std::flush;
+		std::cout << Utilities::timestamp() << "alignLongUnpairedReadsToHLAGraph(..): Loading reads from " << FASTQ << ".\n" << std::flush;
 		std::vector<oneRead> combinedReads_for_alignment = getUnpairedReadsFromFastQ(FASTQ);
 
 		if(skipPairs_MOD != 1)

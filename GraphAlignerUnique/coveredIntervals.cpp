@@ -236,8 +236,10 @@ bool coveredIntervals::knowRegionID(std::string regionID) const
 coveredIntervals::~coveredIntervals()
 {
 	for(std::set<oneInterval*>::iterator iIt = intervals.begin(); iIt != intervals.end(); iIt++)
-	{
-		delete(*iIt);
+	{	
+	
+		oneInterval* interval = *iIt;
+		delete(interval);
 	}
 
 	for(std::map<std::string, IntervalTree<oneInterval*>*>::iterator treeIt = intervalTrees.begin(); treeIt != intervalTrees.end(); treeIt++)

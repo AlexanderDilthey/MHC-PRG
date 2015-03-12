@@ -1469,7 +1469,12 @@ std::vector<seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_longlo
 	// there are two of those - here and in seedAndExtend_local_paired_or_short
 	readID_2_group["@@B819A2ABXX:8:1207:13886:194936#ATCACGAT:normalAlignment=1.41234e-08[6:31324085-31324174];6.94743e-18[6:31323989-31324078];1;7/1:FROM:6:31324085:FROM:"] = "mapperSaysThere";
 
+	#pragma omp critical
+	{
+		std::cout << "\t\t\ttTread " << omp_get_thread_num() << " seedAndExtend_longlocal_allAlignments enter.\n" << std::flush;	
+	}  
 
+			
 	// end output from extractReadsAlignment.pl
 
 	verbose = ( readID_2_group.count(R.name));
@@ -1597,7 +1602,7 @@ std::vector<seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_longlo
 			return -1;
 		}
 	};
-
+	
 	if(verbose) std::cout << "GraphAlignerUnique::seedAndExtend_longlocal_allAlignments(..): Read alternatives:\n" << std::flush;
 	std::vector<double> likelihoods_read_alternatives;
 	for(unsigned int i = 0; i < read_backtraces.size(); i++)
@@ -1655,7 +1660,15 @@ std::vector<seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_longlo
 	{
 		std::string nA_string_start = "normalAlignment=";
 		size_t start_nA_string = R.name.find(nA_string_start);
-		assert(!(R.name.find(":FROM:") != std::string::npos));
+		if((!(R.name.find(":FROM:") != std::string::npos)))  
+		{
+			std::cerr << "Problem!\n";
+			std::cerr << "R.name: " << R.name << "\n";
+			std::cerr << std::flush;
+		}
+		
+		assert((R.name.find(":FROM:") != std::string::npos));
+
 		size_t stop_nA_string = R.name.find(":FROM:");
 		assert((stop_nA_string != std::string::npos));
 		assert(stop_nA_string > 0);
@@ -1704,16 +1717,17 @@ std::vector<seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_longlo
 
 			extractAlignmentInfo(normalAlignment_parts.at(0), read_alignment_likelihood, read_alignment_regionID, read_alignment_start, read_alignment_stop);
 
-
-			bool completelyInsideGraph = alignmentContainedWithinAreaCoveredByMyGraph(read_alignment_regionID, read_alignment_start, read_alignment_stop);
+			bool completelyInsideGraph = alignmentContainedWithinAreaCoveredByMyGraph(read_alignment_regionID, read_alignment_start, read_alignment_stop);			
 			if((! completelyInsideGraph))
 			{
 				combined_log_likelihood_BAMalignment = log(read_alignment_likelihood);
+				
+				have_combined_log_likelihood_BAMalignment = true;
 			}
 		}
-	}
+	}  
 
-	if(have_combined_log_likelihood_BAMalignment)
+	if(have_combined_log_likelihood_BAMalignment && 0)
 	{
 		combinedScores_withGenomic.push_back(combined_log_likelihood_BAMalignment);
 		normalize_loglikelihoods(combinedScores_withGenomic);
@@ -1852,11 +1866,13 @@ std::vector<seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_longlo
 		}
 	}
 
+	
 	std::sort(read_backtraces.begin(), read_backtraces.end(), [](const seedAndExtend_return_local& a, const seedAndExtend_return_local& b){
 		return (a.mapQ < b.mapQ);
 	});
 
 	std::reverse(read_backtraces.begin(), read_backtraces.end());
+	
 
 	return read_backtraces;
 }
@@ -3594,13 +3610,23 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 	
 	verbose = false;
 	int seedAndExtend_short_maximumBacktraces = 200;  
-
+	int maximumConsideredChains = -1;
+	
 	// just to remind everyone that this is for short reads
-	assert(sequence_nonReverse.length() < 300);
+	// assert(sequence_nonReverse.length() < 300);
 
 	if(verbose)
 		std::cout << Utilities::timestamp() << " Enter GraphAlignerUnique::seedAndExtend_short(..)!\n" << std::flush;
 
+	if(sequence_nonReverse.length() > 150)
+	{
+		maximumConsideredChains = 20;
+	}
+	if(sequence_nonReverse.length() > 500)
+	{
+		maximumConsideredChains = 10;
+	}	
+	
 	bool useReverse;
 	std::string sequence;
 	std::vector<std::string> kMers_sequence;
@@ -3705,12 +3731,23 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		double best_chain_subOptimality;
 		int best_chain_initialMatches;
 
+
+		int maximumChainIndex = chains_for_sequence.size();
+		if(maximumConsideredChains != -1)
+		{
+			if(maximumChainIndex > maximumConsideredChains)
+			{
+				maximumChainIndex = maximumConsideredChains;
+			}
+		}
+		
 		if(verbose)   
 		{      
-			std::cout << "\tChains: " << chains_for_sequence.size() << "\n" << std::flush;
+			std::cout << "\tChains: " << chains_for_sequence.size() << " / evaluate " << (maximumChainIndex+1) << "\n" << std::flush;
 		}
 			
-		for(int chainI = 0; chainI < (int)chains_for_sequence.size(); chainI++)
+			
+		for(int chainI = 0; chainI < maximumChainIndex; chainI++)
 		{
 			assert(currentChain != chains_orderedByLength.end());
 			kMerEdgeChain* thisChain = *currentChain;

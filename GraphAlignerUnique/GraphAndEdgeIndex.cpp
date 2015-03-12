@@ -50,6 +50,12 @@ std::vector<kMerEdgeChain*> GraphAndEdgeIndex::findChains(std::string sequence)
 
 	std::vector<std::string> kMers = partitionStringIntokMers(sequence, kMerSize);
 
+	if(kMers.size() == 0)
+	{
+		std::vector<kMerEdgeChain*> forReturn_empty;
+		return forReturn_empty;
+	}
+	
 	bool verbose = false;
 	
 	if(! superquiet)
