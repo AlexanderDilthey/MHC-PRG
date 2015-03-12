@@ -581,7 +581,7 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 
 }
 
-void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads, double& ret_IS_mean, double& ret_IS_sd)
+void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads, double& ret_IS_mean, double& ret_IS_sd, bool longUnpairedReads)
 {
 	ret_alignments.clear();
 	ret_alignments_originalReads.clear();
@@ -681,12 +681,21 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 	std::string line;
 	assert(inputStream.good());
 	std::getline(inputStream, line);
-	std::vector<std::string> firstLine_fields = Utilities::split(line, " ");
-	assert(firstLine_fields.size() == 3);
-	assert(firstLine_fields.at(0) == "IS");
 	
-	ret_IS_mean = Utilities::StrtoD(firstLine_fields.at(1));
-	ret_IS_sd = Utilities::StrtoD(firstLine_fields.at(2));
+	if(longUnpairedReads)
+	{
+		std::vector<std::string> firstLine_fields = Utilities::split(line, " ");
+		assert(firstLine_fields.size() == 3);
+		assert(firstLine_fields.at(0) == "IS");
+
+		ret_IS_mean = Utilities::StrtoD(firstLine_fields.at(1));
+		ret_IS_sd = Utilities::StrtoD(firstLine_fields.at(2));
+	}
+	else
+	{
+		ret_IS_mean = -1;
+		ret_IS_sd = -1;
+	}
 	
 	while(inputStream.good())
 	{

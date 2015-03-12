@@ -1651,10 +1651,11 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 	double insertSize_mean;
 	double insertSize_sd;
 
-	read_shortReadAlignments_fromFile(alignedReads_file, alignments, alignments_originalReads, insertSize_mean, insertSize_sd);
+	read_shortReadAlignments_fromFile(alignedReads_file, alignments, alignments_originalReads, insertSize_mean, insertSize_sd, longUnpairedReads);
+
 	assert(alignments.size() == alignments_originalReads.size());
 
-	std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Load reads -- done. Have " << alignments.size() << " read pairs, IS mean " << insertSize_mean << " / sd " << insertSize_sd << ".\n" << std::flush;
+	std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Load reads -- done. Have " << alignments.size() << " read pairs, long unpaired reads: " << longUnpairedReads << ", IS mean " << insertSize_mean << " / sd " << insertSize_sd << ".\n" << std::flush;
 
 	// read alignment statistics
 
@@ -1674,7 +1675,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			alignmentStats_strandsValid++;
 			double pairsDistance = alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair);
 			alignmentStats_strandsValid_distances.push_back(pairsDistance);
-			if(abs(pairsDistance - insertSize_mean) <= (5 * insertSize_sd))
+			if((abs(pairsDistance - insertSize_mean) <= (5 * insertSize_sd)) || longUnpairedReads)
 			{
 				alignmentStats_strandsValid_and_distanceOK++;
 			}
@@ -2245,9 +2246,9 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
+					(longUnpairedReads || (abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))) &&
 					(mapQ_thisAlignment >= minimumMappingQuality) &&
-					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK))
+					(longUnpairedReads || ((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK)))
 			)
 			{
 				// good
@@ -4045,10 +4046,10 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	double insertSize_mean;
 	double insertSize_sd;
 
-	read_shortReadAlignments_fromFile(alignedReads_file, alignments, alignments_originalReads, insertSize_mean, insertSize_sd);
+	read_shortReadAlignments_fromFile(alignedReads_file, alignments, alignments_originalReads, insertSize_mean, insertSize_sd, longUnpairedReads);
 	assert(alignments.size() == alignments_originalReads.size());
 
-	std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads -- done. Have " << alignments.size() << " read pairs, IS mean " << insertSize_mean << " / sd " << insertSize_sd << ".\n" << std::flush;
+	std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads -- done. Have " << alignments.size() << " read pairs, long unpaired reads: " << longUnpairedReads << ", IS mean " << insertSize_mean << " / sd " << insertSize_sd << ".\n" << std::flush;
 
 	// read alignment statistics
 
@@ -4068,7 +4069,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			alignmentStats_strandsValid++;
 			double pairsDistance = alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair);
 			alignmentStats_strandsValid_distances.push_back(pairsDistance);
-			if(abs(pairsDistance - insertSize_mean) <= (5 * insertSize_sd))
+			if(longUnpairedReads || (abs(pairsDistance - insertSize_mean) <= (5 * insertSize_sd)))
 			{
 				alignmentStats_strandsValid_and_distanceOK++;
 			}
@@ -4655,9 +4656,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			double mapQ_thisAlignment = alignedReadPair.first.mapQ_genomic;
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) && 
+					(longUnpairedReads || (abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))) &&
 					(mapQ_thisAlignment >= minimumMappingQuality) &&
-					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK))
+					(longUnpairedReads || ((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK)))
 					)  			
 			{
 				// good
@@ -4678,7 +4679,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				// std::cout << "\t\t" << "readPair " << readPairI << "/" < < alignments.size() << ", pairing FAILED.\n" << std::flush;
 
 				if(alignedReadPair_strandsValid(alignedReadPair) &&
-				(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)))
+				((longUnpairedReads || abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))))
 				{
 					std::cout << "REJECTED MAPQ " << alignedReadPair.first.mapQ << " GENOMIC " << alignedReadPair.first.mapQ_genomic << "\n" << std::flush;
 				}

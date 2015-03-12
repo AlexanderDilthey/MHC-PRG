@@ -62,6 +62,6 @@ std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_base_path);
 std::vector<oneReadPair> getReadsFromFastQ(std::string fastq_1_path, std::string fastq_2_path);
 std::vector<oneRead> getUnpairedReadsFromFastQ(std::string fastq_path);
 
-void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads, double& ret_IS_mean, double& ret_IS_sd);
+void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads, double& ret_IS_mean, double& ret_IS_sd, bool longUnpairedReads);
 
 #endif /* VALIDATION_H_ */
