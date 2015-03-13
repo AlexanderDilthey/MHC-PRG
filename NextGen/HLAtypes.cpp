@@ -74,7 +74,6 @@ bool veryConservativeReadLikelihoods = true;
 std::map<std::string, std::string> codon2AS;
 std::map<std::string, std::vector<std::string> > AS2codon;
 
-
 double logAvg(double a, double b)
 {
 	if(a > b)
@@ -113,6 +112,9 @@ public:
 	double mapQ_position;
 };
 
+
+void oneReadAlignment_2_exonPositions_paired(seedAndExtend_return_local& alignment, oneRead& read, std::vector<oneExonPosition>& ret_exonPositions, seedAndExtend_return_local& paired_alignment, oneRead& paired_read, int read_1_or_2, const std::vector<int>& combined_exon_sequences_graphLevels, const std::map<int, unsigned int>& graphLevel_2_exonPosition);
+void oneReadAlignment_2_exonPositions_unpaired(seedAndExtend_return_local& alignment, oneRead& read, std::vector<oneExonPosition>& ret_exonPositions, const std::vector<int>& combined_exon_sequences_graphLevels, const std::map<int, unsigned int>& graphLevel_2_exonPosition);
 
 auto countMismatchesInExon(std::vector<oneExonPosition>& exonPositions) -> int {
 	int forReturn = 0;
@@ -295,7 +297,7 @@ auto normalizeVector = [](std::vector<double>& v) -> void {
 			}
 			
 			double v_sum = 0;
-			for(int i = 0; i < sums.size(); i++)
+			for(int i = 0; i < (int)sums.size(); i++)
 			{
 				v_sum += sums.at(i);
 			}
@@ -1645,37 +1647,55 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 	// load reads
 	std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Load reads.\n" << std::flush;
-	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignments;
-	std::vector<oneReadPair> alignments_originalReads;
+	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignments_paired;
+	std::vector<oneReadPair> alignments_originalReads_paired;
+
+	std::vector<seedAndExtend_return_local> alignments_unpaired;
+	std::vector<oneRead> alignments_originalReads_unpaired;
 
 	double insertSize_mean;
 	double insertSize_sd;
 
-	read_shortReadAlignments_fromFile(alignedReads_file, alignments, alignments_originalReads, insertSize_mean, insertSize_sd, longUnpairedReads);
+	if(longUnpairedReads)
+	{
+		read_longReadAlignments_fromFile(alignedReads_file, alignments_unpaired, alignments_originalReads_unpaired);
+		assert(alignments_unpaired.size() == alignments_originalReads_unpaired.size());
 
-	assert(alignments.size() == alignments_originalReads.size());
+		std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Load reads -- done. Have " << alignments_unpaired.size() << " unpaired reads, long unpaired reads: " << longUnpairedReads << ".\n" << std::flush;
 
-	std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Load reads -- done. Have " << alignments.size() << " read pairs, long unpaired reads: " << longUnpairedReads << ", IS mean " << insertSize_mean << " / sd " << insertSize_sd << ".\n" << std::flush;
+	}
+	else
+	{
+		read_shortReadAlignments_fromFile(alignedReads_file, alignments_paired, alignments_originalReads_paired, insertSize_mean, insertSize_sd);
+		assert(alignments_paired.size() == alignments_originalReads_paired.size());
+
+		std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Load reads -- done. Have " << alignments_paired.size() << " read pairs, long unpaired reads: " << longUnpairedReads << ", IS mean " << insertSize_mean << " / sd " << insertSize_sd << ".\n" << std::flush;
+	}
 
 	// read alignment statistics
 
 	int alignmentStats_strandsValid = 0;
-	int alignments_perfect = 0;
-	int alignments_oneReadPerfect = 0;
+	int alignments_paired_perfect = 0;
+	int alignments_paired_oneReadPerfect = 0;
+
+	int alignments_unpaired_perfect = 0;
+
 	int alignmentStats_strandsValid_and_distanceOK = 0;
 	std::vector<double> alignmentStats_strandsValid_distances;
-	double alignmentStats_fractionOK_sum = 0;
-	for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
+	double alignmentStats_paired_fractionOK_sum = 0;
+	double alignmentStats_unpaired_fractionOK_sum = 0;
+
+	for(unsigned int alignmentI = 0; alignmentI < alignments_paired.size(); alignmentI++)
 	{
 
-		std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments.at(alignmentI);
+		std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments_paired.at(alignmentI);
 
 		if(alignedReadPair_strandsValid(alignedReadPair))
 		{
 			alignmentStats_strandsValid++;
 			double pairsDistance = alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair);
 			alignmentStats_strandsValid_distances.push_back(pairsDistance);
-			if((abs(pairsDistance - insertSize_mean) <= (5 * insertSize_sd)) || longUnpairedReads)
+			if(abs(pairsDistance - insertSize_mean) <= (5 * insertSize_sd))
 			{
 				alignmentStats_strandsValid_and_distanceOK++;
 			}
@@ -1686,19 +1706,34 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 		if(fractionOK_1 == 1)
 		{
-			alignments_perfect++;
+			alignments_paired_perfect++;
 		}
 		if(fractionOK_2 == 1)
 		{
-			alignments_perfect++;
+			alignments_paired_perfect++;
 		}
 		if((fractionOK_1 == 1) || (fractionOK_2 == 1))
 		{
-			alignments_oneReadPerfect++;
+			alignments_paired_oneReadPerfect++;
 		}
 
-		alignmentStats_fractionOK_sum += fractionOK_1;
-		alignmentStats_fractionOK_sum += fractionOK_2;
+		alignmentStats_paired_fractionOK_sum += fractionOK_1;
+		alignmentStats_paired_fractionOK_sum += fractionOK_2;
+	}
+
+	for(unsigned int alignmentI = 0; alignmentI < alignments_unpaired.size(); alignmentI++)
+	{
+
+		seedAndExtend_return_local& alignedRead = alignments_unpaired.at(alignmentI);
+
+		double fractionOK = alignmentFractionOK(alignedRead);
+
+		if(fractionOK == 1)
+		{
+			alignments_unpaired_perfect++;
+		}
+
+		alignmentStats_unpaired_fractionOK_sum += fractionOK;
 	}
 
 	// std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
@@ -1987,268 +2022,29 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 		std::vector< std::vector<oneExonPosition> > positions_fromReads;
 
-		auto oneReadAlignment_2_exonPositions = [&](seedAndExtend_return_local& alignment, oneRead& read, std::vector<oneExonPosition>& ret_exonPositions, seedAndExtend_return_local& paired_alignment, oneRead& paired_read) -> void {
-			int alignment_firstLevel = alignment.alignment_firstLevel();
-			int alignment_lastLevel = alignment.alignment_lastLevel();
-
-			double thisRead_fractionOK = alignmentFractionOK(alignment);
-			double pairedRead_fractionOK = alignmentFractionOK(paired_alignment);
-
-			double thisRead_WeightedCharactersOK = alignmentWeightedOKFraction(read, alignment);
-			double pairedRead_WeightedCharactersOK = alignmentWeightedOKFraction(paired_read, paired_alignment);
-
-			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignedReadPair = make_pair(alignment, paired_alignment);
-			double pairs_strands_OK = alignedReadPair_strandsValid(alignedReadPair);
-			double pairs_strands_distance = alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair);
-
-			// std::cout << "This alignment " << alignment_firstLevel << " - " << alignment_lastLevel << "\n";
-			// std::cout << "\tvs combined exon " << combined_exon_sequences_graphLevels.front() << " - " << combined_exon_sequences_graphLevels.back() << "\n\n" << std::flush;
-
-			if( ((alignment_firstLevel >= combined_sequences_graphLevels.front()) && (alignment_firstLevel <= combined_sequences_graphLevels.back())) ||
-				((alignment_lastLevel >= combined_sequences_graphLevels.front()) && (alignment_lastLevel <= combined_sequences_graphLevels.back())) )
-			{
-				std::vector<oneExonPosition> readAlignment_exonPositions;
-
-				int indexIntoOriginalReadData = -1;
-				for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
-				{
-					std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
-					std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
-					int graphLevel = alignment.graph_aligned_levels.at(cI);
-					
-					unsigned char alignmentQualityCharacter_thisPosition = alignment.mapQ_genomic_perPosition.at(cI);
-					double alignmentQuality_thisPosition = Utilities::PhredToPCorrect(alignmentQualityCharacter_thisPosition);
-								
-					if(graphLevel == -1)
-					{
-						// insertion relative to the graph - we need to extend last character
-
-						assert(graphCharacter == "_");
-						assert(sequenceCharacter != "_");
-
-						indexIntoOriginalReadData++;
-						int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
-						if(alignment.reverse)
-						{
-							indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
-						}
-						assert(indexIntoOriginalReadData_correctlyAligned >= 0);
-						assert(indexIntoOriginalReadData_correctlyAligned < (int)read.sequence.length());;
-
-						std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
-						if(alignment.reverse)
-						{
-							underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
-						}
-						assert(underlyingReadCharacter == sequenceCharacter);
-						char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
-
-						assert(sequenceCharacter.length() == 1);
-						
-						if(readAlignment_exonPositions.size() > 0)
-						{
-							readAlignment_exonPositions.back().genotype.append(sequenceCharacter);
-							readAlignment_exonPositions.back().alignment_edgelabels.append(graphCharacter);
-							readAlignment_exonPositions.back().qualities.push_back(qualityCharacter);
-							if(!(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length()))
-							{
-								assert(readAlignment_exonPositions.back().genotype.length() == (readAlignment_exonPositions.back().qualities.length()+1));
-								assert(readAlignment_exonPositions.back().genotype.at(0) == '_');
-								readAlignment_exonPositions.back().genotype = readAlignment_exonPositions.back().genotype.substr(1);
-								readAlignment_exonPositions.back().alignment_edgelabels = readAlignment_exonPositions.back().alignment_edgelabels.substr(1);
-								
-								assert(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length());
-								
-								// std::cerr << "readAlignment_exonPositions.back().genotype.length()" << ": " << readAlignment_exonPositions.back().genotype.length() << "\n";
-								// std::cerr << "readAlignment_exonPositions.back().qualities.length()" << ": " << readAlignment_exonPositions.back().qualities.length()<< "\n";
-								
-								// std::cerr << std::flush;
-							}
-							assert(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length());
-							assert(readAlignment_exonPositions.back().alignment_edgelabels.length() == readAlignment_exonPositions.back().genotype.length());
-						}
-					}
-					else
-					{
-						if(sequenceCharacter != "_")
-						{
-							indexIntoOriginalReadData++;
-							int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
-							if(alignment.reverse)
-							{
-								indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
-							}
-							assert(indexIntoOriginalReadData_correctlyAligned >= 0);
-							assert(indexIntoOriginalReadData_correctlyAligned < (int)read.sequence.length());
-
-							std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
-							if(alignment.reverse)
-							{
-								underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
-							}
-							assert(underlyingReadCharacter == sequenceCharacter);
-
-							if(graphCharacter == "_")
-							{
-
-								assert(graphLevel != -1);
-
-								char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
-
-								oneExonPosition thisPosition;
-								thisPosition.graphLevel = graphLevel;
-								thisPosition.genotype = sequenceCharacter;
-								thisPosition.alignment_edgelabels = graphCharacter;
-								thisPosition.qualities.push_back(qualityCharacter);
-
-								thisPosition.thisRead_ID = read.name;
-								thisPosition.pairedRead_ID = paired_read.name;
-								thisPosition.thisRead_fractionOK = thisRead_fractionOK;
-								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
-								thisPosition.pairs_strands_OK = pairs_strands_OK;
-								thisPosition.pairs_strands_distance = pairs_strands_distance;
-								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
-								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
-
-								thisPosition.mapQ = alignment.mapQ;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_position = alignmentQuality_thisPosition;
-
-								readAlignment_exonPositions.push_back(thisPosition);
-
-							}
-							else
-							{
-								// two well-defined characters
-								char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
-
-								oneExonPosition thisPosition;
-								thisPosition.graphLevel = graphLevel;
-								thisPosition.genotype = sequenceCharacter;
-								thisPosition.alignment_edgelabels = graphCharacter;
-								thisPosition.qualities.push_back(qualityCharacter);
-
-								thisPosition.thisRead_ID = read.name;
-								thisPosition.pairedRead_ID = paired_read.name;
-								thisPosition.thisRead_fractionOK = thisRead_fractionOK;
-								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
-								thisPosition.pairs_strands_OK = pairs_strands_OK;
-								thisPosition.pairs_strands_distance = pairs_strands_distance;
-								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
-								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
-
-								thisPosition.mapQ = alignment.mapQ;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_position = alignmentQuality_thisPosition;
-	
-								readAlignment_exonPositions.push_back(thisPosition);
-							}
-
-						}
-						else
-						{
-							assert(sequenceCharacter == "_");
-							if(graphCharacter == "_")
-							{
-								assert(graphLevel != -1);
-
-								oneExonPosition thisPosition;
-								thisPosition.graphLevel = graphLevel;
-								thisPosition.genotype = "_";
-								thisPosition.alignment_edgelabels = graphCharacter;
-								thisPosition.qualities = "";
-
-								thisPosition.thisRead_ID = read.name;
-								thisPosition.pairedRead_ID = paired_read.name;
-								thisPosition.thisRead_fractionOK = thisRead_fractionOK;
-								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
-								thisPosition.pairs_strands_OK = pairs_strands_OK;
-								thisPosition.pairs_strands_distance = pairs_strands_distance;
-								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
-								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
-
-								thisPosition.mapQ = alignment.mapQ;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_position = alignmentQuality_thisPosition;
-
-								readAlignment_exonPositions.push_back(thisPosition);
-							}
-							else
-							{
-								oneExonPosition thisPosition;
-								thisPosition.graphLevel = graphLevel;
-								thisPosition.genotype = "_";
-								thisPosition.alignment_edgelabels = graphCharacter;
-								thisPosition.qualities = "";
-
-								thisPosition.thisRead_ID = read.name;
-								thisPosition.pairedRead_ID = paired_read.name;
-								thisPosition.thisRead_fractionOK = thisRead_fractionOK;
-								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
-								thisPosition.pairs_strands_OK = pairs_strands_OK;
-								thisPosition.pairs_strands_distance = pairs_strands_distance;
-								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
-								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
-
-								thisPosition.mapQ = alignment.mapQ;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_position = alignmentQuality_thisPosition;
-
-								readAlignment_exonPositions.push_back(thisPosition);
-							}
-						}
-					}
-				}
-
-				int alongReadMode = 0;
-				int lastPositionInExon = -1;
-				for(unsigned int posInAlignment = 0; posInAlignment < readAlignment_exonPositions.size(); posInAlignment++)
-				{
-					oneExonPosition& thisPosition = readAlignment_exonPositions.at(posInAlignment);
-					assert(thisPosition.graphLevel != -1);
-					if(graphLevel_2_position.count(thisPosition.graphLevel))
-					{
-						assert((alongReadMode == 0) || (alongReadMode == 1));
-						thisPosition.positionInExon = graphLevel_2_position.at(thisPosition.graphLevel);
-						assert((lastPositionInExon == -1) || ((int)thisPosition.positionInExon == (lastPositionInExon + 1)));
-						lastPositionInExon = thisPosition.positionInExon;
-						alongReadMode = 1;
-
-						ret_exonPositions.push_back(thisPosition);
-					}
-					else
-					{
-						if(alongReadMode == 1)
-						{
-							alongReadMode = 2;
-						}
-					}
-				}
-			}
-
-		};
-
 		unsigned int readPairs_OK = 0;
 		unsigned int readPairs_broken = 0;
+		unsigned int reads_unpaired_OK = 0;
 
-		for(unsigned int readPairI = 0; readPairI < alignments.size(); readPairI++)
+		for(unsigned int readPairI = 0; readPairI < alignments_paired.size(); readPairI++)
 		{
-			oneReadPair& originalReadPair = alignments_originalReads.at(readPairI);
-			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments.at(readPairI);
+			oneReadPair& originalReadPair = alignments_originalReads_paired.at(readPairI);
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments_paired.at(readPairI);
 
 			std::vector<oneExonPosition> read1_positions;
 			std::vector<oneExonPosition> read2_positions;
-			oneReadAlignment_2_exonPositions(alignedReadPair.first, originalReadPair.reads.first, read1_positions, alignedReadPair.second, originalReadPair.reads.second);
-			oneReadAlignment_2_exonPositions(alignedReadPair.second, originalReadPair.reads.second, read2_positions, alignedReadPair.first, originalReadPair.reads.first);
+
+			oneReadAlignment_2_exonPositions_paired(alignedReadPair.first, originalReadPair.reads.first, read1_positions, alignedReadPair.second, originalReadPair.reads.second, 1, combined_sequences_graphLevels, graphLevel_2_position);
+			oneReadAlignment_2_exonPositions_paired(alignedReadPair.second, originalReadPair.reads.second, read2_positions, alignedReadPair.first, originalReadPair.reads.first, 2, combined_sequences_graphLevels, graphLevel_2_position);
 
 			assert(alignedReadPair.first.mapQ_genomic != 2);
 			double mapQ_thisAlignment = alignedReadPair.first.mapQ_genomic;
 
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(longUnpairedReads || (abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))) &&
+					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
 					(mapQ_thisAlignment >= minimumMappingQuality) &&
-					(longUnpairedReads || ((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK)))
+					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK))
 			)
 			{
 				// good
@@ -2264,7 +2060,36 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			}
 		}
 
-		std::cout << Utilities::timestamp() << "Mapped reads to exons and introns. " << readPairs_OK << " pairs OK, " << readPairs_broken << " pairs broken." << "\n" << std::flush;
+		for(unsigned int readI = 0; readI < alignments_unpaired.size(); readI++)
+		{
+			oneRead& originalRead = alignments_originalReads_unpaired.at(readI);
+			seedAndExtend_return_local& alignedRead = alignments_unpaired.at(readI);
+
+			std::vector<oneExonPosition> read_positions;
+
+			oneReadAlignment_2_exonPositions_unpaired(alignedRead, originalRead, read_positions, combined_sequences_graphLevels, graphLevel_2_position);
+
+			assert(alignedRead.mapQ_genomic != 2);
+			double mapQ_thisAlignment = alignedRead.mapQ_genomic;
+
+			if(
+					(mapQ_thisAlignment >= minimumMappingQuality)
+			)
+			{
+				// good
+
+				// std::cout << "\t\t" << "readPair " << readPairI << ", pairing OK.\n" << std::flush;
+
+				std::vector<oneExonPosition> thisRead_positions = read_positions;
+				if(thisRead_positions.size() > 0)
+					positions_fromReads.push_back(thisRead_positions);
+
+				reads_unpaired_OK++;
+			}
+		}
+
+
+		std::cout << Utilities::timestamp() << "Mapped reads to exons and introns. " << readPairs_OK << " pairs OK, " << readPairs_broken << " pairs broken, " << reads_unpaired_OK << " unpaired reads OK." << "\n" << std::flush;
 
 		// Pileup of mapped reads
 
@@ -3609,7 +3434,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			std::vector<int> h1_confidences_indices;
 			std::vector<int> h2_confidences_indices;
 			
-			for(unsigned int i = start; i <= stop; i++)
+			for(int i = start; i <= stop; i++)
 			{
 				std::pair<std::string, std::string> alleles = bestHaplotype.getHaplotypeAlleles(i);
 				h1 += alleles.first;
@@ -3643,7 +3468,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			
 			std::set<int> includedConfidences;
 			
-			for(int i = 0; i < h1.length(); i++)
+			for(int i = 0; i < (int)h1.length(); i++)
 			{
 				std::string c = h1.substr(i, 1);
 				if(c != "_")
@@ -3682,7 +3507,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 			confidence = 1;
 			includedConfidences.clear();
 			
-			for(int i = 0; i < h2.length(); i++)
+			for(int i = 0; i < (int)h2.length(); i++)
 			{
 				std::string c = h2.substr(i, 1);
 				if(c != "_")
@@ -3724,7 +3549,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		{
 			int pI_stop = pI;
 			while((
-				(pI_stop + 1) < combined_sequences_graphLevels.size()) &&
+				(pI_stop + 1) < (int)combined_sequences_graphLevels.size()) &&
 				(combined_sequences_confidenceIndex.at(pI_stop + 1) == combined_sequences_confidenceIndex.at(pI)))
 			{
 				pI_stop++;
@@ -4040,36 +3865,51 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 	// load reads
 	std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads.\n" << std::flush;
-	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignments;
-	std::vector<oneReadPair> alignments_originalReads;
+	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignments_paired;
+	std::vector<seedAndExtend_return_local> alignments_unpaired;
+
+	std::vector<oneReadPair> alignments_originalReads_paired;
+	std::vector<oneRead> alignments_originalReads_unpaired;
 
 	double insertSize_mean;
 	double insertSize_sd;
 
-	read_shortReadAlignments_fromFile(alignedReads_file, alignments, alignments_originalReads, insertSize_mean, insertSize_sd, longUnpairedReads);
-	assert(alignments.size() == alignments_originalReads.size());
+	if(longUnpairedReads)
+	{
+		read_longReadAlignments_fromFile(alignedReads_file, alignments_unpaired, alignments_originalReads_unpaired);
+		assert(alignments_unpaired.size() == alignments_originalReads_unpaired.size());
 
-	std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads -- done. Have " << alignments.size() << " read pairs, long unpaired reads: " << longUnpairedReads << ", IS mean " << insertSize_mean << " / sd " << insertSize_sd << ".\n" << std::flush;
+		std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads -- done. Have " << alignments_unpaired.size() << " unpaired reads, long unpaired reads: " << longUnpairedReads << "\n" << std::flush;
+	}
+	else
+	{
+		read_shortReadAlignments_fromFile(alignedReads_file, alignments_paired, alignments_originalReads_paired, insertSize_mean, insertSize_sd);
+		assert(alignments_paired.size() == alignments_originalReads_paired.size());
 
+		std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads -- done. Have " << alignments_paired.size() << " read pairs, long unpaired reads: " << longUnpairedReads << ", IS mean " << insertSize_mean << " / sd " << insertSize_sd << ".\n" << std::flush;
+	}
 	// read alignment statistics
 
 	int alignmentStats_strandsValid = 0;
-	int alignments_perfect = 0;
-	int alignments_oneReadPerfect = 0;
+	int alignments_paired_perfect = 0;
+	int alignments_paired_oneReadPerfect = 0;
+	int alignments_unpaired_perfect = 0;
 	int alignmentStats_strandsValid_and_distanceOK = 0;
 	std::vector<double> alignmentStats_strandsValid_distances;
-	double alignmentStats_fractionOK_sum = 0;
-	for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
+	double alignmentStats_paired_fractionOK_sum = 0;
+	double alignmentStats_unpaired_fractionOK_sum = 0;
+
+	for(unsigned int alignmentI = 0; alignmentI < alignments_paired.size(); alignmentI++)
 	{
 
-		std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments.at(alignmentI);
+		std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments_paired.at(alignmentI);
 
 		if(alignedReadPair_strandsValid(alignedReadPair))
 		{
 			alignmentStats_strandsValid++;
 			double pairsDistance = alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair);
 			alignmentStats_strandsValid_distances.push_back(pairsDistance);
-			if(longUnpairedReads || (abs(pairsDistance - insertSize_mean) <= (5 * insertSize_sd)))
+			if(abs(pairsDistance - insertSize_mean) <= (5 * insertSize_sd))
 			{
 				alignmentStats_strandsValid_and_distanceOK++;
 			}
@@ -4080,23 +3920,39 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 		if(fractionOK_1 == 1)
 		{
-			alignments_perfect++;
+			alignments_paired_perfect++;
 		}
 		if(fractionOK_2 == 1)
 		{
-			alignments_perfect++;
+			alignments_paired_perfect++;
 		}
 		if((fractionOK_1 == 1) || (fractionOK_2 == 1))
 		{
-			alignments_oneReadPerfect++;
+			alignments_paired_oneReadPerfect++;
 		}
 
-		alignmentStats_fractionOK_sum += fractionOK_1;
-		alignmentStats_fractionOK_sum += fractionOK_2;
+		alignmentStats_paired_fractionOK_sum += fractionOK_1;
+		alignmentStats_paired_fractionOK_sum += fractionOK_2;
+	}
+	for(unsigned int alignmentI = 0; alignmentI < alignments_unpaired.size(); alignmentI++)
+	{
+
+		seedAndExtend_return_local& alignedRead = alignments_unpaired.at(alignmentI);
+
+
+		double fractionOK_1 = alignmentFractionOK(alignedRead);
+
+		if(fractionOK_1 == 1)
+		{
+			alignments_unpaired_perfect++;
+		}
+
+		alignmentStats_unpaired_fractionOK_sum += fractionOK_1;
 	}
 
 	std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
-	double alignmentStats_fractionOK_avg = (alignments.size() > 0) ? (alignmentStats_fractionOK_sum / (2.0* (double)alignments.size())) : 0;
+	double alignmentStats_paired_fractionOK_avg = (alignments_paired.size() > 0) ? (alignmentStats_paired_fractionOK_sum / (2.0* (double)alignments_paired.size())) : 0;
+	double alignmentStats_unpaired_fractionOK_avg = (alignments_unpaired.size() > 0) ? (alignmentStats_unpaired_fractionOK_sum / (2.0* (double)alignments_unpaired.size())) : 0;
 
 	if(! Utilities::directoryExists("../tmp/hla"))
 	{
@@ -4114,15 +3970,17 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	summaryStatisticsStream.open(summaryStatisticsFilename.c_str());
 	assert(summaryStatisticsStream.is_open());
 	summaryStatisticsStream << "\nRead alignment statistics:\n";
-	summaryStatisticsStream << "\t - Total number (paired) alignments:                 " << alignments.size() << "\n";
-	summaryStatisticsStream << "\t - Alignment pairs with strands OK:                  " << alignmentStats_strandsValid << " (" << printPerc(alignmentStats_strandsValid, alignments.size()) << "%)\n";
-	summaryStatisticsStream << "\t - Alignment pairs with strands OK && distance OK:   " << alignmentStats_strandsValid_and_distanceOK << " (" << printPerc(alignmentStats_strandsValid_and_distanceOK, alignments.size()) << "%)\n";
-	summaryStatisticsStream << "\t - Alignment pairs with strands OK, mean distance:   " << alignmentStats_distance_meanMedian.first << "\n";
-	summaryStatisticsStream << "\t - Alignment pairs with strands OK, median distance: " << alignmentStats_distance_meanMedian.second << "\n";
-	summaryStatisticsStream << "\t - Alignment pairs, average fraction alignment OK:   " << alignmentStats_fractionOK_avg << "\n";
-	summaryStatisticsStream << "\t - Alignment pairs, at least one alignment perfect:   " << alignments_oneReadPerfect << "\n";
-	summaryStatisticsStream << "\t - Single alignments, perfect (total):   " << alignments_perfect << " (" << alignments.size()*2 << ")\n";
-
+	summaryStatisticsStream << "\t - Total number (paired) alignments:                 " << alignments_paired.size() << "\n";
+	summaryStatisticsStream << "\t\t - Alignment pairs with strands OK:                  " << alignmentStats_strandsValid << " (" << printPerc(alignmentStats_strandsValid, alignments_paired.size()) << "%)\n";
+	summaryStatisticsStream << "\t\t - Alignment pairs with strands OK && distance OK:   " << alignmentStats_strandsValid_and_distanceOK << " (" << printPerc(alignmentStats_strandsValid_and_distanceOK, alignments_paired.size()) << "%)\n";
+	summaryStatisticsStream << "\t\t - Alignment pairs with strands OK, mean distance:   " << alignmentStats_distance_meanMedian.first << "\n";
+	summaryStatisticsStream << "\t\t - Alignment pairs with strands OK, median distance: " << alignmentStats_distance_meanMedian.second << "\n";
+	summaryStatisticsStream << "\t\t - Alignment pairs, average fraction alignment OK:   " << alignmentStats_paired_fractionOK_avg << "\n";
+	summaryStatisticsStream << "\t\t - Alignment pairs, at least one alignment perfect:   " << alignments_paired_oneReadPerfect << "\n";
+	summaryStatisticsStream << "\t\t - Single alignments, perfect (total):   " << alignments_paired_perfect << " (" << alignments_paired.size()*2 << ")\n";
+	summaryStatisticsStream << "\t - Total number (unpaired) alignments:                 " << alignments_unpaired.size() << "\n";
+	summaryStatisticsStream << "\t\t - Alignment pairs, average fraction alignment OK:   " << alignmentStats_unpaired_fractionOK_avg << "\n";
+	summaryStatisticsStream << "\t\t - Single alignments, perfect (total):   " << alignments_unpaired_perfect << " (" << alignments_unpaired.size()*2 << ")\n";
 	summaryStatisticsStream.close();
 
 	std::string outputFN_bestGuess = outputDirectory + "/R1_bestguess.txt";
@@ -4341,291 +4199,21 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 		std::vector< std::vector<oneExonPosition> > exonPositions_fromReads;
 
-		auto oneReadAlignment_2_exonPositions = [&](seedAndExtend_return_local& alignment, oneRead& read, std::vector<oneExonPosition>& ret_exonPositions, seedAndExtend_return_local& paired_alignment, oneRead& paired_read, int read_1_or_2) -> void {
-			int alignment_firstLevel = alignment.alignment_firstLevel();
-			int alignment_lastLevel = alignment.alignment_lastLevel();
 
-			double thisRead_fractionOK = alignmentFractionOK(alignment);
-			double pairedRead_fractionOK = alignmentFractionOK(paired_alignment);
-
-			double thisRead_WeightedCharactersOK = alignmentWeightedOKFraction(read, alignment);
-			double pairedRead_WeightedCharactersOK = alignmentWeightedOKFraction(paired_read, paired_alignment);
-
-			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignedReadPair = make_pair(alignment, paired_alignment);
-			double pairs_strands_OK = alignedReadPair_strandsValid(alignedReadPair);
-			double pairs_strands_distance = alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair);
-
-			// std::cout << "This alignment " << alignment_firstLevel << " - " << alignment_lastLevel << "\n";
-			// std::cout << "\tvs combined exon " << combined_exon_sequences_graphLevels.front() << " - " << combined_exon_sequences_graphLevels.back() << "\n\n" << std::flush;
-
-			if( ((alignment_firstLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_firstLevel <= combined_exon_sequences_graphLevels.back())) ||
-				((alignment_lastLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_lastLevel <= combined_exon_sequences_graphLevels.back())) )
-			{
-				std::vector<oneExonPosition> readAlignment_exonPositions;
-
-				int indexIntoOriginalReadData = -1;
-				for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
-				{
-					std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
-					std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
-					int graphLevel = alignment.graph_aligned_levels.at(cI);
-					unsigned char alignmentQualityCharacter_thisPosition = alignment.mapQ_genomic_perPosition.at(cI);
-					double alignmentQuality_thisPosition = Utilities::PhredToPCorrect(alignmentQualityCharacter_thisPosition);
-					
-					if(graphLevel == -1)
-					{
-						// insertion relative to the graph - we need to extend last character
-
-						assert(graphCharacter == "_");
-						assert(sequenceCharacter != "_");
-
-						indexIntoOriginalReadData++;
-						int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
-						if(alignment.reverse)
-						{
-							indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
-						}
-						assert(indexIntoOriginalReadData_correctlyAligned >= 0);
-						assert(indexIntoOriginalReadData_correctlyAligned <(int) read.sequence.length());
-
-						std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
-						if(alignment.reverse)
-						{
-							underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
-						}
-						assert(underlyingReadCharacter == sequenceCharacter);
-						char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
-
-						if(readAlignment_exonPositions.size() > 0)
-						{
-							readAlignment_exonPositions.back().genotype.append(sequenceCharacter);
-							readAlignment_exonPositions.back().alignment_edgelabels.append(graphCharacter);
-							readAlignment_exonPositions.back().qualities.push_back(qualityCharacter);
-							if(!(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length()))
-							{ 
-								assert(readAlignment_exonPositions.back().genotype.length() == (readAlignment_exonPositions.back().qualities.length()+1));
-								assert(readAlignment_exonPositions.back().genotype.at(0) == '_');
-								readAlignment_exonPositions.back().genotype = readAlignment_exonPositions.back().genotype.substr(1);
-								readAlignment_exonPositions.back().alignment_edgelabels = readAlignment_exonPositions.back().alignment_edgelabels.substr(1);
-								assert(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length());
-								
-								// std::cerr << "readAlignment_exonPositions.back().genotype.length()" << ": " << readAlignment_exonPositions.back().genotype.length() << "\n";
-								// std::cerr << "readAlignment_exonPositions.back().qualities.length()" << ": " << readAlignment_exonPositions.back().qualities.length()<< "\n";
-								
-								// std::cerr << std::flush;
-							}							
-							assert(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length());
-							assert(readAlignment_exonPositions.back().alignment_edgelabels.length() == readAlignment_exonPositions.back().genotype.length());
-						}
-					}
-					else
-					{
-						if(sequenceCharacter != "_")
-						{
-							indexIntoOriginalReadData++;
-							int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
-							if(alignment.reverse)
-							{
-								indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
-							}
-							assert(indexIntoOriginalReadData_correctlyAligned >= 0);
-							assert(indexIntoOriginalReadData_correctlyAligned < (int)read.sequence.length());
-
-							std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
-							if(alignment.reverse)
-							{
-								underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
-							}
-							assert(underlyingReadCharacter == sequenceCharacter);
-
-							if(graphCharacter == "_")
-							{
-
-								assert(graphLevel != -1);
-
-								char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
-
-								oneExonPosition thisPosition;
-								thisPosition.graphLevel = graphLevel;
-								thisPosition.genotype = sequenceCharacter;
-								thisPosition.alignment_edgelabels = graphCharacter;
-								thisPosition.qualities.push_back(qualityCharacter);
-
-								thisPosition.thisRead_ID = read.name;
-								thisPosition.pairedRead_ID = paired_read.name;
-								thisPosition.thisRead_fractionOK = thisRead_fractionOK;
-								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
-								thisPosition.pairs_strands_OK = pairs_strands_OK;
-								thisPosition.pairs_strands_distance = pairs_strands_distance;
-								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
-								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
-
-								thisPosition.mapQ = alignment.mapQ;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_position = alignmentQuality_thisPosition;
-								
-								thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
-
-								readAlignment_exonPositions.push_back(thisPosition);
-
-							}
-							else
-							{
-								// two well-defined characters
-								char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
-
-								oneExonPosition thisPosition;
-								thisPosition.graphLevel = graphLevel;
-								thisPosition.genotype = sequenceCharacter;
-								thisPosition.alignment_edgelabels = graphCharacter;
-								thisPosition.qualities.push_back(qualityCharacter);
-
-								thisPosition.thisRead_ID = read.name;
-								thisPosition.pairedRead_ID = paired_read.name;
-								thisPosition.thisRead_fractionOK = thisRead_fractionOK;
-								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
-								thisPosition.pairs_strands_OK = pairs_strands_OK;
-								thisPosition.pairs_strands_distance = pairs_strands_distance;
-								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
-								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
-
-								thisPosition.mapQ = alignment.mapQ;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_position = alignmentQuality_thisPosition;
-
-								thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
-
-								readAlignment_exonPositions.push_back(thisPosition);
-							}
-
-						}
-						else
-						{
-							assert(sequenceCharacter == "_");
-							if(graphCharacter == "_")
-							{
-								assert(graphLevel != -1);
-
-								oneExonPosition thisPosition;
-								thisPosition.graphLevel = graphLevel;
-								thisPosition.genotype = "_";
-								thisPosition.alignment_edgelabels = graphCharacter;
-								thisPosition.qualities = "";
-
-								thisPosition.thisRead_ID = read.name;
-								thisPosition.pairedRead_ID = paired_read.name;
-								thisPosition.thisRead_fractionOK = thisRead_fractionOK;
-								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
-								thisPosition.pairs_strands_OK = pairs_strands_OK;
-								thisPosition.pairs_strands_distance = pairs_strands_distance;
-								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
-								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
-
-								thisPosition.mapQ = alignment.mapQ;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_position = alignmentQuality_thisPosition;
-
-								thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
-
-								readAlignment_exonPositions.push_back(thisPosition);
-							}
-							else
-							{
-								oneExonPosition thisPosition;
-								thisPosition.graphLevel = graphLevel;
-								thisPosition.genotype = "_";
-								thisPosition.alignment_edgelabels = graphCharacter;
-								thisPosition.qualities = "";
-
-								thisPosition.thisRead_ID = read.name;
-								thisPosition.pairedRead_ID = paired_read.name;
-								thisPosition.thisRead_fractionOK = thisRead_fractionOK;
-								thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
-								thisPosition.pairs_strands_OK = pairs_strands_OK;
-								thisPosition.pairs_strands_distance = pairs_strands_distance;
-								thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
-								thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
-
-								thisPosition.mapQ = alignment.mapQ;
-								thisPosition.mapQ_genomic = alignment.mapQ_genomic;
-								thisPosition.mapQ_position = alignmentQuality_thisPosition;
-
-								
-								thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
-
-								readAlignment_exonPositions.push_back(thisPosition);
-							}
-						}
-					}
-				}
-
-				int alongReadMode = 0;
-				int lastPositionInExon = -1;
-				for(unsigned int posInAlignment = 0; posInAlignment < readAlignment_exonPositions.size(); posInAlignment++)
-				{
-					oneExonPosition& thisPosition = readAlignment_exonPositions.at(posInAlignment);
-					assert(thisPosition.graphLevel != -1);
-					
-					// std::cout << alongReadMode << " " << thisPosition.graphLevel << " " << (int)graphLevel_2_exonPosition.count(thisPosition.graphLevel) << "\n" << std::flush;
-					
-					if(graphLevel_2_exonPosition.count(thisPosition.graphLevel))
-					{
-						// if(!((alongReadMode == 0) || (alongReadMode == 1)))
-						// {
-							// std::cerr << "alongReadMode" << ": " << alongReadMode << "\n";
-							// std::cerr << "alignment.sequence_aligned.substr(cI, 1)" << ": " << alignment.sequence_aligned << "\n";
-							// std::cerr << "alignment.graph_aligned.substr(cI, 1)" << ": " << alignment.graph_aligned << "\n";
-							// std::cerr << "alignment.graph_aligned_levels)" << ": " << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), ", ") << "\n";						
-							// std::cerr << "alignment_firstLevel" << ": " << alignment_firstLevel << "\n";
-							// std::cerr << "alignment_lastLevel" << ": " << alignment_lastLevel << "\n";
-							// std::cerr << "combined_exon_sequences_graphLevels.front()" << ": " << combined_exon_sequences_graphLevels.front() << "\n";
-							// std::cerr << "combined_exon_sequences_graphLevels.back()" << ": " << combined_exon_sequences_graphLevels.back() << "\n";
-							// for(unsigned int i = 0; i < alignment.graph_aligned_levels.size(); i++)
-							// {
-								// std::cout << "\t" << i << " " << alignment.graph_aligned_levels.at(i) << " " << (int)graphLevel_2_exonPosition.count(thisPosition.graphLevel) << "\n";
-							// }
-							// std::cerr << std::flush;
-						// }
-						if(alongReadMode == 2)
-						{
-							lastPositionInExon = -1;
-						}
-						// assert((alongReadMode == 0) || (alongReadMode == 1));
-
-						
-						thisPosition.positionInExon = graphLevel_2_exonPosition.at(thisPosition.graphLevel);
-						assert((lastPositionInExon == -1) || ((int)thisPosition.positionInExon == ((int)lastPositionInExon + 1)));
-						lastPositionInExon = thisPosition.positionInExon;
-						alongReadMode = 1;
-
-						ret_exonPositions.push_back(thisPosition);
-					}
-					else
-					{
-						if(alongReadMode == 1)
-						{
-							alongReadMode = 2;
-						}
-					}
-				}
-				
-				// std::cout << "\n";
-			}
-
-		};
 
 		unsigned int readPairs_OK = 0;
 		unsigned int readPairs_broken = 0;
 
-		for(unsigned int readPairI = 0; readPairI < alignments.size(); readPairI++)
+		for(unsigned int readPairI = 0; readPairI < alignments_paired.size(); readPairI++)
 		{
-			oneReadPair& originalReadPair = alignments_originalReads.at(readPairI);
-			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments.at(readPairI);
+			oneReadPair& originalReadPair = alignments_originalReads_paired.at(readPairI);
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments_paired.at(readPairI);
 
 			std::vector<oneExonPosition> read1_exonPositions;
 			std::vector<oneExonPosition> read2_exonPositions;
-			oneReadAlignment_2_exonPositions(alignedReadPair.first, originalReadPair.reads.first, read1_exonPositions, alignedReadPair.second, originalReadPair.reads.second, 1);
-			oneReadAlignment_2_exonPositions(alignedReadPair.second, originalReadPair.reads.second, read2_exonPositions, alignedReadPair.first, originalReadPair.reads.first, 2);
+
+			oneReadAlignment_2_exonPositions_paired(alignedReadPair.first, originalReadPair.reads.first, read1_exonPositions, alignedReadPair.second, originalReadPair.reads.second, 1, combined_exon_sequences_graphLevels, graphLevel_2_exonPosition);
+			oneReadAlignment_2_exonPositions_paired(alignedReadPair.second, originalReadPair.reads.second, read2_exonPositions, alignedReadPair.first, originalReadPair.reads.first, 2, combined_exon_sequences_graphLevels, graphLevel_2_exonPosition);
 
 			// if(originalReadPair.reads.first.name == "@@A819GMABXX:8:2204:2901:85228#GATCAGAT/1")
 			// {
@@ -4656,9 +4244,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			double mapQ_thisAlignment = alignedReadPair.first.mapQ_genomic;
 			if(
 					alignedReadPair_strandsValid(alignedReadPair) &&
-					(longUnpairedReads || (abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))) &&
+					(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
 					(mapQ_thisAlignment >= minimumMappingQuality) &&
-					(longUnpairedReads || ((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK)))
+					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.second) >= min_bothReads_weightedCharactersOK))
 					)  			
 			{
 				// good
@@ -4679,7 +4267,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				// std::cout << "\t\t" << "readPair " << readPairI << "/" < < alignments.size() << ", pairing FAILED.\n" << std::flush;
 
 				if(alignedReadPair_strandsValid(alignedReadPair) &&
-				((longUnpairedReads || abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))))
+				(abs(alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)))
 				{
 					std::cout << "REJECTED MAPQ " << alignedReadPair.first.mapQ << " GENOMIC " << alignedReadPair.first.mapQ_genomic << "\n" << std::flush;
 				}
@@ -4692,6 +4280,35 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				// if((read2_exonPositions.size() > 0) && (countMismatchesInExon(read2_exonPositions) < max_mismatches_perRead))
 				if(0 && (read2_exonPositions.size() > 0) && (alignmentFractionOK(alignedReadPair.first) >= min_alignmentFraction_OK) && (alignmentFractionOK(alignedReadPair.second) >= min_alignmentFraction_OK))
 					exonPositions_fromReads.push_back(read2_exonPositions);
+
+				readPairs_broken++;
+			}
+		}
+
+		for(unsigned int readI = 0; readI < alignments_unpaired.size(); readI++)
+		{
+			oneRead& originalRead = alignments_originalReads_unpaired.at(readI);
+			seedAndExtend_return_local& alignedRead = alignments_unpaired.at(readI);
+
+			std::vector<oneExonPosition> read_exonPositions;
+			oneReadAlignment_2_exonPositions_unpaired(alignedRead, originalRead, read_exonPositions, combined_exon_sequences_graphLevels, graphLevel_2_exonPosition);
+
+			double mapQ_thisAlignment = alignedRead.mapQ_genomic;
+			if(mapQ_thisAlignment >= minimumMappingQuality)
+			{
+				// good
+
+				std::vector<oneExonPosition> thisRead_exonPositions = read_exonPositions;
+				if(thisRead_exonPositions.size() > 0)
+					exonPositions_fromReads.push_back(read_exonPositions);
+
+				readPairs_OK++;
+			}
+			else
+			{
+				// bad
+
+				std::cout << "REJECTED MAPQ " << alignedRead.mapQ << " GENOMIC " << alignedRead.mapQ_genomic << "\n" << std::flush;
 
 				readPairs_broken++;
 			}
@@ -5057,13 +4674,16 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		// std::cout << Utilities::timestamp() << "\tProcessed " << readID_noAlignment_2_idx.size() << " reads (no alignment)\n" << std::flush;
 
 
-		unsigned maxNoAlignmentReadIdx = readID_noAlignment_2_idx.size() - 1;
-
-		int reads_summed_more_than_1_alignment = 0;
 
 		std::vector<std::vector<double> > likelihoods_perCluster_perReads_allAlignments;
 		
 		/*
+
+
+		unsigned maxNoAlignmentReadIdx = readID_noAlignment_2_idx.size() - 1;
+
+		int reads_summed_more_than_1_alignment = 0;
+
 		likelihoods_perCluster_perReads_allAlignments.resize(HLAtype_clusters.size());
 
 		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
@@ -5922,7 +5542,7 @@ void _read_HLA_alleles_for_haplotypeInference(std::string graphDir, std::string 
 		if((files_in_order_type.at(fileI) == "paddingLeft") || (files_in_order_type.at(fileI) == "paddingRight"))
 		{
 			assert(file_lines.size() > 1);
-			bool processedThisBlock = false;
+
 			for(unsigned int sI = 0; sI < padding_sequences_to_alleles.size(); sI++)
 			{
 				int getLine = sI % (file_lines.size()-1) + 1;
@@ -6483,7 +6103,7 @@ void compute_weird_Edit_distance(const std::vector<std::string>& S1, const std::
 		int smaller_L = (s1.length() < s2.length()) ? s1.length() : s2.length();
 		int greater_L = (s1.length() > s2.length()) ? s1.length() : s2.length();
 
-		for(unsigned int cI = 0; cI < smaller_L; cI++)
+		for(int cI = 0; cI < smaller_L; cI++)
 		{
 			char c1 = s1.at(cI);
 			char c2 = s2.at(cI);
@@ -6512,5 +6132,551 @@ void compute_weird_Edit_distance(const std::vector<std::string>& S1, const std::
 }
 
 
+
+void oneReadAlignment_2_exonPositions_paired(seedAndExtend_return_local& alignment, oneRead& read, std::vector<oneExonPosition>& ret_exonPositions, seedAndExtend_return_local& paired_alignment, oneRead& paired_read, int read_1_or_2, const std::vector<int>& combined_exon_sequences_graphLevels, const std::map<int, unsigned int>& graphLevel_2_exonPosition)
+{
+	int alignment_firstLevel = alignment.alignment_firstLevel();
+	int alignment_lastLevel = alignment.alignment_lastLevel();
+
+	double thisRead_fractionOK = alignmentFractionOK(alignment);
+	double pairedRead_fractionOK = alignmentFractionOK(paired_alignment);
+
+	double thisRead_WeightedCharactersOK = alignmentWeightedOKFraction(read, alignment);
+	double pairedRead_WeightedCharactersOK = alignmentWeightedOKFraction(paired_read, paired_alignment);
+
+	std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignedReadPair = make_pair(alignment, paired_alignment);
+	double pairs_strands_OK = alignedReadPair_strandsValid(alignedReadPair);
+	double pairs_strands_distance = alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair);
+
+	// std::cout << "This alignment " << alignment_firstLevel << " - " << alignment_lastLevel << "\n";
+	// std::cout << "\tvs combined exon " << combined_exon_sequences_graphLevels.front() << " - " << combined_exon_sequences_graphLevels.back() << "\n\n" << std::flush;
+
+	if( ((alignment_firstLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_firstLevel <= combined_exon_sequences_graphLevels.back())) ||
+		((alignment_lastLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_lastLevel <= combined_exon_sequences_graphLevels.back())) )
+	{
+		std::vector<oneExonPosition> readAlignment_exonPositions;
+
+		int indexIntoOriginalReadData = -1;
+		for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
+		{
+			std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+			std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
+			int graphLevel = alignment.graph_aligned_levels.at(cI);
+			unsigned char alignmentQualityCharacter_thisPosition = alignment.mapQ_genomic_perPosition.at(cI);
+			double alignmentQuality_thisPosition = Utilities::PhredToPCorrect(alignmentQualityCharacter_thisPosition);
+
+			if(graphLevel == -1)
+			{
+				// insertion relative to the graph - we need to extend last character
+
+				assert(graphCharacter == "_");
+				assert(sequenceCharacter != "_");
+
+				indexIntoOriginalReadData++;
+				int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
+				if(alignment.reverse)
+				{
+					indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
+				}
+				assert(indexIntoOriginalReadData_correctlyAligned >= 0);
+				assert(indexIntoOriginalReadData_correctlyAligned <(int) read.sequence.length());
+
+				std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
+				if(alignment.reverse)
+				{
+					underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+				}
+				assert(underlyingReadCharacter == sequenceCharacter);
+				char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
+
+				if(readAlignment_exonPositions.size() > 0)
+				{
+					readAlignment_exonPositions.back().genotype.append(sequenceCharacter);
+					readAlignment_exonPositions.back().alignment_edgelabels.append(graphCharacter);
+					readAlignment_exonPositions.back().qualities.push_back(qualityCharacter);
+					if(!(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length()))
+					{
+						assert(readAlignment_exonPositions.back().genotype.length() == (readAlignment_exonPositions.back().qualities.length()+1));
+						assert(readAlignment_exonPositions.back().genotype.at(0) == '_');
+						readAlignment_exonPositions.back().genotype = readAlignment_exonPositions.back().genotype.substr(1);
+						readAlignment_exonPositions.back().alignment_edgelabels = readAlignment_exonPositions.back().alignment_edgelabels.substr(1);
+						assert(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length());
+
+						// std::cerr << "readAlignment_exonPositions.back().genotype.length()" << ": " << readAlignment_exonPositions.back().genotype.length() << "\n";
+						// std::cerr << "readAlignment_exonPositions.back().qualities.length()" << ": " << readAlignment_exonPositions.back().qualities.length()<< "\n";
+
+						// std::cerr << std::flush;
+					}
+					assert(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length());
+					assert(readAlignment_exonPositions.back().alignment_edgelabels.length() == readAlignment_exonPositions.back().genotype.length());
+				}
+			}
+			else
+			{
+				if(sequenceCharacter != "_")
+				{
+					indexIntoOriginalReadData++;
+					int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
+					if(alignment.reverse)
+					{
+						indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
+					}
+					assert(indexIntoOriginalReadData_correctlyAligned >= 0);
+					assert(indexIntoOriginalReadData_correctlyAligned < (int)read.sequence.length());
+
+					std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
+					if(alignment.reverse)
+					{
+						underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+					}
+					assert(underlyingReadCharacter == sequenceCharacter);
+
+					if(graphCharacter == "_")
+					{
+
+						assert(graphLevel != -1);
+
+						char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
+
+						oneExonPosition thisPosition;
+						thisPosition.graphLevel = graphLevel;
+						thisPosition.genotype = sequenceCharacter;
+						thisPosition.alignment_edgelabels = graphCharacter;
+						thisPosition.qualities.push_back(qualityCharacter);
+
+						thisPosition.thisRead_ID = read.name;
+						thisPosition.pairedRead_ID = paired_read.name;
+						thisPosition.thisRead_fractionOK = thisRead_fractionOK;
+						thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
+						thisPosition.pairs_strands_OK = pairs_strands_OK;
+						thisPosition.pairs_strands_distance = pairs_strands_distance;
+						thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+						thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+						thisPosition.mapQ = alignment.mapQ;
+						thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+						thisPosition.mapQ_position = alignmentQuality_thisPosition;
+
+						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
+
+						readAlignment_exonPositions.push_back(thisPosition);
+
+					}
+					else
+					{
+						// two well-defined characters
+						char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
+
+						oneExonPosition thisPosition;
+						thisPosition.graphLevel = graphLevel;
+						thisPosition.genotype = sequenceCharacter;
+						thisPosition.alignment_edgelabels = graphCharacter;
+						thisPosition.qualities.push_back(qualityCharacter);
+
+						thisPosition.thisRead_ID = read.name;
+						thisPosition.pairedRead_ID = paired_read.name;
+						thisPosition.thisRead_fractionOK = thisRead_fractionOK;
+						thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
+						thisPosition.pairs_strands_OK = pairs_strands_OK;
+						thisPosition.pairs_strands_distance = pairs_strands_distance;
+						thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+						thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+						thisPosition.mapQ = alignment.mapQ;
+						thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+						thisPosition.mapQ_position = alignmentQuality_thisPosition;
+
+						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
+
+						readAlignment_exonPositions.push_back(thisPosition);
+					}
+
+				}
+				else
+				{
+					assert(sequenceCharacter == "_");
+					if(graphCharacter == "_")
+					{
+						assert(graphLevel != -1);
+
+						oneExonPosition thisPosition;
+						thisPosition.graphLevel = graphLevel;
+						thisPosition.genotype = "_";
+						thisPosition.alignment_edgelabels = graphCharacter;
+						thisPosition.qualities = "";
+
+						thisPosition.thisRead_ID = read.name;
+						thisPosition.pairedRead_ID = paired_read.name;
+						thisPosition.thisRead_fractionOK = thisRead_fractionOK;
+						thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
+						thisPosition.pairs_strands_OK = pairs_strands_OK;
+						thisPosition.pairs_strands_distance = pairs_strands_distance;
+						thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+						thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+						thisPosition.mapQ = alignment.mapQ;
+						thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+						thisPosition.mapQ_position = alignmentQuality_thisPosition;
+
+						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
+
+						readAlignment_exonPositions.push_back(thisPosition);
+					}
+					else
+					{
+						oneExonPosition thisPosition;
+						thisPosition.graphLevel = graphLevel;
+						thisPosition.genotype = "_";
+						thisPosition.alignment_edgelabels = graphCharacter;
+						thisPosition.qualities = "";
+
+						thisPosition.thisRead_ID = read.name;
+						thisPosition.pairedRead_ID = paired_read.name;
+						thisPosition.thisRead_fractionOK = thisRead_fractionOK;
+						thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
+						thisPosition.pairs_strands_OK = pairs_strands_OK;
+						thisPosition.pairs_strands_distance = pairs_strands_distance;
+						thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+						thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+						thisPosition.mapQ = alignment.mapQ;
+						thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+						thisPosition.mapQ_position = alignmentQuality_thisPosition;
+
+
+						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
+
+						readAlignment_exonPositions.push_back(thisPosition);
+					}
+				}
+			}
+		}
+
+		int alongReadMode = 0;
+		int lastPositionInExon = -1;
+		for(unsigned int posInAlignment = 0; posInAlignment < readAlignment_exonPositions.size(); posInAlignment++)
+		{
+			oneExonPosition& thisPosition = readAlignment_exonPositions.at(posInAlignment);
+			assert(thisPosition.graphLevel != -1);
+
+			// std::cout << alongReadMode << " " << thisPosition.graphLevel << " " << (int)graphLevel_2_exonPosition.count(thisPosition.graphLevel) << "\n" << std::flush;
+
+			if(graphLevel_2_exonPosition.count(thisPosition.graphLevel))
+			{
+				// if(!((alongReadMode == 0) || (alongReadMode == 1)))
+				// {
+					// std::cerr << "alongReadMode" << ": " << alongReadMode << "\n";
+					// std::cerr << "alignment.sequence_aligned.substr(cI, 1)" << ": " << alignment.sequence_aligned << "\n";
+					// std::cerr << "alignment.graph_aligned.substr(cI, 1)" << ": " << alignment.graph_aligned << "\n";
+					// std::cerr << "alignment.graph_aligned_levels)" << ": " << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), ", ") << "\n";
+					// std::cerr << "alignment_firstLevel" << ": " << alignment_firstLevel << "\n";
+					// std::cerr << "alignment_lastLevel" << ": " << alignment_lastLevel << "\n";
+					// std::cerr << "combined_exon_sequences_graphLevels.front()" << ": " << combined_exon_sequences_graphLevels.front() << "\n";
+					// std::cerr << "combined_exon_sequences_graphLevels.back()" << ": " << combined_exon_sequences_graphLevels.back() << "\n";
+					// for(unsigned int i = 0; i < alignment.graph_aligned_levels.size(); i++)
+					// {
+						// std::cout << "\t" << i << " " << alignment.graph_aligned_levels.at(i) << " " << (int)graphLevel_2_exonPosition.count(thisPosition.graphLevel) << "\n";
+					// }
+					// std::cerr << std::flush;
+				// }
+				if(alongReadMode == 2)
+				{
+					lastPositionInExon = -1;
+				}
+				// assert((alongReadMode == 0) || (alongReadMode == 1));
+
+
+				thisPosition.positionInExon = graphLevel_2_exonPosition.at(thisPosition.graphLevel);
+				assert((lastPositionInExon == -1) || ((int)thisPosition.positionInExon == ((int)lastPositionInExon + 1)));
+				lastPositionInExon = thisPosition.positionInExon;
+				alongReadMode = 1;
+
+				ret_exonPositions.push_back(thisPosition);
+			}
+			else
+			{
+				if(alongReadMode == 1)
+				{
+					alongReadMode = 2;
+				}
+			}
+		}
+
+		// std::cout << "\n";
+	}
+}
+
+
+void oneReadAlignment_2_exonPositions_unpaired(seedAndExtend_return_local& alignment, oneRead& read, std::vector<oneExonPosition>& ret_exonPositions, const std::vector<int>& combined_exon_sequences_graphLevels, const std::map<int, unsigned int>& graphLevel_2_exonPosition)
+{
+	int alignment_firstLevel = alignment.alignment_firstLevel();
+	int alignment_lastLevel = alignment.alignment_lastLevel();
+
+	double thisRead_fractionOK = alignmentFractionOK(alignment);
+	double pairedRead_fractionOK = -1;
+
+	double thisRead_WeightedCharactersOK = alignmentWeightedOKFraction(read, alignment);
+	double pairedRead_WeightedCharactersOK = -1;
+
+	double pairs_strands_OK = 1;
+	double pairs_strands_distance = -1;
+
+	// std::cout << "This alignment " << alignment_firstLevel << " - " << alignment_lastLevel << "\n";
+	// std::cout << "\tvs combined exon " << combined_exon_sequences_graphLevels.front() << " - " << combined_exon_sequences_graphLevels.back() << "\n\n" << std::flush;
+
+	if( ((alignment_firstLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_firstLevel <= combined_exon_sequences_graphLevels.back())) ||
+		((alignment_lastLevel >= combined_exon_sequences_graphLevels.front()) && (alignment_lastLevel <= combined_exon_sequences_graphLevels.back())) )
+	{
+		std::vector<oneExonPosition> readAlignment_exonPositions;
+
+		int indexIntoOriginalReadData = -1;
+		for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
+		{
+			std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+			std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
+			int graphLevel = alignment.graph_aligned_levels.at(cI);
+			unsigned char alignmentQualityCharacter_thisPosition = alignment.mapQ_genomic_perPosition.at(cI);
+			double alignmentQuality_thisPosition = Utilities::PhredToPCorrect(alignmentQualityCharacter_thisPosition);
+
+			if(graphLevel == -1)
+			{
+				// insertion relative to the graph - we need to extend last character
+
+				assert(graphCharacter == "_");
+				assert(sequenceCharacter != "_");
+
+				indexIntoOriginalReadData++;
+				int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
+				if(alignment.reverse)
+				{
+					indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
+				}
+				assert(indexIntoOriginalReadData_correctlyAligned >= 0);
+				assert(indexIntoOriginalReadData_correctlyAligned <(int) read.sequence.length());
+
+				std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
+				if(alignment.reverse)
+				{
+					underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+				}
+				assert(underlyingReadCharacter == sequenceCharacter);
+				char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
+
+				if(readAlignment_exonPositions.size() > 0)
+				{
+					readAlignment_exonPositions.back().genotype.append(sequenceCharacter);
+					readAlignment_exonPositions.back().alignment_edgelabels.append(graphCharacter);
+					readAlignment_exonPositions.back().qualities.push_back(qualityCharacter);
+					if(!(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length()))
+					{
+						assert(readAlignment_exonPositions.back().genotype.length() == (readAlignment_exonPositions.back().qualities.length()+1));
+						assert(readAlignment_exonPositions.back().genotype.at(0) == '_');
+						readAlignment_exonPositions.back().genotype = readAlignment_exonPositions.back().genotype.substr(1);
+						readAlignment_exonPositions.back().alignment_edgelabels = readAlignment_exonPositions.back().alignment_edgelabels.substr(1);
+						assert(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length());
+
+						// std::cerr << "readAlignment_exonPositions.back().genotype.length()" << ": " << readAlignment_exonPositions.back().genotype.length() << "\n";
+						// std::cerr << "readAlignment_exonPositions.back().qualities.length()" << ": " << readAlignment_exonPositions.back().qualities.length()<< "\n";
+
+						// std::cerr << std::flush;
+					}
+					assert(readAlignment_exonPositions.back().genotype.length() == readAlignment_exonPositions.back().qualities.length());
+					assert(readAlignment_exonPositions.back().alignment_edgelabels.length() == readAlignment_exonPositions.back().genotype.length());
+				}
+			}
+			else
+			{
+				if(sequenceCharacter != "_")
+				{
+					indexIntoOriginalReadData++;
+					int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
+					if(alignment.reverse)
+					{
+						indexIntoOriginalReadData_correctlyAligned = read.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
+					}
+					assert(indexIntoOriginalReadData_correctlyAligned >= 0);
+					assert(indexIntoOriginalReadData_correctlyAligned < (int)read.sequence.length());
+
+					std::string underlyingReadCharacter = read.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
+					if(alignment.reverse)
+					{
+						underlyingReadCharacter = Utilities::seq_reverse_complement(underlyingReadCharacter);
+					}
+					assert(underlyingReadCharacter == sequenceCharacter);
+
+					if(graphCharacter == "_")
+					{
+
+						assert(graphLevel != -1);
+
+						char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
+
+						oneExonPosition thisPosition;
+						thisPosition.graphLevel = graphLevel;
+						thisPosition.genotype = sequenceCharacter;
+						thisPosition.alignment_edgelabels = graphCharacter;
+						thisPosition.qualities.push_back(qualityCharacter);
+
+						thisPosition.thisRead_ID = read.name;
+						thisPosition.pairedRead_ID = "";
+						thisPosition.thisRead_fractionOK = thisRead_fractionOK;
+						thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
+						thisPosition.pairs_strands_OK = pairs_strands_OK;
+						thisPosition.pairs_strands_distance = pairs_strands_distance;
+						thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+						thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+						thisPosition.mapQ = alignment.mapQ;
+						thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+						thisPosition.mapQ_position = alignmentQuality_thisPosition;
+
+						thisPosition.read1_ID = read.name;
+
+						readAlignment_exonPositions.push_back(thisPosition);
+
+					}
+					else
+					{
+						// two well-defined characters
+						char qualityCharacter = read.quality.at(indexIntoOriginalReadData_correctlyAligned);
+
+						oneExonPosition thisPosition;
+						thisPosition.graphLevel = graphLevel;
+						thisPosition.genotype = sequenceCharacter;
+						thisPosition.alignment_edgelabels = graphCharacter;
+						thisPosition.qualities.push_back(qualityCharacter);
+
+						thisPosition.thisRead_ID = read.name;
+						thisPosition.pairedRead_ID = "";
+						thisPosition.thisRead_fractionOK = thisRead_fractionOK;
+						thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
+						thisPosition.pairs_strands_OK = pairs_strands_OK;
+						thisPosition.pairs_strands_distance = pairs_strands_distance;
+						thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+						thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+						thisPosition.mapQ = alignment.mapQ;
+						thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+						thisPosition.mapQ_position = alignmentQuality_thisPosition;
+
+						thisPosition.read1_ID = read.name;
+
+						readAlignment_exonPositions.push_back(thisPosition);
+					}
+
+				}
+				else
+				{
+					assert(sequenceCharacter == "_");
+					if(graphCharacter == "_")
+					{
+						assert(graphLevel != -1);
+
+						oneExonPosition thisPosition;
+						thisPosition.graphLevel = graphLevel;
+						thisPosition.genotype = "_";
+						thisPosition.alignment_edgelabels = graphCharacter;
+						thisPosition.qualities = "";
+
+						thisPosition.thisRead_ID = read.name;
+						thisPosition.pairedRead_ID = "";
+						thisPosition.thisRead_fractionOK = thisRead_fractionOK;
+						thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
+						thisPosition.pairs_strands_OK = pairs_strands_OK;
+						thisPosition.pairs_strands_distance = pairs_strands_distance;
+						thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+						thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+						thisPosition.mapQ = alignment.mapQ;
+						thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+						thisPosition.mapQ_position = alignmentQuality_thisPosition;
+
+						thisPosition.read1_ID = read.name;
+
+						readAlignment_exonPositions.push_back(thisPosition);
+					}
+					else
+					{
+						oneExonPosition thisPosition;
+						thisPosition.graphLevel = graphLevel;
+						thisPosition.genotype = "_";
+						thisPosition.alignment_edgelabels = graphCharacter;
+						thisPosition.qualities = "";
+
+						thisPosition.thisRead_ID = read.name;
+						thisPosition.pairedRead_ID = "";
+						thisPosition.thisRead_fractionOK = thisRead_fractionOK;
+						thisPosition.pairedRead_fractionOK = pairedRead_fractionOK;
+						thisPosition.pairs_strands_OK = pairs_strands_OK;
+						thisPosition.pairs_strands_distance = pairs_strands_distance;
+						thisPosition.thisRead_WeightedCharactersOK = thisRead_WeightedCharactersOK;
+						thisPosition.pairedRead_WeightedCharactersOK = pairedRead_WeightedCharactersOK;
+
+						thisPosition.mapQ = alignment.mapQ;
+						thisPosition.mapQ_genomic = alignment.mapQ_genomic;
+						thisPosition.mapQ_position = alignmentQuality_thisPosition;
+
+
+						thisPosition.read1_ID = read.name;
+
+						readAlignment_exonPositions.push_back(thisPosition);
+					}
+				}
+			}
+		}
+
+		int alongReadMode = 0;
+		int lastPositionInExon = -1;
+		for(unsigned int posInAlignment = 0; posInAlignment < readAlignment_exonPositions.size(); posInAlignment++)
+		{
+			oneExonPosition& thisPosition = readAlignment_exonPositions.at(posInAlignment);
+			assert(thisPosition.graphLevel != -1);
+
+			// std::cout << alongReadMode << " " << thisPosition.graphLevel << " " << (int)graphLevel_2_exonPosition.count(thisPosition.graphLevel) << "\n" << std::flush;
+
+			if(graphLevel_2_exonPosition.count(thisPosition.graphLevel))
+			{
+				// if(!((alongReadMode == 0) || (alongReadMode == 1)))
+				// {
+					// std::cerr << "alongReadMode" << ": " << alongReadMode << "\n";
+					// std::cerr << "alignment.sequence_aligned.substr(cI, 1)" << ": " << alignment.sequence_aligned << "\n";
+					// std::cerr << "alignment.graph_aligned.substr(cI, 1)" << ": " << alignment.graph_aligned << "\n";
+					// std::cerr << "alignment.graph_aligned_levels)" << ": " << Utilities::join(Utilities::ItoStr(alignment.graph_aligned_levels), ", ") << "\n";
+					// std::cerr << "alignment_firstLevel" << ": " << alignment_firstLevel << "\n";
+					// std::cerr << "alignment_lastLevel" << ": " << alignment_lastLevel << "\n";
+					// std::cerr << "combined_exon_sequences_graphLevels.front()" << ": " << combined_exon_sequences_graphLevels.front() << "\n";
+					// std::cerr << "combined_exon_sequences_graphLevels.back()" << ": " << combined_exon_sequences_graphLevels.back() << "\n";
+					// for(unsigned int i = 0; i < alignment.graph_aligned_levels.size(); i++)
+					// {
+						// std::cout << "\t" << i << " " << alignment.graph_aligned_levels.at(i) << " " << (int)graphLevel_2_exonPosition.count(thisPosition.graphLevel) << "\n";
+					// }
+					// std::cerr << std::flush;
+				// }
+				if(alongReadMode == 2)
+				{
+					lastPositionInExon = -1;
+				}
+				// assert((alongReadMode == 0) || (alongReadMode == 1));
+
+
+				thisPosition.positionInExon = graphLevel_2_exonPosition.at(thisPosition.graphLevel);
+				assert((lastPositionInExon == -1) || ((int)thisPosition.positionInExon == ((int)lastPositionInExon + 1)));
+				lastPositionInExon = thisPosition.positionInExon;
+				alongReadMode = 1;
+
+				ret_exonPositions.push_back(thisPosition);
+			}
+			else
+			{
+				if(alongReadMode == 1)
+				{
+					alongReadMode = 2;
+				}
+			}
+		}
+
+		// std::cout << "\n";
+	}
+}
 
 

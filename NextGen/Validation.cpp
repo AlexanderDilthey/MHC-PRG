@@ -581,7 +581,7 @@ void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& unc
 
 }
 
-void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads, double& ret_IS_mean, double& ret_IS_sd, bool longUnpairedReads)
+void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads, double& ret_IS_mean, double& ret_IS_sd)
 {
 	ret_alignments.clear();
 	ret_alignments_originalReads.clear();
@@ -629,23 +629,13 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 		}
 		else
 		{
-			if(longUnpairedReads)
+
+			if(!(lines.at(0).substr(0, 5) == "\tRead"))
 			{
-				if(!(lines.at(0).substr(0, 8) == "\tAligned"))
-				{
-					std::cerr << "Line 0 should be TABAligned, but is not!\n" << lines.at(0) << "\n" << "'" << lines.at(0).substr(0, 8) << "'\n" << std::flush;
-				}			
-				assert(lines.at(0).substr(0, 9) == "\tAligned ");
-				
+				std::cerr << "Line 0 should be TABRead, but is not!\n" << lines.at(0) << "\n" << std::flush;
 			}
-			else
-			{
-				if(!(lines.at(0).substr(0, 5) == "\tRead"))
-				{
-					std::cerr << "Line 0 should be TABRead, but is not!\n" << lines.at(0) << "\n" << std::flush;
-				}
-				assert(lines.at(0).substr(0, 6) == "\tRead ");
-			}
+			assert(lines.at(0).substr(0, 6) == "\tRead ");
+
 			std::string str_readID = lines.at(0).substr(6);
 			std::string str_score = lines.at(1).substr(2);
 			std::string str_reverse = lines.at(2).substr(2);
@@ -694,20 +684,12 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 	assert(inputStream.good());
 	std::getline(inputStream, line);
 	
-	if(! longUnpairedReads)
-	{
-		std::vector<std::string> firstLine_fields = Utilities::split(line, " ");
-		assert(firstLine_fields.size() == 3);
-		assert(firstLine_fields.at(0) == "IS");
+	std::vector<std::string> firstLine_fields = Utilities::split(line, " ");
+	assert(firstLine_fields.size() == 3);
+	assert(firstLine_fields.at(0) == "IS");
 
-		ret_IS_mean = Utilities::StrtoD(firstLine_fields.at(1));
-		ret_IS_sd = Utilities::StrtoD(firstLine_fields.at(2));
-	}
-	else
-	{
-		ret_IS_mean = -1;
-		ret_IS_sd = -1;
-	}
+	ret_IS_mean = Utilities::StrtoD(firstLine_fields.at(1));
+	ret_IS_sd = Utilities::StrtoD(firstLine_fields.at(2));
 	
 	while(inputStream.good())
 	{
@@ -748,6 +730,132 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 		}
 	}
 }
+
+void read_longReadAlignments_fromFile (std::string file, std::vector<seedAndExtend_return_local>& ret_alignments, std::vector<oneRead>& ret_alignments_originalReads)
+{
+	ret_alignments.clear();
+	ret_alignments_originalReads.clear();
+
+	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> forReturn;
+
+	auto getLines = [](std::ifstream& inputStream, unsigned int lines) -> std::vector<std::string> {
+		std::vector<std::string> forReturn;
+		assert(lines > 0);
+		for(unsigned int lI = 0; lI < lines; lI++)
+		{
+			if(!inputStream.good())
+			{
+				return forReturn;
+			}
+			assert(inputStream.good());
+			std::string thisLine;
+			std::getline(inputStream, thisLine);
+			Utilities::eraseNL(thisLine);
+			forReturn.push_back(thisLine);
+
+		}
+		assert(forReturn.size() == lines);
+		return forReturn;
+	};
+
+
+	auto getAlignment = [&](std::ifstream& inputStream, bool& fail, seedAndExtend_return_local& ret_alignment, oneRead& ret_originalRead) -> void {
+		fail = false;
+		int readLines = 9;
+		std::vector<std::string> lines = getLines(inputStream, readLines);
+
+		if(lines.size() != 9)
+		{
+			fail = true;
+		}
+		else
+		{
+			if(!(lines.at(0).substr(0, 5) == "\tRead"))
+			{
+				std::cerr << "Line 0 should be TABRead, but is not!\n" << lines.at(0) << "\n" << std::flush;
+			}
+			assert(lines.at(0).substr(0, 6) == "\tRead ");
+
+			std::string str_readID = lines.at(0).substr(6);
+			std::string str_score = lines.at(1).substr(2);
+			std::string str_reverse = lines.at(2).substr(2);
+			std::string str_mapQ = lines.at(3).substr(2);
+			std::string str_graph_aligned = lines.at(4).substr(2);
+			std::string str_sequence_aligned = lines.at(5).substr(2);
+			std::string str_levels = lines.at(6).substr(2);
+			std::string str_originalSequence = lines.at(7).substr(2);
+			std::string str_qualities = lines.at(8).substr(2);
+
+			std::vector<std::string> mapQs = Utilities::split(str_mapQ, " ");
+
+			seedAndExtend_return_local a;
+			a.Score = Utilities::StrtoD(str_score);
+			a.reverse = Utilities::StrtoB(str_reverse);
+			if(mapQs.size() == 2)
+			{
+				a.mapQ = Utilities::StrtoD(mapQs.at(0));
+				a.mapQ_genomic = Utilities::StrtoD(mapQs.at(1));
+			}
+			else if(mapQs.size() == 3)
+			{
+				a.mapQ = Utilities::StrtoD(mapQs.at(0));
+				a.mapQ_genomic = Utilities::StrtoD(mapQs.at(1));
+				a.mapQ_genomic_perPosition = mapQs.at(2);
+				assert(a.mapQ_genomic_perPosition.length() == str_graph_aligned.length());
+			}
+			else
+			{
+				a.mapQ = Utilities::StrtoD(mapQs.at(0));
+				a.mapQ_genomic = 2;
+			}
+			a.graph_aligned = str_graph_aligned;
+			a.sequence_aligned = str_sequence_aligned;
+			a.graph_aligned_levels = Utilities::StrtoI(Utilities::split(str_levels, " "));
+			ret_alignment = a;
+
+			oneRead r(str_readID, str_originalSequence, str_qualities);
+			ret_originalRead = r;
+		}
+	};
+	std::ifstream inputStream;
+	inputStream.open(file.c_str());
+	assert(inputStream.is_open());
+	std::string line;
+	assert(inputStream.good());
+	std::getline(inputStream, line);
+
+	while(inputStream.good())
+	{
+		std::getline(inputStream, line);
+		Utilities::eraseNL(line);
+		if(line.length())
+		{
+
+			std::string lineForInsertion;
+
+			assert(line.substr(0, std::string("Aligned unpaired read").length()) == "Aligned unpaired read");
+
+			bool fail;
+
+			seedAndExtend_return_local a;
+
+			oneRead r("", "", "");
+			getAlignment(inputStream, fail, a, r);
+
+			if(fail)
+			{
+				assert(! inputStream.good());
+			}
+
+			if(! fail)
+			{
+				ret_alignments.push_back(a);
+				ret_alignments_originalReads.push_back(r);
+			}
+		}
+	}
+}
+
 
 void estimateInsertSizeFromGraph(std::string FASTQs, std::string graphDir, std::vector<std::pair<double, double>>& inserSize_mean_sd_perFile)
 {

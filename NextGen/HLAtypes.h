@@ -12,6 +12,7 @@
 #include <vector>
 #include <map>
 
+
 void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads);
 void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotype_1, std::string starting_haplotype_2, bool longUnpairedReads);
 
