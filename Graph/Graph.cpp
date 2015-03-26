@@ -93,6 +93,83 @@ void Graph::graphViz(int level_start, int level_stop, std::string output_filenam
 
 }
 
+
+void Graph::graphViz2(std::string locus_string, std::string output_filename)
+{
+	std::ofstream output;
+	output.open(output_filename.c_str());
+	assert(output.is_open());
+
+	std::set<unsigned int> levels;
+	for(unsigned int l = 0; l < NodesPerLevel.size(); l++)
+	{
+		std::set<Node*> nodes_at_l = NodesPerLevel.at(l);
+		for(std::set<Node*>::iterator nIt = nodes_at_l.begin(); nIt != nodes_at_l.end(); nIt++)
+		{
+			Node* n = *nIt;
+			assert(n->level == l);
+			for(std::set<Edge*>::iterator edgeIt = n->Outgoing_Edges.begin(); edgeIt != n->Outgoing_Edges.end(); edgeIt++ )
+			{
+				Edge* e = *edgeIt;
+				if(e->locus_id.find(locus_string) != std::string::npos)
+				{
+					levels.insert(l);
+				}
+			}
+		}
+	}
+
+	assert(levels.size() > 1);
+
+	int level_start = (int)(*levels.begin());
+	int level_stop = (int)(*levels.rbegin());
+
+	output << "digraph G {\n";
+
+	assert(level_stop > level_start);
+
+	std::vector<std::map<Node*, std::string> > _node_2_int;
+	_node_2_int.resize((level_stop - level_start + 1));
+
+	auto getIDForNode = [&](int level, Node* n) -> std::string {
+		assert(level >= level_start);
+		assert(level <= level_stop);
+		if(_node_2_int.at(level-level_start).count(n) == 0)
+		{
+			int existingNodes = _node_2_int.at(level-level_start).size();
+			int thisNode = existingNodes + 1;
+			std::string nodeID = "L" + Utilities::ItoStr(level) + "N" + Utilities::ItoStr(thisNode);
+			_node_2_int.at(level-level_start)[n] = nodeID;
+		}
+		return _node_2_int.at(level-level_start).at(n);
+	};
+
+	for(int level = level_start; level < level_stop; level++)
+	{
+		std::set<Node*> nodes_thisLevel_set = NodesPerLevel.at(level);
+		std::vector<Node*> nodes_thisLevel(nodes_thisLevel_set.begin(), nodes_thisLevel_set.end());
+
+		for(unsigned int nI = 0; nI < nodes_thisLevel.size(); nI++)
+		{
+			Node* n = nodes_thisLevel.at(nI);
+			std::string n_ID = getIDForNode(level, n);
+			for(std::set<Edge*>::iterator eIt = n->Outgoing_Edges.begin(); eIt != n->Outgoing_Edges.end(); eIt++)
+			{
+				Edge* e = *eIt;
+				Node* n2 = e->To;
+				std::string n2_ID = getIDForNode(level+1, n2);
+
+				std::string e_emission = CODE.deCode(e->locus_id, e->emission);
+				output << "\t" << n_ID << " -> " << n2_ID << "[label=\"" << e_emission <<  "\"]" << "\n";
+			}
+		}
+	}
+
+	output << "\n" << "}" << "\n";
+	output.close();
+
+}
+
 void Graph::unRegisterNode(Node* n)
 {
 	assert(Nodes.count(n) > 0);

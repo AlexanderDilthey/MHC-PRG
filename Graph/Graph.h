@@ -66,6 +66,7 @@ public:
 
 
 	void graphViz(int level_start, int level_stop, std::string output_filename);
+	void graphViz2(std::string locus_string, std::string output_filename);
 
 	vector<levelInfo> getLevelInfo();
 	

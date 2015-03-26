@@ -172,6 +172,17 @@ int main(int argc, char *argv[])
 		g->readFromFile(graph_file);
 		g->graphViz(start_level, stop_level, graphviz_output_file);
 	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "plotGraph2"))
+	{
+		string graph_file = arguments.at(2);
+		string locus_string  = arguments.at(3);
+		string graphviz_output_file = arguments.at(3);
+
+
+		Graph* g = new Graph();
+		g->readFromFile(graph_file);
+		g->graphViz2(locus_string, graphviz_output_file);
+	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "describeNucleotideGraph"))
 	{
 		string graph_file = arguments.at(2);
