@@ -1388,8 +1388,60 @@ int main(int argc, char *argv[])
 		F.minimumOverlap = minimumOverlap;
 
 		F.doFilter();
-
 	}
+	else if((arguments.size() > 0) && (arguments.at(1) == "filterLongOverlappingReads2"))
+	{
+		std::string referenceGenome;
+
+		vector<string> arguments (argv + 1, argv + argc + !argc);
+
+		std::string input_BAM;
+		std::string input_FASTQ;
+		std::string output_FASTQ;
+		std::string graphDir;
+
+		int minimumOverlap = 0;
+
+		for(unsigned int i = 2; i < arguments.size(); i++)
+		{
+			if(arguments.at(i) == "--input_BAM")
+			{
+				input_BAM = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--referenceGenome")
+			{
+				referenceGenome = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--input_FASTQ")
+			{
+				input_FASTQ = arguments.at(i+1);
+			}			
+			if(arguments.at(i) == "--output_FASTQ")
+			{
+				output_FASTQ = arguments.at(i+1);
+			}
+			if(arguments.at(i) == "--minimumOverlap")
+			{
+				minimumOverlap = Utilities::StrtoD(arguments.at(i+1));
+			}
+
+			if(arguments.at(i) == "--graphDir")
+			{
+				graphDir = arguments.at(i+1);
+			}
+		}
+
+		filterLongOverlappingReads F;
+		F.input_BAM = input_BAM;
+		F.input_FASTQ = input_FASTQ;
+		F.output_FASTQ = output_FASTQ;
+		F.referenceGenomeFile = referenceGenome;
+		F.graphDir = graphDir;
+		F.minimumOverlap = minimumOverlap;
+
+		F.doFilter2();
+
+	}	
 	else
 	{
 		errEx("Please specify valid mode.");

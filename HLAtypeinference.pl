@@ -241,7 +241,7 @@ if($actions =~ /p/)
 	}
 }
 
-if($actions =~ /l/)
+if($actions =~ /l1/)
 {
 	die "No positive (-p) and long-read-positive (-p) filtering at the same time" if($actions =~ /p/);
 	
@@ -282,6 +282,59 @@ if($actions =~ /l/)
 		system($command);
 	}
 }
+
+
+if($actions =~ /l2/)
+{
+	die "No positive (-p) and long-read-positive (-p) filtering at the same time" if($actions =~ /p/);
+	
+	unless(@BAMs)
+	{
+		die "Please provide --BAMs for positive filtering";
+	}
+	unless($#BAMs == $#sampleIDs)
+	{
+		die "Please provide an equal number of --BAMs and --sampleIDs";
+	}
+	
+	for(my $bI = 0; $bI <= $#BAMs; $bI++)
+	{
+		my $BAM = $BAMs[$bI];
+		my $sampleID = $sampleIDs[$bI];
+		
+		my $FASTQ = $BAM . '.fastq';
+		
+		unless(-e $BAM)
+		{
+			die "Specified BAM $BAM (in --BAMs) does not exist!\n";
+		}
+
+		
+		unless(-e $FASTQ)
+		{
+			die "Specified FASTQ $FASTQ (from --BAMs + .fastq) does not exist!\n";
+		}
+		
+		
+		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p';
+		unless(-e '../tmp/hla/'.$sampleID)
+		{
+			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
+		}
+		
+		my $command = qq($use_bin domode filterLongOverlappingReads2 --input_BAM $BAM --input_FASTQ $FASTQ --output_FASTQ $output_file --graphDir ../tmp2/GS_nextGen/${graph});
+		
+		if($referenceGenome)
+		{
+			$command .= qq( --referenceGenome $referenceGenome);
+		}	
+		
+		print "Now executing command:\n$command\n\n";
+		
+		system($command);
+	}
+}
+
 
 if($actions =~ /n/)
 {

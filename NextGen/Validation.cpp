@@ -738,6 +738,8 @@ void read_longReadAlignments_fromFile (std::string file, std::vector<seedAndExte
 
 	std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> forReturn;
 
+	size_t got_lines = 0;
+	
 	auto getLines = [](std::ifstream& inputStream, unsigned int lines) -> std::vector<std::string> {
 		std::vector<std::string> forReturn;
 		assert(lines > 0);
@@ -764,6 +766,8 @@ void read_longReadAlignments_fromFile (std::string file, std::vector<seedAndExte
 		int readLines = 9;
 		std::vector<std::string> lines = getLines(inputStream, readLines);
 
+		got_lines += lines.size();
+		
 		if(lines.size() != 9)
 		{
 			fail = true;
@@ -822,17 +826,25 @@ void read_longReadAlignments_fromFile (std::string file, std::vector<seedAndExte
 	assert(inputStream.is_open());
 	std::string line;
 	assert(inputStream.good());
-	std::getline(inputStream, line);
 
 	while(inputStream.good())
 	{
 		std::getline(inputStream, line);
+		
+		got_lines++;
+		
 		Utilities::eraseNL(line);
 		if(line.length())
 		{
 
 			std::string lineForInsertion;
 
+			if(!(line.substr(0, std::string("Aligned unpaired read").length()) == "Aligned unpaired read"))
+			{
+				std::cerr << "! line.substr(0, std::string('Aligned unpaired read').length()) == 'Aligned unpaired read')" << "\n" << std::flush;
+				std::cerr << "'" << line.substr(0, std::string("Aligned unpaired read").length()) << "'" << "\n" << std::flush;
+				std::cerr << "got_lines: " <<  got_lines << "\n" << std::flush;
+			}
 			assert(line.substr(0, std::string("Aligned unpaired read").length()) == "Aligned unpaired read");
 
 			bool fail;

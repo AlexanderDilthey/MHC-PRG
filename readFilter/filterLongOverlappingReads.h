@@ -23,6 +23,7 @@ public:
 	filterLongOverlappingReads();
 
 	void doFilter();
+	void doFilter2();
 
 	int threads;
 

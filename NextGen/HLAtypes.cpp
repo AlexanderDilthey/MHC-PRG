@@ -19,6 +19,7 @@
 #include <functional>
 #include <cctype>
 #include <set>
+#include <limits>
 
 #include "HLAtypes.h"
 
@@ -595,6 +596,11 @@ double read_likelihood_per_position(const std::string& exonGenotypeR, const std:
 				}
 				assert((pCorrect >= 0) && (pCorrect <= 1));
 
+				if(pCorrect == 0)
+				{
+					pCorrect = 0.001;
+				}
+				
 				// if(!(pCorrect >= 0.25))
 				// {
 					// std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
@@ -4433,13 +4439,16 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		// printClusters.insert(1646);
 
 
+		// can be removed later, will lead to problems during final normalization
+//		assert(exonPositions_fromReads.size() > 0);
 		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
 		{
 			std::vector<std::string> typesInCluster(HLAtype_clusters.at(clusterI).begin(), HLAtype_clusters.at(clusterI).end());
 			std::string clusterName = Utilities::join(typesInCluster, "|");
 
 			bool verbose = printClusters.count(clusterI);
-
+			// verbose = (clusterI == 0);
+			
 			if(verbose)
 			{
 				std::cout << "CLUSTER " << clusterI << " " << clusterName << "\n";
@@ -4482,6 +4491,10 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					assert((onePositionSpecifier.mapQ_position >= 0) && (onePositionSpecifier.mapQ_position <= 1));
 					if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
 					{
+						if(verbose)
+						{
+							std::cout << "\t" << positionI << " mapQ_position " << onePositionSpecifier.mapQ_position << " too low (below " << minimumPerPositionMappingQuality << ").\n" << std::flush;
+						}					
 						continue;
 					}
 					
@@ -4561,6 +4574,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 							}
 							assert((pCorrect >= 0) && (pCorrect <= 1));
 
+							if(pCorrect == 0)
+							{
+								pCorrect = 0.001;
+							}
+							
 							// if(!(pCorrect >= 0.25))
 							// {
 								// std::cerr << "pCorrect = " << pCorrect << "\n" << std::flush;
@@ -4647,6 +4665,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		// std::cout << Utilities::timestamp() << "Compute normalized likelihoods (over multiple alignments, if there are any)." << std::flush;
 		//  std::cout << "\t" << "exonPositions_fromReads.size(): " << exonPositions_fromReads.size() << "\n" << std::flush;
 		
+		/*
 		std::map<std::string, std::set<unsigned int> > readID_noAlignment_2_readIndex;
 		std::map<std::string, unsigned int > readID_noAlignment_2_idx;
 		for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
@@ -4670,6 +4689,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				}
 			}
 		}
+		
+		*/
 		
 		// std::cout << Utilities::timestamp() << "\tProcessed " << readID_noAlignment_2_idx.size() << " reads (no alignment)\n" << std::flush;
 
@@ -4821,6 +4842,28 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 					// double LL_average_2 = log(0.5 * exp(LL_thisRead_cluster1) + 0.5 * exp(LL_thisRead_cluster2));
 					double LL_average_2_2 = logAvg(LL_thisRead_cluster1, LL_thisRead_cluster2);
+					
+					// if((exp(LL_thisRead_cluster1) == 0) && (exp(LL_thisRead_cluster2) == 0))
+					// {
+						// LL_average_2_2 = -1 * std::numeric_limits<double>::infinity();
+					// }
+					
+					// std::cerr << LL_average_2_2 << "\n";
+					
+					if(!((exp(LL_average_2_2) >= 0) && (exp(LL_average_2_2) <= 1)))
+					{  
+						#pragma omp critical
+						{
+							std::cerr << "Problem with readI " << readI << " conditional on clusters " << clusterI1 << "/" << clusterI2 << "\n";
+							std::cerr << "LL_average_2_2" << ": " << LL_average_2_2 << " exp: " << exp(LL_average_2_2) << "\n";
+							std::cerr << "LL_thisRead_cluster1" << ": " << LL_thisRead_cluster1 << " exp: " << exp(LL_thisRead_cluster1) << "\n";
+							std::cerr << "LL_thisRead_cluster2" << ": " << LL_thisRead_cluster2 << " exp: " << exp(LL_thisRead_cluster2) << "\n";
+							std::cerr << std::flush;	
+						}						
+					}
+					
+					assert((exp(LL_average_2_2) >= 0) && (exp(LL_average_2_2) <= 1));
+					
 					// if(! (abs(LL_average_2 - LL_average_2_2) < 1e-5))
 					// {
 						// std::cerr << "Cluster 1: " << LL_thisRead_cluster1 << " " << exp(LL_thisRead_cluster1) << "\n";
@@ -4990,14 +5033,34 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			double P = exp(LL - LL_max);
 			P_sum += P;
 		}
-		for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
+		if(P_sum > 0)
 		{
-			double LL = LLs_completeReads.at(cI);
-			double P = exp(LL - LL_max);
-			double P_normalized = P / P_sum;
-			assert(P_normalized >= 0);
-			assert(P_normalized <= 1);
-			LLs_normalized.push_back(P_normalized);
+			for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
+			{
+				double LL = LLs_completeReads.at(cI);
+				double P = exp(LL - LL_max);
+				double P_normalized = P / P_sum;
+				if(!((P_normalized >= 0) && (P_normalized <= 1)))
+				{
+					std::cerr << "P_normalized: " << P_normalized << "\n";
+					std::cerr << "P: " << P << "\n";
+					std::cerr << "LL: " << LL << "\n";
+					std::cerr << "LL_max: " << LL_max << "\n";
+					
+					std::cerr << std::flush;
+				}
+				assert(P_normalized >= 0);
+				assert(P_normalized <= 1);
+				LLs_normalized.push_back(P_normalized);
+			}
+		}
+		else
+		{
+			for(unsigned int cI = 0; cI < LLs_clusterIs.size(); cI++)
+			{
+				LLs_normalized.push_back(1.0/(double)LLs_clusterIs.size());
+			}
+		
 		}
 
 		std::ofstream allPairsStream;
