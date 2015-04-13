@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
 	{
 		string graph_file = arguments.at(2);
 		string locus_string  = arguments.at(3);
-		string graphviz_output_file = arguments.at(3);
+		string graphviz_output_file = arguments.at(4);
 
 
 		Graph* g = new Graph();

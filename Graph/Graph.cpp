@@ -113,7 +113,16 @@ void Graph::graphViz2(std::string locus_string, std::string output_filename)
 				Edge* e = *edgeIt;
 				if(e->locus_id.find(locus_string) != std::string::npos)
 				{
-					levels.insert(l);
+					if(e->locus_id.find("buffer") == std::string::npos)
+					{
+						if(
+							(e->locus_id.find("exon/2_") != std::string::npos)
+//							|| (e->locus_id.find("exon/3_") != std::string::npos)
+						)
+						{
+							levels.insert(l);
+						}
+					}
 				}
 			}
 		}
@@ -123,11 +132,16 @@ void Graph::graphViz2(std::string locus_string, std::string output_filename)
 
 	int level_start = (int)(*levels.begin());
 	int level_stop = (int)(*levels.rbegin());
-
+	int levels_extract = level_stop - level_start + 1;
+	
+	std::cout << "Graph::graphViz2(..): search string " << locus_string << ", extract from " << level_start << " to " << level_stop << " (" << levels_extract << ") levels\n" << std::flush;
+	
 	output << "digraph G {\n";
+	output << "\tgraph [rotate=90]\n";
+	output << "\tnode [label=\"\", height = 0.1, width = 0.1]\n";
 
 	assert(level_stop > level_start);
-
+	
 	std::vector<std::map<Node*, std::string> > _node_2_int;
 	_node_2_int.resize((level_stop - level_start + 1));
 

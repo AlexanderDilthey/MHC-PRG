@@ -51,6 +51,7 @@ my $HiSeq250bp = 0;
 my $fastExtraction = 0;
 
 my $fromPHLAT = 0;
+my $fromHLAreporter = 0;
 
 my $referenceGenome;
 
@@ -71,7 +72,10 @@ GetOptions ('graph:s' => \$graph,
  'HiSeq250bp:s' => \$HiSeq250bp, 
  'fastExtraction:s' => \$fastExtraction, 
  'fromPHLAT:s' => \$fromPHLAT,
+ 'fromHLAreporter:s' => \$fromHLAreporter,
 );         
+
+die if($fromPHLAT and $fromHLAreporter);
 
 if($minCoverage)
 {
@@ -610,7 +614,15 @@ if($actions =~ /v/)
 				warn "Best-guess file $bestGuess_file not existing";
 				next;
 			}		
-			
+		}
+		elsif($fromHLAreporter)
+		{
+			$bestGuess_file = '/gpfs1/well/gsk_hla/HLAreporter/results/'.$sampleID.'/'.$validation_round.'_bestguess.txt';	
+			unless(-e $bestGuess_file)
+			{
+				warn "Best-guess file $bestGuess_file not existing";
+				next;
+			}			
 		}
 		else
 		{
@@ -722,6 +734,8 @@ if($actions =~ /v/)
 		INDIV: foreach my $indivID (@indivIDs)
 		{	
 			$| = 1;
+			
+			print "\t", $indivID, "\t", $locus, "\n";
 						
 			$debug = 0;
 			
@@ -1124,7 +1138,7 @@ if($actions =~ /v/)
 				}
 			}
 
-			if(($thisIndiv_problems > 0) and (not $all_2_dig) and not ($fromPHLAT))
+			if(($thisIndiv_problems > 0) and (not $all_2_dig) and not ($fromPHLAT) and not($fromHLAreporter))
 			{
 				my %readIDs;
 				
