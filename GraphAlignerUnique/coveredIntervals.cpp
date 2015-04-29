@@ -207,6 +207,17 @@ size_t coveredIntervals::getNumIntervals() const
 }
 
 
+void coveredIntervals::printIntervals() const
+{
+	std::cout << "Print " << intervals.size() << " intervals\n";
+	for(std::set<oneInterval*>::iterator intervalIt = intervals.begin(); intervalIt != intervals.end(); intervalIt++)
+	{
+		oneInterval* i = *intervalIt;
+		std::cout << "\t" << i->regionID << " : " << i->from << " - " << i->to << "\n";
+	}
+	std::cout << std::flush;
+}
+
 std::set<oneInterval*> coveredIntervals::intervals_covering_point(std::string regionID, int position) const
 {
 	std::set<oneInterval*> forReturn;

@@ -67,9 +67,12 @@ my %interestingReadsBySample = (
 		# 'trueHLAsaysThere' => [	
 		# ],
 	# },
-	'I2_SRR718067' => {
+	
+	'I3_NA18939' => {
 		'mapperSaysThere' => [
-			'@@SRR718067.25100355:normalAlignment=6.97501e-05[6:32489589-32489669];0.695469[6:32489782-32489882];1;113/1:FROM:6:32489589:FROM:A0',			
+			'@@H781JADXX131217:2:2115:5037:23098:normalAlignment=6.4519e-13[6:32489558-32489807];3.9461e-10[6:32489650-32489899];1;-157/1:FROM:6:32489558:FROM:A0',			
+			'@@H781JADXX131217:1:2216:14002:73442:normalAlignment=0.400138[6:32552413-32552662];4.05659e-73[6:32551954-32552112];1;301/1:FROM:6:32552413:FROM:A0',			
+			'@@H781JADXX131217:2:1208:20662:60423:normalAlignment=1.43872e-59[6:32489594-32489832];5.9869e-51[6:32489594-32489834];0;NA/1:FROM:6:32489594:FROM:A0',			
 		],
 		'trueHLAsaysThere' => [	
 		],
@@ -105,6 +108,7 @@ foreach my $sampleID (keys %interestingReadsBySample)
 	close(CPP);
 }  
 
+# pure reads
 # main part
 my $output_file_sequenceOnly = $output_directory . '/' . 'sequenceOnly.txt';
 open(SEQUENCEONLY, '>', $output_file_sequenceOnly) or die "Cannot open $output_file_sequenceOnly";
@@ -113,14 +117,71 @@ print "Printing to $output_file_sequenceOnly\n";
 
 foreach my $sampleID (keys %interestingReadsBySample)
 {
-	my $input_filename = qq(../tmp/hla/${sampleID}/reads.p.n.aligned);
+	print $sampleID, "\n";
 	
+	my $input_filename = qq(../tmp/hla/${sampleID}/reads.p.n.aligned);
+	my $input_reads_1_fn = qq(../tmp/hla/${sampleID}/reads.p.n_1);
+	my $input_reads_2_fn = qq(../tmp/hla/${sampleID}/reads.p.n_2);
+	
+	my %reads_from_alignment;
+	foreach my $cat (keys %{$interestingReadsBySample{$sampleID}})
+	{
+		my @r = @{$interestingReadsBySample{$sampleID}{$cat}};
+		foreach my $readID (@r)
+		{
+			die unless($readID =~ /^(.+)\/[12]/);
+			my $shortRead = $1;
+			$reads_from_alignment{$shortRead}++;
+		}
+	}
 	my %output_lines_perGroup;
 	
 	my %specifiedRead_2_firstReadID;
 	my %firstReadIDs_2_specifiedReadIDs;
 	
 	my %firstReadID_2_sequences;
+	
+
+	my $input_reads_1_fh;
+	open($input_reads_1_fh, '<', $input_reads_1_fn) or die "Cannot open $input_reads_1_fn";
+
+	my $input_reads_2_fh;
+	open($input_reads_2_fh, '<', $input_reads_2_fn) or die "Cannot open $input_reads_2_fn";
+
+	my $output_file_reads_1 = $output_directory . '/' . $sampleID . '_reads_1.txt';
+	my $output_file_reads_2 = $output_directory . '/' . $sampleID . '_reads_2.txt';
+
+	open(READSOUT1, '>', $output_file_reads_1) or die "Cannot open $output_file_reads_1";
+	open(READSOUT2, '>', $output_file_reads_2) or die "Cannot open $output_file_reads_2";
+		
+	while(! eof($input_reads_1_fh))
+	{
+		my @lines_1 = getNlines($input_reads_1_fh, 4);
+		my @lines_2 = getNlines($input_reads_2_fh, 4);
+		
+		die unless($lines_1[0] =~ /^(.+)\/[12]/);
+		my $readID_1 = $1;
+		die unless($lines_2[0] =~ /^(.+)\/[12]/);
+		my $readID_2 = $1;
+		
+		die unless($readID_1 eq $readID_2);
+		
+		if($reads_from_alignment{$readID_1})
+		{
+			print READSOUT1 join("\n", @lines_1), "\n";
+			print READSOUT2 join("\n", @lines_2), "\n";
+		}
+	}
+
+	
+	close($input_reads_1_fh);
+	close($input_reads_2_fh);
+	
+	close(READSOUT1);
+	close(READSOUT2);
+	
+	print "\tcreated $output_file_reads_1\n";
+	print "\tcreated $output_file_reads_2\n";
 	
 	my $input_fh;
 	open($input_fh, '<', $input_filename) or die "Cannot open $input_filename";
@@ -239,7 +300,6 @@ foreach my $sampleID (keys %interestingReadsBySample)
 			}
 		}
 	}
-	
 }
 
 close(SEQUENCEONLY);

@@ -346,6 +346,8 @@ auto normalizeVector = [](std::vector<double>& v) -> void {
 	}
 };
 
+std::vector<oneExonPosition> removeDoublePositionsFromRead(const std::vector<oneExonPosition>& positions);
+
 std::string printPerc (double v1, double v2)
 {
 	double perc = (v1/v2) * 100;
@@ -2059,9 +2061,15 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 
 				std::vector<oneExonPosition> thisRead_positions = read1_positions;
 				thisRead_positions.insert(thisRead_positions.end(), read2_positions.begin(), read2_positions.end());
-				if(thisRead_positions.size() > 0)
-					positions_fromReads.push_back(thisRead_positions);
+				
 
+								
+				if(thisRead_positions.size() > 0)
+				{
+					thisRead_positions = removeDoublePositionsFromRead(thisRead_positions);
+					positions_fromReads.push_back(thisRead_positions);
+				}
+				
 				readPairs_OK++;
 			}
 		}
@@ -2085,7 +2093,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 				// good
 
 				// std::cout << "\t\t" << "readPair " << readPairI << ", pairing OK.\n" << std::flush;
-
+				
 				std::vector<oneExonPosition> thisRead_positions = read_positions;
 				if(thisRead_positions.size() > 0)
 					positions_fromReads.push_back(thisRead_positions);
@@ -3909,7 +3917,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	{
 
 		std::pair<seedAndExtend_return_local, seedAndExtend_return_local>& alignedReadPair = alignments_paired.at(alignmentI);
-
+		
 		if(alignedReadPair_strandsValid(alignedReadPair))
 		{
 			alignmentStats_strandsValid++;
@@ -3940,6 +3948,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		alignmentStats_paired_fractionOK_sum += fractionOK_1;
 		alignmentStats_paired_fractionOK_sum += fractionOK_2;
 	}
+	
+
 	for(unsigned int alignmentI = 0; alignmentI < alignments_unpaired.size(); alignmentI++)
 	{
 
@@ -4261,8 +4271,12 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 				std::vector<oneExonPosition> thisRead_exonPositions = read1_exonPositions;
 				thisRead_exonPositions.insert(thisRead_exonPositions.end(), read2_exonPositions.begin(), read2_exonPositions.end());
+
 				if(thisRead_exonPositions.size() > 0)
+				{
+					thisRead_exonPositions = removeDoublePositionsFromRead(thisRead_exonPositions);
 					exonPositions_fromReads.push_back(thisRead_exonPositions);
+				}
 
 				readPairs_OK++;
 			}
@@ -4299,12 +4313,14 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			std::vector<oneExonPosition> read_exonPositions;
 			oneReadAlignment_2_exonPositions_unpaired(alignedRead, originalRead, read_exonPositions, combined_exon_sequences_graphLevels, graphLevel_2_exonPosition);
 
+
 			double mapQ_thisAlignment = alignedRead.mapQ_genomic;
 			if(mapQ_thisAlignment >= minimumMappingQuality)
 			{
 				// good
-
+				
 				std::vector<oneExonPosition> thisRead_exonPositions = read_exonPositions;
+				
 				if(thisRead_exonPositions.size() > 0)
 					exonPositions_fromReads.push_back(read_exonPositions);
 
@@ -4350,6 +4366,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		std::ofstream pileUpStream;
 		pileUpStream.open(fileName_pileUp.c_str());
 		assert(pileUpStream.is_open());
+		
 
 		for(std::map<int, std::map<int, std::vector<oneExonPosition> > >::iterator exonIt = pileUpPerPosition.begin(); exonIt != pileUpPerPosition.end(); exonIt++)
 		{
@@ -6743,3 +6760,67 @@ void oneReadAlignment_2_exonPositions_unpaired(seedAndExtend_return_local& align
 }
 
 
+std::vector<oneExonPosition> removeDoublePositionsFromRead(const std::vector<oneExonPosition>& positions)
+{
+	std::map<int, std::vector<oneExonPosition>> positions_per_graphLevel;
+	std::vector<oneExonPosition> forReturn;
+	
+	for(unsigned int i = 0; i < positions.size(); i++)
+	{
+		const oneExonPosition& p = positions.at(i);
+		int graphLevel = p.graphLevel;
+		positions_per_graphLevel[graphLevel].push_back(p);
+	}
+
+	auto getWorstQuality = [](const std::string& qualities) -> unsigned char {
+		assert(qualities.size() > 0);
+		unsigned char worstQ;
+		for(unsigned int i = 0; i < qualities.size(); i++)
+		{
+			if((i == 0) || (qualities.at(i) < worstQ))
+			{
+				worstQ = qualities.at(i);
+			}
+		}
+		return worstQ;
+	};
+	
+	auto getBestExonPosition = [&](const std::vector<oneExonPosition>& alternatives) -> oneExonPosition {
+		assert(alternatives.size() > 0);
+		
+		unsigned int bestI;
+		unsigned char bestI_quality;
+		
+		for(unsigned int i = 0; i < alternatives.size(); i++)
+		{
+			const oneExonPosition& thisAlternative = alternatives.at(i);
+			if(!(((thisAlternative.genotype == "_") || (thisAlternative.qualities.size() > 0))))
+			{
+				std::cerr << "thisAlternative.qualities.size() == 0" << "\n";
+				std::cerr << "thisAlternative.graphLevel: " << thisAlternative.graphLevel << "\n";
+				std::cerr << "thisAlternative.genotype: " << thisAlternative.genotype << "\n";
+				std::cerr << std::flush;
+				
+			}
+			assert((thisAlternative.genotype == "_") || (thisAlternative.qualities.size() > 0));
+			unsigned char Q = (thisAlternative.genotype == "_") ? 0 : getWorstQuality(thisAlternative.qualities);
+			if((i == 0) || (Q > bestI_quality))
+			{
+				bestI = i;
+				bestI_quality = Q;
+			}
+		}
+		
+		return alternatives.at(bestI);
+	};
+	
+	for(std::map<int, std::vector<oneExonPosition> >::iterator graphLevelIt = positions_per_graphLevel.begin(); graphLevelIt != positions_per_graphLevel.end(); graphLevelIt++)
+	{
+		oneExonPosition bestPositionAtLevel = getBestExonPosition(graphLevelIt->second);
+		forReturn.push_back(bestPositionAtLevel);
+	}
+	
+	std::cout << "removeDoublePositionsFromRead(..): Removed " << (positions.size() - forReturn.size()) << " exon positions (from " << positions.size() << " to " << forReturn.size() << ").\n" << std::flush;
+	
+	return forReturn;
+}

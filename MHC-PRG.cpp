@@ -394,7 +394,9 @@ int main(int argc, char *argv[])
 		std::string input_FASTQ;
 		std::string graph_dir;
 		std::string referenceGenome;
-
+		std::string IS_mean;
+		std::string IS_sd;
+		
 		for(unsigned int i = 0; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--input_FASTQ")
@@ -411,6 +413,16 @@ int main(int argc, char *argv[])
 			{
 				referenceGenome = arguments.at(i+1);
 			}
+			
+			if(arguments.at(i) == "--IS_mean")
+			{
+				IS_mean = arguments.at(i+1);
+			}
+
+			if(arguments.at(i) == "--IS_sd")
+			{
+				IS_sd = arguments.at(i+1);
+			}
 		}
 
 		assert(input_FASTQ.length());
@@ -418,8 +430,28 @@ int main(int argc, char *argv[])
 		assert(referenceGenome.length());
 
 		std::vector<std::pair<double, double>> inserSize_mean_sd_perFile;
-		estimateInsertSizeFromGraph(input_FASTQ, graph_dir, inserSize_mean_sd_perFile);
-
+		
+		if(IS_mean.length())
+		{
+			assert(IS_sd.length());
+			
+			double IS_mean_d = Utilities::StrtoD(IS_mean);
+			double IS_sd_d = Utilities::StrtoD(IS_sd);
+			
+			std::vector<std::string> files = Utilities::split(input_FASTQ, ",");
+			
+			std::cout << "Use externally provided IS mean / sd estimates " << IS_mean_d << " / " << IS_sd_d << "\n";
+			
+			for(unsigned int i = 0; i < files.size(); i++)
+			{
+				inserSize_mean_sd_perFile.push_back(make_pair(IS_mean_d, IS_sd_d));
+			}
+		}
+		else
+		{
+			estimateInsertSizeFromGraph(input_FASTQ, graph_dir, inserSize_mean_sd_perFile);
+		}
+		
 		alignShortReadsToHLAGraph_multipleAlignments(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "alignLongUnpairedReadsToHLAGraph"))

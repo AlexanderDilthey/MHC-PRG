@@ -43,7 +43,7 @@ template<int m, int k, int colours>
 std::pair<diploidGenomeString, diploidGenomeString> greedilyResolveDiploidKMerString(diploidGenomeString& original_gS, DeBruijnGraph<m, k, colours>* graph);
 
 void alignedShortReads2SAM(std::ofstream& SAMoutputStream, std::vector<int>& uncompressed_graph_referencePositions, std::string& referenceSequence, std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >& alignments, std::vector<oneReadPair>& originalReads);
-void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads, double& ret_IS_mean, double& ret_IS_sd);
+// void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>>& ret_alignments, std::vector<oneReadPair>& ret_alignments_originalReads, double& ret_IS_mean, double& ret_IS_sd);
 
 // functions
 
@@ -715,7 +715,10 @@ void read_shortReadAlignments_fromFile (std::string file, std::vector<std::pair<
 			seedAndExtend_return_local a2;
 			oneRead r1("", "", "");
 			oneRead r2("", "", "");
+			
 			getAlignment(inputStream, fail_1, a1, r1, lineForInsertion);
+			getAlignment(inputStream, fail_2, a2, r2, "");
+
 			oneReadPair rP(r1, r2, 0);			 
 			if(fail_1 || fail_2)
 			{
@@ -1342,6 +1345,7 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 {
 	int aligner_kMerSize = 25;
 	int outerThreads = 8;
+	//int outerThreads = 1;
 	int skipPairs_MOD = 1;
 	bool useShort = true;
 

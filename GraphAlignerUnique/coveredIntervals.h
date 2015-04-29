@@ -58,6 +58,8 @@ public:
 
 	size_t getNumIntervals() const;
 
+	void printIntervals() const;
+	
 	void reduceIntervalsBy(int reduction);
 
 

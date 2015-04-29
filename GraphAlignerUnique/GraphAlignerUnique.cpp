@@ -30,6 +30,9 @@
 
 namespace GraphAlignerUnique {
 GraphAlignerUnique::GraphAlignerUnique(Graph* graph, int k) : g(graph), kMerSize(k), gI(g, k){
+
+	std::cout << "T: " << omp_get_thread_num() << "\n" << std::flush;
+	
 	S_match = 2;
 	S_mismatch = -5;
 	S_gap = -2;
@@ -99,8 +102,12 @@ GraphAlignerUnique::GraphAlignerUnique(Graph* graph, int k) : g(graph), kMerSize
 			}
 		}
 		genomicCoverageStream.close();
-
-		std::cout << "myGraph_coveredIntervals: Have " << myGraph_coveredIntervals.getNumIntervals() << " intervals.\n" << std::flush;
+		
+		if(omp_get_thread_num() == 0)
+		{
+			myGraph_coveredIntervals.printIntervals();
+		}
+		//std::cout << "myGraph_coveredIntervals: Have " << myGraph_coveredIntervals.getNumIntervals() << " intervals.\n" << std::flush;
 	}  
 }
 
@@ -1896,6 +1903,8 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 
 	verbose = ( readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name) );
 
+	verbose = false;
+	
 	std::string GROUP;
 
 	if(readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name))
@@ -2053,6 +2062,19 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 			std::cout << "\t\t" << firstLocus << " - " << lastLocus << "\n";
 			std::cout << "\t\t" << read1_backtraces.at(i).graph_aligned << "\n";
 			std::cout << "\t\t" << read1_backtraces.at(i).sequence_aligned << "\n";
+			std::cout << "\t\t";
+			for(unsigned int j = 0; j < read1_backtraces.at(i).graph_aligned.size(); j++)
+			{
+				if(read1_backtraces.at(i).graph_aligned.at(j) == read1_backtraces.at(i).sequence_aligned.at(j))
+				{
+					std::cout << " ";
+				}
+				else
+				{
+					std::cout << ".";
+				}
+			}
+			std::cout << "\n";
 			std::cout << std::flush;
 		}
 	}
@@ -2078,6 +2100,19 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 			std::cout << "\t\t" << firstLocus << " - " << lastLocus << "\n";			
 			std::cout << "\t\t" << read2_backtraces.at(i).graph_aligned << "\n";
 			std::cout << "\t\t" << read2_backtraces.at(i).sequence_aligned << "\n";
+			std::cout << "\t\t";
+			for(unsigned int j = 0; j < read2_backtraces.at(i).graph_aligned.size(); j++)
+			{
+				if(read2_backtraces.at(i).graph_aligned.at(j) == read2_backtraces.at(i).sequence_aligned.at(j))
+				{
+					std::cout << " ";
+				}
+				else
+				{
+					std::cout << ".";
+				}
+			}
+			std::cout << "\n";			
 			std::cout << std::flush;
 		}
 	}
@@ -3605,8 +3640,6 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 {
 	assert(g != 0);
 	seedAndExtend_return_local forReturn;
-
-	// todo deactivate
 	
 	verbose = false;
 	int seedAndExtend_short_maximumBacktraces = 200;  
@@ -3743,22 +3776,58 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		
 		if(verbose)   
 		{      
-			std::cout << "\tChains: " << chains_for_sequence.size() << " / evaluate " << (maximumChainIndex+1) << "\n" << std::flush;
+			std::cout << "\tChains: " << chains_for_sequence.size() << " / evaluate " << (maximumConsideredChains+1) << " x 2 (max) \n" << std::flush;
 		}
 			
-			
-		for(int chainI = 0; chainI < maximumChainIndex; chainI++)
+		std::set<Node*> have_first_nodes;
+		std::set<Node*> have_last_nodes;
+		
+		for(int chainI = 0; chainI < chains_for_sequence.size(); chainI++)
 		{
+
 			assert(currentChain != chains_orderedByLength.end());
 			kMerEdgeChain* thisChain = *currentChain;
 
 			int matches_this_chain = thisChain->sequence_end - thisChain->sequence_begin + 1;
 			assert(matches_this_chain > 0);
 
+			Node* firstNode = thisChain->traversedEdges.front()->From;
+			Node* lastNode = thisChain->traversedEdges.back()->To;
+			
+			if(maximumConsideredChains != -1)
+			{
+				if(possibleBacktraces.size() >= (2*maximumConsideredChains))
+				{
+					break;
+				}
+				else
+				{
+					if(possibleBacktraces.size() >= maximumConsideredChains)
+					{
+						if((have_first_nodes.count(firstNode) == 0) && (have_last_nodes.count(lastNode) == 0))
+						{
+							
+						}
+						else
+						{
+							currentChain++;						
+							continue;
+						}	
+					}
+				}
+			}
+			
 			if(verbose)   
 			{      
 				std::cout << "\tChain " << chainI << "/" << chains_for_sequence.size() << ", going from " << thisChain->sequence_begin << " to " << thisChain->sequence_end << "\n" << std::flush;
-				std::cout << "\t\t in graph: from " << thisChain->traversedEdges.front()->From->level << " to " << thisChain->traversedEdges.back()->To->level << "\n" << std::flush;
+				int firstLevel = thisChain->traversedEdges.front()->From->level;
+				int lastLevel = thisChain->traversedEdges.back()->To->level;
+				std::string firstLocus = (firstLevel != -1) ? g->getOneLocusIDforLevel(firstLevel) : "";
+				std::string lastLocus = (lastLevel != -1) ? g->getOneLocusIDforLevel(lastLevel) : "";
+
+				std::cout << "\t\t in graph: from " << firstLocus << " [" << thisChain->traversedEdges.front()->From->level << "] to " << lastLocus << " [" << thisChain->traversedEdges.back()->To->level << "]\n" << std::flush;
+				std::cout << "\t\t\t" << thisChain->traversedEdges.front()->From << " " << thisChain->traversedEdges.back()->To << "\n";
+			
 			}
 			
 			if(chainI > 0)
@@ -3780,11 +3849,12 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 				{
 					if(verbose)
 					{
+						// is this actually active?
 						std::cout << "\t\tABORT. This chain has " << matches_this_chain << " vs " << matches_less_than_best_chain << "\n" << std::flush;
 					}
-				}
-				
+				}				
 			}
+			
 			std::set<kMerEdgeChain*> selectedChains;
 			std::vector<kMerEdgeChain*> sequencePositions_covered;
 			sequencePositions_covered.resize(sequence.length());
@@ -3810,6 +3880,10 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startAffineGap;
 			std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> > NWedges_graphDist_startNormal;
 
+			if(verbose)
+			{
+				
+			}
 			vNW_completeRemainingGaps_and_score_local(
 					sequence,
 					vNW,
@@ -3853,6 +3927,9 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 			possibleBacktraces.push_back(thisBacktrace);
 			possibleBacktraces_scores.push_back(finalScore);
 
+			have_first_nodes.insert(firstNode);
+			have_last_nodes.insert(lastNode);
+			
 			vNW.freeMemory();
 
 			if(verbose)
@@ -4654,7 +4731,7 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score(std::string& sequen
 }
 
 
-void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack)
+void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack, bool greedyLocalExtension)
 {
 	assert(g != 0);
 	bool verbose = false;
@@ -4936,6 +5013,11 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 	
 //	std::cerr << "sequencePositions_covered.at(0): " << sequencePositions_covered.at(0) << "\n" << std::flush;
 
+	if(greedyLocalExtension)
+	{
+		assert(gaps.size() <= 2);
+	}
+	
 	for(int gapI = 0; gapI < (int)gaps.size(); gapI++)
 	{
 		std::pair<int, int>& gapCoordinates = gaps.at(gapI);
@@ -4966,6 +5048,11 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 		bool extendedLeftPathToZero = false;
 		bool extendedRightPathToZero = false;
 
+		if(greedyLocalExtension)
+		{
+			assert((isLeftBeginning || isRightEnd) && (! ((isLeftBeginning && isRightEnd)) ));
+		}
+	
 		if(verbose)
 		{
 			std::cout << std::flush;
@@ -5002,23 +5089,35 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 
 				assert((sequencePosition_left+1) == exitEdgeToExtend->to_y);
 
-				if(verbose)
+
+				std::vector<localExtension_pathDescription> forwardExtensions;
+				if(greedyLocalExtension)
 				{
-					std::cout << "\t" << "fullNeedleman_diagonal_extension from left end (inwards)\n"; 
+					if(verbose)
+					{
+						std::cout << "\t" << "fullNeedleman_diagonal_completeGreedy_extension from left end (inwards)\n"; 
+					}				
 				}
-				
-				std::vector<localExtension_pathDescription> forwardExtensions = fullNeedleman_diagonal_extension(
-						sequence,
-						exitEdgeToExtend->to_y,
-						exitEdgeToExtend->to_x,
-						exitEdgeToExtend->to_z,
-						gapBoundary_right_level,
-						sequencePosition_right,
-						-11,
-						&vNW,
-						true,
-						false
-				);
+				else
+				{
+					if(verbose)
+					{
+						std::cout << "\t" << "fullNeedleman_diagonal_extension from left end (inwards)\n"; 
+					}
+								
+					forwardExtensions = fullNeedleman_diagonal_extension(
+							sequence,
+							exitEdgeToExtend->to_y,
+							exitEdgeToExtend->to_x,
+							exitEdgeToExtend->to_z,
+							gapBoundary_right_level,
+							sequencePosition_right,
+							-11,
+							&vNW,
+							true,
+							false
+					);
+				}
 
 				if(forwardExtensions.size() > 0)
 				{
@@ -5053,24 +5152,35 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 
 				vNW.removePath(rightPath);
 
-				if(verbose)
+
+				std::vector<localExtension_pathDescription> backwardExtensions;
+				if(greedyLocalExtension)
 				{
-					std::cout << "\t" << "fullNeedleman_diagonal_extension from right end (inwards)\n"; 
+					if(verbose)
+					{
+						std::cout << "\t" << "fullNeedleman_diagonal_completeGreedy_extension from left end (inwards)\n"; 
+					}					
 				}
-				
-				
-				std::vector<localExtension_pathDescription> backwardExtensions = fullNeedleman_diagonal_extension(
-						sequence,
-						entryEdgeToExtend->from_y,
-						entryEdgeToExtend->from_x,
-						entryEdgeToExtend->from_z,
-						gapBoundary_left_level,
-						((leftChain) ? (sequencePosition_left+1) : 0),
-						-11,
-						&vNW,
-						false,
-						false
-				);
+				else
+				{
+					if(verbose)
+					{
+						std::cout << "\t" << "fullNeedleman_diagonal_extension from right end (inwards)\n"; 
+					}
+									
+					backwardExtensions = fullNeedleman_diagonal_extension(
+							sequence,
+							entryEdgeToExtend->from_y,
+							entryEdgeToExtend->from_x,
+							entryEdgeToExtend->from_z,
+							gapBoundary_left_level,
+							((leftChain) ? (sequencePosition_left+1) : 0),
+							-11,
+							&vNW,
+							false,
+							false
+					);
+				}
 
 				if(backwardExtensions.size() > 0)
 				{
@@ -10305,6 +10415,840 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 	return forReturn;
 }
 
+
+
+std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_diagonal_completeGreedy_extension(std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, bool directionPositive)
+{
+
+	int bandSize = 4;
+	
+	assert(g != 0);
+	if(directionPositive)
+	{
+		if(!((maxLevel_graph == -1) || (maxLevel_graph > startLevel_graph)))
+		{
+			std::cerr << "maxLevel_graph: " << maxLevel_graph << "\n";
+			std::cerr << "startLevel_graph: " << startLevel_graph << "\n" << std::flush;
+		}
+		if(!((maxPosition_sequence == -1) || (maxPosition_sequence > start_sequence)))
+		{
+			std::cerr << "maxPosition_sequence: " << maxPosition_sequence << "\n";
+			std::cerr << "start_sequence: " << start_sequence << "\n" << std::flush;
+		}
+		assert((maxLevel_graph == -1) || (maxLevel_graph > startLevel_graph));
+		assert((maxPosition_sequence == -1) || (maxPosition_sequence > start_sequence));
+	}
+	else
+	{
+		assert((maxLevel_graph == -1) || (maxLevel_graph < startLevel_graph));
+		assert((maxPosition_sequence == -1) || (maxPosition_sequence < start_sequence));
+	}
+
+	double minusInfinity = -1 * numeric_limits<double>::max();
+
+	class mScore {
+	public:
+		double D;
+		double GraphGap;
+		double SequenceGap;
+	};
+
+	class mScore_backtrace {
+	public:
+		backtraceStep_affine D;
+		backtraceStep_affine GraphGap;
+		backtraceStep_affine SequenceGap;
+	};
+
+	class mScore_alternatives {
+	public:
+		std::vector<double> D;
+		std::vector<double> GraphGap;
+		std::vector<double> SequenceGap;
+	};
+
+	class mScore_backtrace_alternatives {
+	public:
+		std::vector<backtraceStep_affine> D;
+		std::vector<backtraceStep_affine> GraphGap;
+		std::vector<backtraceStep_affine> SequenceGap;
+	};
+
+	std::map<int, std::map<int, std::map<int, mScore>> > scores;
+	std::map<int, std::map<int, std::map<int, mScore_backtrace>> > scores_backtrace;
+
+	std::vector<std::vector<int> > coordinates_for_backtracking;
+	std::vector<std::vector<int> > m1_diagonal;
+	std::vector<std::vector<int> > m2_diagonal;
+
+	bool verbose = false;
+
+	if(verbose)
+	{
+		std::cout << "fullNeedleman_diagonal_completeGreedy_extension(..) called, direction " << directionPositive << ".\n" << std::flush;
+	}
+
+	unsigned int levels = g->NodesPerLevel.size();
+	unsigned int sequenceLength = sequence.length();
+	int diagonals = sequenceLength + levels - 1;
+	int max_levelI = levels - 1;
+	int max_seqI = sequenceLength;
+	int min_levelI = 0;
+	int min_seqI = 0;
+
+	if(maxLevel_graph != -1)
+	{
+		if(directionPositive)
+		{
+			max_levelI = maxLevel_graph;
+		}
+		else
+		{
+			min_levelI = maxLevel_graph;
+		}
+	}
+	if(maxPosition_sequence != -1)
+	{
+		if(directionPositive)
+		{
+			max_seqI = maxPosition_sequence;
+		}
+		else
+		{
+			min_seqI = maxPosition_sequence;
+		}
+	}
+
+	assert(startLevel_graph >= min_levelI);
+	assert(start_sequence >= min_seqI);
+	assert(startLevel_graph <= max_levelI);
+	assert(start_sequence <= max_seqI);
+
+
+	assert(min_levelI >= 0);
+	assert(max_levelI <= (int)(levels - 1));
+	assert(max_levelI > min_levelI);
+
+	assert(min_seqI >= 0);
+	assert(max_seqI <= (int)sequenceLength);
+	assert(max_seqI > min_seqI);
+
+	// init first cell
+	unsigned int statesPerLevel0 = g->NodesPerLevel.at(startLevel_graph).size();
+	assert((startZ_graph >= 0) && (startZ_graph < (int)statesPerLevel0));
+
+	int achieved_seqI = start_sequence;
+	int achieved_levelI = startLevel_graph;
+
+	for(unsigned int stateI = 0; stateI < statesPerLevel0; stateI++)
+	{
+		if((int)stateI == startZ_graph)
+		{
+			scores[startLevel_graph][start_sequence][stateI].D = 0;
+			scores_backtrace[startLevel_graph][start_sequence][stateI] = mScore_backtrace();
+		}
+		else
+		{
+			scores[startLevel_graph][start_sequence][stateI].D = minusInfinity;
+		}
+
+		scores[startLevel_graph][start_sequence][stateI].GraphGap = minusInfinity;
+		scores[startLevel_graph][start_sequence][stateI].SequenceGap = minusInfinity;
+
+		if((int)stateI == startZ_graph)
+		{
+			std::vector<int> existingCoordinates;
+			existingCoordinates.push_back(startLevel_graph);
+			existingCoordinates.push_back(start_sequence);
+			existingCoordinates.push_back(stateI);
+			m1_diagonal.push_back(existingCoordinates);
+		}
+	}
+
+	std::map<NWPath*, std::pair<double, std::vector<int> > > hit_NW_paths;
+
+//	std::cerr << "fullNeedleman_diagonal_extension:\n";
+//	std::cerr << "\tmin_seqI: " << min_seqI << "\n";
+//	std::cerr << "\tmin_seqI: " << min_seqI << "\n";
+//	std::cerr << "\tdirectionPositive: " << directionPositive << "\n" << std::flush;
+
+	int lastMaximumIncrease_at_diagonalI = 0;
+
+
+	for(int diagonalI = 1; diagonalI <= diagonals; diagonalI++)
+	{
+
+		if(verbose)
+		{
+			std::cout << "\t diagonalI " << diagonalI << "/" << diagonals << ".\n" << std::flush;
+		}
+
+
+//		int scores_size = 0;
+//		for(std::map<int, std::map<int, std::map<int, mScore>> >::iterator it1 = scores.begin(); it1 != scores.end(); it1++)
+//		{
+//			for(std::map<int, std::map<int, mScore>>::iterator it2 = it1->second.begin(); it2 != it1->second.end(); it2++)
+//			{
+//				for(std::map<int, mScore>::iterator it3 = it2->second.begin(); it3 != it2->second.end(); it3++)
+//				{
+//					scores_size++;
+//				}
+//			}
+//		}
+		//std::cerr << "\t\tdiagonalI = " << diagonalI << " => scores_size: " << scores_size << "\n" << std::flush;
+
+		std::map<int, std::map<int, std::map<int, mScore_alternatives > > >  thisDiagonal;
+		std::map<int, std::map<int, std::map<int, mScore_backtrace_alternatives > > > thisDiagonal_backtrace;
+
+		if(verbose)
+			std::cout << "\t\tfrom m-2 diagonal" << "\n" << std::flush;
+
+		// extend from m-2 diagonal
+		for(int m2I = 0; m2I < (int)m2_diagonal.size(); m2I++)
+		{
+			std::vector<int>& previous_coordinates = m2_diagonal.at(m2I);
+
+			int previous_levelI = previous_coordinates.at(0);
+			int previous_seqI = previous_coordinates.at(1);
+			int previous_stateI = previous_coordinates.at(2);
+
+			int next_levelI = previous_coordinates.at(0) + (directionPositive ? 1 : -1);
+			int next_seqI = previous_coordinates.at(1) + (directionPositive ? 1 : -1);
+
+			if((next_levelI > max_levelI) || (next_seqI > max_seqI))
+				continue;
+
+			if((next_levelI < min_levelI) || (next_seqI < min_seqI))
+				continue;
+
+			std::string sequenceEmission = (directionPositive ? sequence.substr(previous_seqI, 1) : sequence.substr(previous_seqI-1, 1));
+
+			std::vector<std::pair<int, Edge*> > nextZs = (directionPositive ? _graph_get_next_z_values_and_edges(previous_levelI, previous_stateI) : _graph_get_previous_z_values_and_edges(previous_levelI, previous_stateI));
+			assert(nextZs.size() > 0);
+
+			for(unsigned int zI = 0; zI < nextZs.size(); zI++)
+			{
+				std::pair<int, Edge*>& thisZjump = nextZs.at(zI);
+				int next_stateI = thisZjump.first;
+
+				std::string edgeEmission = g->CODE.deCode(thisZjump.second->locus_id, thisZjump.second->emission);
+				assert(edgeEmission.size() == 1);
+
+				double score_MatchMismatch = scores.at(previous_levelI).at(previous_seqI).at(previous_stateI).D + ((edgeEmission == sequenceEmission) ? S_match : S_mismatch);
+
+				backtraceStep_affine backtrack_MatchMismatch;
+				backtrack_MatchMismatch.x = previous_levelI;
+				backtrack_MatchMismatch.y = previous_seqI;
+				backtrack_MatchMismatch.z = previous_stateI;
+				backtrack_MatchMismatch.usedEdge = thisZjump.second;
+				backtrack_MatchMismatch.sourceMatrix = 0;
+
+				thisDiagonal[next_levelI][next_seqI][next_stateI].D.push_back(score_MatchMismatch);
+				thisDiagonal_backtrace[next_levelI][next_seqI][next_stateI].D.push_back(backtrack_MatchMismatch);
+			}
+		}
+
+		if(verbose)
+			std::cout << "\t\tfrom m-1 diagonal" << "\n" << std::flush;
+
+		// extend from m-1 diagonal
+		for(int m1I = 0; m1I < (int)m1_diagonal.size(); m1I++)
+		{
+			std::vector<int>& previous_coordinates = m1_diagonal.at(m1I);
+
+			int previous_levelI = previous_coordinates.at(0);
+			int previous_seqI = previous_coordinates.at(1);
+			int previous_stateI = previous_coordinates.at(2);
+
+			// gap in graph
+			int gapInGraph_next_levelI = previous_coordinates.at(0);
+			int gapInGraph_next_seqI = previous_coordinates.at(1) + (directionPositive ? 1 : -1);
+			if	(
+					(directionPositive && (gapInGraph_next_levelI <= max_levelI) && (gapInGraph_next_seqI <= max_seqI)) ||
+					((! directionPositive) && (gapInGraph_next_levelI >= min_levelI) && (gapInGraph_next_seqI >= min_seqI))
+				)
+			{
+				double score_gapInGraph_open = scores.at(previous_levelI).at(previous_seqI).at(previous_stateI).D + S_openGap + S_extendGap;
+				if((! directionPositive) && (gapInGraph_next_levelI == 0))
+				{
+					// score_gapInGraph_open = minusInfinity;
+				}
+				int gapInGraph_next_stateI = previous_stateI;
+
+				backtraceStep_affine backtrack_gapInGraph_open;
+				backtrack_gapInGraph_open.x = previous_levelI;
+				backtrack_gapInGraph_open.y = previous_seqI;
+				backtrack_gapInGraph_open.z = previous_stateI;
+				backtrack_gapInGraph_open.usedEdge = 0;
+				backtrack_gapInGraph_open.sourceMatrix = 0;
+
+				thisDiagonal[gapInGraph_next_levelI][gapInGraph_next_seqI][gapInGraph_next_stateI].GraphGap.push_back(score_gapInGraph_open);
+				thisDiagonal_backtrace[gapInGraph_next_levelI][gapInGraph_next_seqI][gapInGraph_next_stateI].GraphGap.push_back(backtrack_gapInGraph_open);
+
+				double score_gapInGraph_extend = scores.at(previous_levelI).at(previous_seqI).at(previous_stateI).GraphGap + S_extendGap;
+				if((! directionPositive) && (gapInGraph_next_levelI == 0))
+				{
+					// score_gapInGraph_extend = minusInfinity;
+				}
+
+				backtraceStep_affine backtrack_gapInGraph_extend;
+				backtrack_gapInGraph_extend.x = previous_levelI;
+				backtrack_gapInGraph_extend.y = previous_seqI;
+				backtrack_gapInGraph_extend.z = previous_stateI;
+				backtrack_gapInGraph_extend.usedEdge = 0;
+				backtrack_gapInGraph_extend.sourceMatrix = 1;
+
+				thisDiagonal[gapInGraph_next_levelI][gapInGraph_next_seqI][gapInGraph_next_stateI].GraphGap.push_back(score_gapInGraph_extend);
+				thisDiagonal_backtrace[gapInGraph_next_levelI][gapInGraph_next_seqI][gapInGraph_next_stateI].GraphGap.push_back(backtrack_gapInGraph_extend);
+			}
+
+			// gap in sequence
+			int gapInSequence_next_levelI = previous_coordinates.at(0) + (directionPositive ? 1 : -1);
+			int gapInSequence_next_seqI = previous_coordinates.at(1);
+
+			if	(
+					(directionPositive && (gapInSequence_next_levelI <= max_levelI) && (gapInSequence_next_seqI <= max_seqI)) ||
+					((! directionPositive) && (gapInSequence_next_levelI >= min_levelI) && (gapInSequence_next_seqI >= min_seqI))
+				)
+			{
+				std::vector<std::pair<int, Edge*> > nextZs = (directionPositive ? _graph_get_next_z_values_and_edges(previous_levelI, previous_stateI) : _graph_get_previous_z_values_and_edges(previous_levelI, previous_stateI));
+				assert(nextZs.size() > 0);
+
+				for(unsigned int zI = 0; zI < nextZs.size(); zI++)
+				{
+					std::pair<int, Edge*>& thisZjump = nextZs.at(zI);
+					int next_stateI = thisZjump.first;
+
+					std::string edgeEmission = g->CODE.deCode(thisZjump.second->locus_id, thisZjump.second->emission);
+					assert(edgeEmission.size() == 1);
+
+					// open sequence gap
+
+					double score_gapInSequence_open = scores.at(previous_levelI).at(previous_seqI).at(previous_stateI).D + S_openGap + S_extendGap;
+					if(edgeEmission == "_")
+					{
+						score_gapInSequence_open = minusInfinity;
+					}
+					if((! directionPositive) && (gapInSequence_next_seqI == 0))
+					{
+						// score_gapInSequence_open = minusInfinity;
+					}
+
+					backtraceStep_affine backtrack_gapInSequence_open;
+					backtrack_gapInSequence_open.x = previous_levelI;
+					backtrack_gapInSequence_open.y = previous_seqI;
+					backtrack_gapInSequence_open.z = previous_stateI;
+					backtrack_gapInSequence_open.usedEdge = thisZjump.second;
+					backtrack_gapInSequence_open.sourceMatrix = 0;
+
+					thisDiagonal[gapInSequence_next_levelI][gapInSequence_next_seqI][next_stateI].SequenceGap.push_back(score_gapInSequence_open);
+					thisDiagonal_backtrace[gapInSequence_next_levelI][gapInSequence_next_seqI][next_stateI].SequenceGap.push_back(backtrack_gapInSequence_open);
+
+					// extend sequence gap
+
+					double score_gapInSequence_extend = scores.at(previous_levelI).at(previous_seqI).at(previous_stateI).SequenceGap + S_extendGap;
+//					if(edgeEmission == "_")
+//					{
+//						score_gapInSequence_extend = minusInfinity;
+//					}
+					if(edgeEmission == "_")
+					{
+						if(scores.at(previous_levelI).at(previous_seqI).at(previous_stateI).SequenceGap == minusInfinity)
+						{
+							score_gapInSequence_extend = minusInfinity;
+						}
+						else
+						{
+							score_gapInSequence_extend = scores.at(previous_levelI).at(previous_seqI).at(previous_stateI).SequenceGap +  S_graphGap;
+						}
+					}
+					if((! directionPositive) && (gapInSequence_next_seqI == 0))
+					{
+						// score_gapInSequence_extend = minusInfinity;
+					}
+
+					backtraceStep_affine backtrack_gapInSequence_extend;
+					backtrack_gapInSequence_extend.x = previous_levelI;
+					backtrack_gapInSequence_extend.y = previous_seqI;
+					backtrack_gapInSequence_extend.z = previous_stateI;
+					backtrack_gapInSequence_extend.usedEdge = thisZjump.second;
+					backtrack_gapInSequence_extend.sourceMatrix = 2;
+
+					thisDiagonal[gapInSequence_next_levelI][gapInSequence_next_seqI][next_stateI].SequenceGap.push_back(score_gapInSequence_extend);
+					thisDiagonal_backtrace[gapInSequence_next_levelI][gapInSequence_next_seqI][next_stateI].SequenceGap.push_back(backtrack_gapInSequence_extend);
+
+					// non-affine sequence gap
+					if(edgeEmission == "_")
+					{
+						double score_gapInSequence_nonAffine = scores.at(previous_levelI).at(previous_seqI).at(previous_stateI).D + S_graphGap;
+
+						backtraceStep_affine backtrack_gapInSequence_nonAffine;
+						backtrack_gapInSequence_nonAffine.x = previous_levelI;
+						backtrack_gapInSequence_nonAffine.y = previous_seqI;
+						backtrack_gapInSequence_nonAffine.z = previous_stateI;
+						backtrack_gapInSequence_nonAffine.usedEdge = thisZjump.second;
+						backtrack_gapInSequence_nonAffine.sourceMatrix = 0;
+
+						thisDiagonal[gapInSequence_next_levelI][gapInSequence_next_seqI][next_stateI].D.push_back(score_gapInSequence_nonAffine);
+						thisDiagonal_backtrace[gapInSequence_next_levelI][gapInSequence_next_seqI][next_stateI].D.push_back(backtrack_gapInSequence_nonAffine);
+					}
+				}
+			}
+		}
+
+		if(verbose)
+			std::cout << "\t\tmaximal" << "\n" << std::flush;
+
+		// call maxima for this diagonal
+		std::vector<std::vector<int> > m_thisDiagonal;
+		for(std::map<int, std::map<int, std::map<int, mScore_alternatives > > >::iterator diagIt = thisDiagonal.begin(); diagIt != thisDiagonal.end(); diagIt++)
+		{
+			int levelI = diagIt->first;
+			for(std::map<int, std::map<int, mScore_alternatives > >::iterator diagIt2 = diagIt->second.begin(); diagIt2 != diagIt->second.end(); diagIt2++)
+			{
+				int seqI = diagIt2->first;
+				for(std::map<int, mScore_alternatives >::iterator diagIt3 = diagIt2->second.begin(); diagIt3 != diagIt2->second.end(); diagIt3++)
+				{
+					int stateI = diagIt3->first;
+
+					// call maxima for GraphGap
+					std::vector<double>& scores_GraphGap = diagIt2->second.at(stateI).GraphGap;
+					std::vector<backtraceStep_affine>& scores_GraphGap_bt = thisDiagonal_backtrace.at(levelI).at(seqI).at(stateI).GraphGap;
+					double selectedScore_GraphGap;
+					backtraceStep_affine selectedStep_GraphGap;
+
+					if(scores_GraphGap.size() > 0)
+					{
+						std::pair<double, unsigned int> maxScore_GraphGap = Utilities::findVectorMaxP_nonCritical(scores_GraphGap, &(rng_seeds.at(omp_get_thread_num())));
+						selectedScore_GraphGap = maxScore_GraphGap.first;
+						selectedStep_GraphGap = scores_GraphGap_bt.at(maxScore_GraphGap.second);
+					}
+					else
+					{
+						selectedScore_GraphGap = minusInfinity;
+					}
+
+					// call maxima for SequenceGap
+					std::vector<double>& scores_SequenceGap = diagIt2->second.at(stateI).SequenceGap;
+					std::vector<backtraceStep_affine>& scores_SequenceGap_bt = thisDiagonal_backtrace.at(levelI).at(seqI).at(stateI).SequenceGap;
+
+					double selectedScore_SequenceGap;
+					backtraceStep_affine selectedStep_SequenceGap;
+					if(scores_SequenceGap.size() > 0)
+					{
+						std::pair<double, unsigned int> maxScore_SequenceGap = Utilities::findVectorMaxP_nonCritical(scores_SequenceGap, &(rng_seeds.at(omp_get_thread_num())));
+						selectedScore_SequenceGap = maxScore_SequenceGap.first;
+						selectedStep_SequenceGap = scores_SequenceGap_bt.at(maxScore_SequenceGap.second);
+					}
+					else
+					{
+						selectedScore_SequenceGap = minusInfinity;
+					}
+
+					// two additional steps for D, jumping from the two gap matrices
+
+					double score_intoD_fromGraphGap = selectedScore_GraphGap;
+					backtraceStep_affine step_intoD_fromGraphGap;
+					step_intoD_fromGraphGap.x = levelI;
+					step_intoD_fromGraphGap.y = seqI;
+					step_intoD_fromGraphGap.z = stateI;
+					step_intoD_fromGraphGap.sourceMatrix = 1;
+					step_intoD_fromGraphGap.usedEdge = 0;
+					thisDiagonal.at(levelI).at(seqI).at(stateI).D.push_back(score_intoD_fromGraphGap);
+					thisDiagonal_backtrace.at(levelI).at(seqI).at(stateI).D.push_back(step_intoD_fromGraphGap);
+
+					double score_intoD_fromSequenceGap = selectedScore_SequenceGap;
+					backtraceStep_affine step_intoD_fromSequenceGap;
+					step_intoD_fromSequenceGap.x = levelI;
+					step_intoD_fromSequenceGap.y = seqI;
+					step_intoD_fromSequenceGap.z = stateI;
+					step_intoD_fromSequenceGap.sourceMatrix = 2;
+					step_intoD_fromSequenceGap.usedEdge = 0;
+					thisDiagonal.at(levelI).at(seqI).at(stateI).D.push_back(score_intoD_fromSequenceGap);
+					thisDiagonal_backtrace.at(levelI).at(seqI).at(stateI).D.push_back(step_intoD_fromSequenceGap);
+
+					// find final maximum for D
+					std::vector<double>& scores_D = diagIt2->second.at(stateI).D;
+					std::vector<backtraceStep_affine>& scores_D_bt = thisDiagonal_backtrace.at(levelI).at(seqI).at(stateI).D;
+					assert(scores_D.size() == scores_D_bt.size());
+
+					std::pair<double, unsigned int> maxScore_D = Utilities::findVectorMaxP_nonCritical(scores_D, &(rng_seeds.at(omp_get_thread_num())));
+
+					scores[levelI][seqI][stateI].D = maxScore_D.first;
+					scores_backtrace[levelI][seqI][stateI].D = scores_D_bt.at(maxScore_D.second);
+
+					assert(scores_backtrace[levelI][seqI][stateI].D.x != -1);
+
+					scores[levelI][seqI][stateI].GraphGap = selectedScore_GraphGap;
+					scores_backtrace[levelI][seqI][stateI].GraphGap = selectedStep_GraphGap;
+
+					scores[levelI][seqI][stateI].SequenceGap = selectedScore_SequenceGap;
+					scores_backtrace[levelI][seqI][stateI].SequenceGap = selectedStep_SequenceGap;
+
+					std::vector<int> thisCoordinates;
+					thisCoordinates.push_back(levelI);
+					thisCoordinates.push_back(seqI);
+					thisCoordinates.push_back(stateI);
+					m_thisDiagonal.push_back(thisCoordinates);				
+				}
+			}
+		}
+
+		if(verbose)
+			std::cout << "\t\tfiltering" << "\n" << std::flush;
+
+		std::vector<std::vector<int> > m_thisDiagonal_filtered;
+		assert(m_thisDiagonal.size() > 0);
+		
+		{
+			double max;
+			for(unsigned int i = 0; i < m_thisDiagonal.size(); i++)
+			{
+				std::vector<int> coordinates = m_thisDiagonal.at(i);
+			
+				int thisCell_levelI = coordinates.at(0);
+				int thisCell_seqI = coordinates.at(1);
+				
+				int steps_along_graph;
+				int steps_along_seq;
+				
+				if(directionPositive)
+				{
+					steps_along_graph = thisCell_levelI - startLevel_graph;
+					steps_along_seq = thisCell_seqI - start_sequence;
+				}
+				else
+				{
+					steps_along_graph = startLevel_graph - thisCell_levelI;
+					steps_along_seq = start_sequence - thisCell_seqI;				
+				}
+				
+				assert(steps_along_graph >= 0);
+				assert(steps_along_seq >= 0);
+				
+				int distance_to_diagonal = abs(steps_along_graph - steps_along_seq);
+				
+				if(distance_to_diagonal <= bandSize)
+				{
+					if(directionPositive)
+					{
+						if(thisCell_seqI > achieved_seqI)
+						{
+							achieved_seqI = thisCell_seqI;
+						}
+						if(thisCell_levelI > achieved_levelI)
+						{
+							achieved_levelI = thisCell_levelI;
+						}
+					}
+					else
+					{
+						if(thisCell_seqI < achieved_seqI)
+						{
+							achieved_seqI = thisCell_seqI;
+						}	
+						if(thisCell_levelI < achieved_levelI)
+						{
+							achieved_levelI = thisCell_levelI;
+						}
+					}
+					
+					m_thisDiagonal_filtered.push_back(coordinates);
+				}
+			}
+
+			m_thisDiagonal = m_thisDiagonal_filtered;
+		}
+
+		m2_diagonal = m1_diagonal;
+		m1_diagonal = m_thisDiagonal;
+	}
+
+	std::vector<localExtension_pathDescription> forReturn;
+	auto backtraceFrom = [&](int start_x, int start_y, int start_z, double StartScore) {
+		int backtrace_x = start_x;
+		int backtrace_y = start_y;
+		int backtrace_z = start_z;
+		int backtrace_matrix = 0;
+
+		std::string reconstructed_graph;
+		std::string reconstructed_sequence;
+		std::vector<int> reconstructed_graph_levels;
+		std::vector<std::vector<int>> edge_coordinates;
+		std::vector<Edge*> utilizedEdges;
+
+		std::vector<int> startCoordinates;
+		startCoordinates.push_back(start_x);
+		startCoordinates.push_back(start_y);
+		startCoordinates.push_back(start_z);
+		edge_coordinates.push_back(startCoordinates);
+
+		if(verbose)
+		{
+			std::cout << "\tbacktraceFrom() called.\n";
+
+		}
+		while((backtrace_x != startLevel_graph) || (backtrace_y != start_sequence))
+		{
+			if(verbose)
+			{
+				std::cout << "\t\tbacktrace_x: " << backtrace_x << "\n";
+				std::cout << "\t\tbacktrace_y: " << backtrace_y << "\n";
+				std::cout << "\t\tbacktrace_z: " << backtrace_z << "\n";
+				std::cout << "\t\tselected matrix: " << backtrace_matrix << "\n" << std::flush;
+			}
+
+			if(directionPositive)
+			{
+				assert((backtrace_x >= startLevel_graph) && (backtrace_x <= ((int)levels - 1)));
+				assert((backtrace_y >= start_sequence) && (backtrace_y <= (int)sequenceLength));
+				assert((backtrace_z >= 0) && (backtrace_z <= (int)g->NodesPerLevel.at(backtrace_x).size()));
+				assert((backtrace_matrix >= 0) && (backtrace_matrix <= 2));
+			}
+			else
+			{
+				assert((backtrace_x <= startLevel_graph) && (backtrace_x >= 0));
+				assert((backtrace_y <= start_sequence) && (backtrace_y >= 0));
+				assert((backtrace_z >= 0) && (backtrace_z <= (int)g->NodesPerLevel.at(backtrace_x).size()));
+				assert((backtrace_matrix >= 0) && (backtrace_matrix <= 2));
+			}
+
+			double Score;
+			backtraceStep_affine step;
+			if(backtrace_matrix == 0)
+			{
+				Score = scores.at(backtrace_x).at(backtrace_y).at(backtrace_z).D;
+				step = scores_backtrace.at(backtrace_x).at(backtrace_y).at(backtrace_z).D;
+			}
+			else if(backtrace_matrix == 1)
+			{
+				Score = scores.at(backtrace_x).at(backtrace_y).at(backtrace_z).GraphGap;
+				step = scores_backtrace.at(backtrace_x).at(backtrace_y).at(backtrace_z).GraphGap;
+			}
+			else if(backtrace_matrix == 2)
+			{
+				Score = scores.at(backtrace_x).at(backtrace_y).at(backtrace_z).SequenceGap;
+				step = scores_backtrace.at(backtrace_x).at(backtrace_y).at(backtrace_z).SequenceGap;
+			}
+
+			if((backtrace_x == start_x) && (backtrace_y == start_y) && (backtrace_z == start_z))
+			{
+				Score = StartScore;
+			}
+
+			if(verbose)
+			{
+				std::cout << "\t\tScore: " << Score << "\n\n" << std::flush;
+			}
+
+			std::string edgeEmission;
+			if(step.usedEdge != 0)
+			{
+				edgeEmission = g->CODE.deCode(step.usedEdge->locus_id, step.usedEdge->emission);
+				assert(edgeEmission.size() == 1);
+			}
+			std::string sequenceEmission;
+			if((backtrace_y >= 1) && (directionPositive))
+			{
+				sequenceEmission = sequence.substr(backtrace_y - 1, 1);
+			}
+			if((backtrace_y < max_seqI) && (! directionPositive))
+			{
+				sequenceEmission = sequence.substr(backtrace_y, 1);
+			}
+
+			int next_x = step.x;
+			int next_y = step.y;
+			int next_z = step.z;
+			int next_matrix = step.sourceMatrix;
+
+			bool dontAddCoordinates = false; // if we jump from one matrix to the other without changing coordinates, we don't store the coordinates...
+			if(directionPositive)
+			{
+				if((next_x == (backtrace_x - 1)) && (next_y == (backtrace_y - 1)))
+				{
+					// match or mismatch
+					assert(step.usedEdge != 0);
+					reconstructed_graph.append(edgeEmission);
+					reconstructed_graph_levels.push_back(backtrace_x - 1);
+					reconstructed_sequence.append(sequenceEmission);
+					utilizedEdges.push_back(step.usedEdge);
+				}
+				else if((next_x == backtrace_x) && (next_y == (backtrace_y - 1)))
+				{
+					// gap in graph
+					reconstructed_graph.append("_");
+					reconstructed_graph_levels.push_back(-1);
+					reconstructed_sequence.append(sequenceEmission);
+					utilizedEdges.push_back(0);
+
+				}
+				else if((next_x == (backtrace_x - 1)) && (next_y == backtrace_y))
+				{
+					// gap in sequence
+					assert(step.usedEdge != 0);
+					reconstructed_graph.append(edgeEmission);
+					reconstructed_graph_levels.push_back(backtrace_x - 1);
+					reconstructed_sequence.append("_");
+					utilizedEdges.push_back(step.usedEdge);
+				}
+				else
+				{
+					dontAddCoordinates = true;
+					assert((backtrace_x == next_x) && (backtrace_y == next_y) && (backtrace_z == next_z) && (next_matrix != backtrace_matrix));
+				}
+			}
+			else
+			{
+				if((next_x == (backtrace_x + 1)) && (next_y == (backtrace_y + 1)))
+				{
+					// match or mismatch
+					assert(step.usedEdge != 0);
+					reconstructed_graph.append(edgeEmission);
+					reconstructed_graph_levels.push_back(backtrace_x);
+					reconstructed_sequence.append(sequenceEmission);
+					utilizedEdges.push_back(step.usedEdge);
+				}
+				else if((next_x == backtrace_x) && (next_y == (backtrace_y + 1)))
+				{
+					// gap in graph
+					reconstructed_graph.append("_");
+					reconstructed_graph_levels.push_back(-1);
+					reconstructed_sequence.append(sequenceEmission);
+					utilizedEdges.push_back(0);
+				}
+				else if((next_x == (backtrace_x + 1)) && (next_y == backtrace_y))
+				{
+					// gap in sequence
+					assert(step.usedEdge != 0);
+					reconstructed_graph.append(edgeEmission);
+					reconstructed_graph_levels.push_back(backtrace_x);
+					reconstructed_sequence.append("_");
+					utilizedEdges.push_back(step.usedEdge);
+				}
+				else
+				{
+					dontAddCoordinates = true;
+					assert((backtrace_x == next_x) && (backtrace_y == next_y) && (backtrace_z == next_z) && (next_matrix != backtrace_matrix));
+				}
+			}
+
+			if(verbose)
+			{
+				std::cout << "\t\t\t" << "Emission: " << edgeEmission << "\n";
+				std::cout << "\t\t\t" << "next_x: " << next_x << "\n";
+				std::cout << "\t\t\t" << "next_y: " << next_y << "\n";
+				std::cout << "\t\t\t" << "next_z: " << next_z << "\n";
+				std::cout << "\t\t\t" << "next_matrix: " << next_matrix << "\n\n" << std::flush;
+			}
+
+			backtrace_x = next_x;
+			backtrace_y = next_y;
+			backtrace_z = next_z;
+			backtrace_matrix = next_matrix;
+
+			if( ! dontAddCoordinates)
+			{
+				std::vector<int> nextCoordinates;
+				nextCoordinates.push_back(next_x);
+				nextCoordinates.push_back(next_y);
+				nextCoordinates.push_back(next_z);
+				edge_coordinates.push_back(nextCoordinates);
+			}
+		}
+
+		if(directionPositive)
+		{
+			std::reverse(reconstructed_graph.begin(), reconstructed_graph.end());
+			std::reverse(reconstructed_graph_levels.begin(), reconstructed_graph_levels.end());
+			std::reverse(reconstructed_sequence.begin(), reconstructed_sequence.end());
+			std::reverse(utilizedEdges.begin(), utilizedEdges.end());
+			std::reverse(edge_coordinates.begin(), edge_coordinates.end());
+		}
+
+		assert(reconstructed_graph.size() == reconstructed_sequence.size());
+		assert(reconstructed_graph_levels.size() == reconstructed_graph.size());
+
+		localExtension_pathDescription pathReturn;
+		pathReturn.Score = StartScore;
+		pathReturn.usedEdges = utilizedEdges;
+		pathReturn.coordinates = edge_coordinates;
+		pathReturn.alignedSequence = reconstructed_sequence;
+		pathReturn.alignedGraph = reconstructed_graph;
+		pathReturn.alignedGraph_levels = reconstructed_graph_levels;
+
+		forReturn.push_back(pathReturn);
+	};
+
+	double maxScore;
+	std::vector<std::pair<int, int>> maxScore_coordinates;
+	
+	if(directionPositive)
+	{
+		for(int levelI = achieved_levelI; levelI >= (achieved_levelI - 2*bandSize - 1); levelI--)
+		{
+			if(scores.count(levelI) && scores.at(levelI).count(achieved_seqI))
+			{
+				for(std::map<int, mScore>::iterator altIt = scores.at(levelI).at(achieved_seqI).begin(); altIt != scores.at(levelI).at(achieved_seqI).end(); altIt++)
+				{
+					double S = altIt->second.D;
+					int z = altIt->first;
+					
+					if((maxScore_coordinates.size() == 0) || (S > maxScore))
+					{
+						maxScore = S;
+						maxScore_coordinates.push_back(make_pair(levelI, z));
+					}
+					else
+					{
+						if(S == maxScore)
+						{
+							maxScore_coordinates.push_back(make_pair(levelI, z));							
+						}
+					}
+				}				
+			}
+		}
+	}
+	else
+	{
+		for(int levelI = achieved_levelI; levelI <= (achieved_levelI + 2*bandSize + 1); levelI++)
+		{
+			if(scores.count(levelI) && scores.at(levelI).count(achieved_seqI))
+			{
+				for(std::map<int, mScore>::iterator altIt = scores.at(levelI).at(achieved_seqI).begin(); altIt != scores.at(levelI).at(achieved_seqI).end(); altIt++)
+				{
+					double S = altIt->second.D;
+					int z = altIt->first;
+					
+					if((maxScore_coordinates.size() == 0) || (S > maxScore))
+					{
+						maxScore = S;
+						maxScore_coordinates.push_back(make_pair(levelI, z));
+					}
+					else
+					{
+						if(S == maxScore)
+						{
+							maxScore_coordinates.push_back(make_pair(levelI, z));							
+						}
+					}
+				}				
+			}
+		}		
+	}
+		
+	assert(maxScore_coordinates.size() > 0);
+	
+	int selectedIndex = Utilities::randomNumber_nonCritical(maxScore_coordinates.size() - 1, &(rng_seeds.at(omp_get_thread_num())));
+	assert(selectedIndex >= 0);
+	assert(selectedIndex < maxScore_coordinates.size());
+	
+	std::pair<int, int> backtraceFrom_coordinates = maxScore_coordinates.at(selectedIndex);
+	backtraceFrom(backtraceFrom_coordinates.first, achieved_seqI, backtraceFrom_coordinates.second, maxScore);
+	
+	return forReturn;
+}
 
 int GraphAlignerUnique::countMatchesInSequence(std::string reconstructed_graph, std::vector<int> reconstructed_graph_levels, std::string reconstructed_sequence)
 {

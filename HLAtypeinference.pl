@@ -594,6 +594,8 @@ if($actions =~ /v/)
 
 	my %sample_noI_toI;
 	
+	my $total_imputations = 0;
+	
 	my $summary_file = 'temp/summary_' . $sample_IDs_abbr . '.txt';	
 	open(SUMMARY, '>', $summary_file) or die "Cannot open $summary_file";
 	print SUMMARY $sample_IDs_abbr, "\n";
@@ -657,6 +659,8 @@ if($actions =~ /v/)
 				$imputed_HLA{$line_hash{'Locus'}}{$sampleID_noI}{$line_hash{'Chromosome'}} = $line_hash{'Allele'};			
 			}
 			
+			$total_imputations++;
+			
 			
 			if($line_hash{'Chromosome'} eq '1')
 			{
@@ -675,6 +679,8 @@ if($actions =~ /v/)
 		die if(exists $sample_noI_toI{$sampleID_noI});
 		$sample_noI_toI{$sampleID_noI} = $sampleID;
 	}
+	
+	print "\nTotal imputations (for comparisons): ", $total_imputations, "\n";
 		
 	my $debug = 0;
 	my $comparisons = 0;
@@ -735,7 +741,7 @@ if($actions =~ /v/)
 		{	
 			$| = 1;
 			
-			print "\t", $indivID, "\t", $locus, "\n";
+			# print "\t", $indivID, "\t", $locus, "\n";
 						
 			$debug = 0;
 			
@@ -749,7 +755,7 @@ if($actions =~ /v/)
 			next INDIV unless($#imputed_hla_values == 1);
 			unless(exists $reference_data{$indivID})
 			{
-				warn "No reference data for $locus $indivID";
+				# warn "No reference data for $locus $indivID";
 			}
 			next INDIV unless(exists $reference_data{$indivID});
 			
