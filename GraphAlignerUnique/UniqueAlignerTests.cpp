@@ -630,6 +630,11 @@ void testSeedAndExtend_short()
 
 			std::vector<seedAndExtend_return_local> allBacktraces;
 			seedAndExtend_return_local wholeString_alignments_short = gA.seedAndExtend_short(randomString_noGaps, allBacktraces, greedyLocalExtension);
+
+			//assert( 1 == 0 );
+			seedAndExtend_return_local wholeString_alignments_short_nonGreedy = gA.seedAndExtend_short(randomString_noGaps, allBacktraces, false);
+
+
 //
 //			seedAndExtend_return_local wholeString_alignments_local = gA3.seedAndExtend_local(randomString_noGaps, allBacktraces);
 
@@ -643,18 +648,30 @@ void testSeedAndExtend_short()
 
 				int thisAlignmentScore = gA.score(thisAlignment.graph_aligned, thisAlignment.graph_aligned_levels, thisAlignment.sequence_aligned);
 
+				int thisAlignmentScore_greedy = gA.score(wholeString_alignments_short_nonGreedy.graph_aligned, wholeString_alignments_short_nonGreedy.graph_aligned_levels, wholeString_alignments_short_nonGreedy.sequence_aligned);
+
+
 //				int thisAlignmentScore_2 = gA2.score(wholeString_alignments_2.graph_aligned, wholeString_alignments_2.graph_aligned_levels, wholeString_alignments_2.sequence_aligned);
 
 				int thisAlignmentMatches = gA_classical.countMatchesInSequence(thisAlignment.graph_aligned, thisAlignment.graph_aligned_levels, thisAlignment.sequence_aligned);
 
+				int thisAlignmentMatches_greedy = gA_classical.countMatchesInSequence(wholeString_alignments_short_nonGreedy.graph_aligned, wholeString_alignments_short_nonGreedy.graph_aligned_levels, wholeString_alignments_short_nonGreedy.sequence_aligned);
+
 
 				if(true || verbose)
 				{
-					std::cout << "\tSHORT Alignment [internal score " << thisAlignment.Score << "]>\n";
+					std::cout << "\tSHORT Alignment [internal score " << thisAlignment.Score << "]>\n\n";
+					std::cout << "\t\t Sequence: " << randomString << "\n\n";
 					std::cout << "\t\t" << thisAlignment.graph_aligned << "\n";
 					std::cout << "\t\t" << thisAlignment.sequence_aligned << "\n";
 					std::cout << "\t\tLocal NW score_ " << thisAlignmentScore << ", matches in sequence " << thisAlignmentMatches << "\n" << std::flush;
 
+					//if(thisAlignmentMatches > thisAlignmentMatches_greedy)
+					{
+						std::cout << "\t\tCompare with non-greedy alignment [score " << wholeString_alignments_short_nonGreedy.Score << "]>:\n";
+						std::cout << "\t\t\t" << wholeString_alignments_short_nonGreedy.graph_aligned << "\n";
+						std::cout << "\t\t\t" << wholeString_alignments_short_nonGreedy.sequence_aligned << "\n\n" << std::flush;
+					}
 //					std::cout << "\t\tCompare with local alignment [score " << wholeString_alignments_local.Score << "]>:\n";
 //					std::cout << "\t\t\t" << wholeString_alignments_local.graph_aligned << "\n";
 //					std::cout << "\t\t\t" << wholeString_alignments_local.sequence_aligned << "\n\n" << std::flush;
