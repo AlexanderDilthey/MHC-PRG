@@ -862,7 +862,7 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 	// double haploidCoverage = 5;
 	int aligner_kMerSize = 25;
 	int simulateGenomePairs = 1;
-	int outerThreads = 4;
+	int outerThreads = 4; 
 	int skipPairs_MOD = 25;
 	  
 	bool evaluateWithoutPairing = true;

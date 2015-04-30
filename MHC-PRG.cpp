@@ -255,7 +255,7 @@ int main(int argc, char *argv[])
 		bool longBadReads = false;
 		bool greedyLocalExtension = false;
 
-		for(unsigned int i = 5; i < arguments.size(); i++)
+		for(unsigned int i = 2; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--filename_qualityMatrix")
 			{
@@ -286,7 +286,6 @@ int main(int argc, char *argv[])
 			if(arguments.at(i) == "--greedyLocalExtension")
 			{
 				greedyLocalExtension = true;
-				assert(read_length == 250);
 			}
 		}
 
