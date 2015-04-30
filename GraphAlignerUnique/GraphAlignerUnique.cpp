@@ -64,48 +64,51 @@ GraphAlignerUnique::GraphAlignerUnique(Graph* graph, int k) : g(graph), kMerSize
 			}
 		}
 
-		std::string graphFile = g->filename_last_read;
-		std::string gTxt = "graph.txt";
-		assert(graphFile.substr(graphFile.length() - gTxt.length()) == gTxt);
-		std::string graphDir = graphFile.substr(0, graphFile.length() - gTxt.length());
-
-		std::string genomicCoverage_file = graphDir + "genomicMapping.txt";
-		if(! Utilities::fileExists(genomicCoverage_file))
+		if(g->filename_last_read.length())
 		{
-			std::cerr << "Error: file " << genomicCoverage_file << " not there!\n" << std::flush;
-		}
-		assert(Utilities::fileExists(genomicCoverage_file));
+			std::string graphFile = g->filename_last_read;
+			std::string gTxt = "graph.txt";
+			assert(graphFile.substr(graphFile.length() - gTxt.length()) == gTxt);
+			std::string graphDir = graphFile.substr(0, graphFile.length() - gTxt.length());
 
-		std::ifstream genomicCoverageStream;
-		genomicCoverageStream.open(genomicCoverage_file.c_str());
-		assert(genomicCoverageStream.is_open());
-
-		std::string line;
-		while(genomicCoverageStream.good())
-		{
-			std::getline(genomicCoverageStream, line);
-			Utilities::eraseNL(line);
-			if(line.length() > 0)
+			std::string genomicCoverage_file = graphDir + "genomicMapping.txt";
+			if(! Utilities::fileExists(genomicCoverage_file))
 			{
-				std::vector<std::string> fields = Utilities::split(line, ",");
-				for(unsigned int fI = 0; fI < fields.size(); fI++)
+				std::cerr << "Error: file " << genomicCoverage_file << " not there!\n" << std::flush;
+			}
+			assert(Utilities::fileExists(genomicCoverage_file));
+
+			std::ifstream genomicCoverageStream;
+			genomicCoverageStream.open(genomicCoverage_file.c_str());
+			assert(genomicCoverageStream.is_open());
+
+			std::string line;
+			while(genomicCoverageStream.good())
+			{
+				std::getline(genomicCoverageStream, line);
+				Utilities::eraseNL(line);
+				if(line.length() > 0)
 				{
-					std::string fP = fields.at(fI);
-					std::vector<std::string> fP_parts = Utilities::split(fP, ":");
-					assert(fP_parts.size() == 2);
+					std::vector<std::string> fields = Utilities::split(line, ",");
+					for(unsigned int fI = 0; fI < fields.size(); fI++)
+					{
+						std::string fP = fields.at(fI);
+						std::vector<std::string> fP_parts = Utilities::split(fP, ":");
+						assert(fP_parts.size() == 2);
 
-					std::string regionID = fP_parts.at(0);
-					int part_pos = Utilities::StrtoI(fP_parts.at(1));
+						std::string regionID = fP_parts.at(0);
+						int part_pos = Utilities::StrtoI(fP_parts.at(1));
 
-					myGraph_coveredIntervals.addPoint(regionID, part_pos);
+						myGraph_coveredIntervals.addPoint(regionID, part_pos);
+					}
 				}
 			}
-		}
-		genomicCoverageStream.close();
-		
-		if(omp_get_thread_num() == 0)
-		{
-			myGraph_coveredIntervals.printIntervals();
+			genomicCoverageStream.close();
+
+			if(omp_get_thread_num() == 0)
+			{
+				myGraph_coveredIntervals.printIntervals();
+			}
 		}
 		//std::cout << "myGraph_coveredIntervals: Have " << myGraph_coveredIntervals.getNumIntervals() << " intervals.\n" << std::flush;
 	}  
@@ -1884,7 +1887,7 @@ std::vector<seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_longlo
 	return read_backtraces;
 }
 
-std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > GraphAlignerUnique::seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd)
+std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > GraphAlignerUnique::seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd, bool greedyLocalExtension)
 {
 	assert(g != 0);
 
@@ -1933,8 +1936,8 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 		this->verbose = true;
 		this->verbose = false;
 	}
-	read1_maxBacktrace = seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces);
-	read2_maxBacktrace = seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces);
+	read1_maxBacktrace = seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces, greedyLocalExtension);
+	read2_maxBacktrace = seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces, greedyLocalExtension);
 	this->verbose = verbose_before;
 
 	
@@ -3636,7 +3639,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 }
 
 
-seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces)
+seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces, bool greedyLocalExtension)
 {
 	assert(g != 0);
 	seedAndExtend_return_local forReturn;
@@ -3896,7 +3899,8 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 					NWedges_graphDist_startAffineGap,
 					finalScore,
 					finalScore_z,
-					finalScore_backtrack
+					finalScore_backtrack,
+					greedyLocalExtension
 			);
 
 			std::string reconstructedSequence;
@@ -5096,7 +5100,17 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 					if(verbose)
 					{
 						std::cout << "\t" << "fullNeedleman_diagonal_completeGreedy_extension from left end (inwards)\n"; 
-					}				
+					}
+
+					forwardExtensions = fullNeedleman_diagonal_completeGreedy_extension(
+							sequence,
+							exitEdgeToExtend->to_y,
+							exitEdgeToExtend->to_x,
+							exitEdgeToExtend->to_z,
+							gapBoundary_right_level,
+							sequencePosition_right,
+							true
+					);
 				}
 				else
 				{
@@ -5159,7 +5173,17 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 					if(verbose)
 					{
 						std::cout << "\t" << "fullNeedleman_diagonal_completeGreedy_extension from left end (inwards)\n"; 
-					}					
+					}
+
+					backwardExtensions = fullNeedleman_diagonal_completeGreedy_extension(
+							sequence,
+							entryEdgeToExtend->from_y,
+							entryEdgeToExtend->from_x,
+							entryEdgeToExtend->from_z,
+							gapBoundary_left_level,
+							((leftChain) ? (sequencePosition_left+1) : 0),
+							false
+					);
 				}
 				else
 				{
@@ -10420,7 +10444,7 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_diagonal_completeGreedy_extension(std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, bool directionPositive)
 {
 
-	int bandSize = 4;
+	int bandSize = 3;
 	
 	assert(g != 0);
 	if(directionPositive)
@@ -10583,6 +10607,11 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 			std::cout << "\t diagonalI " << diagonalI << "/" << diagonals << ".\n" << std::flush;
 		}
 
+		if((m2_diagonal.size() == 0) && (m1_diagonal.size() == 0))
+		{
+			break;
+		}
+
 
 //		int scores_size = 0;
 //		for(std::map<int, std::map<int, std::map<int, mScore>> >::iterator it1 = scores.begin(); it1 != scores.end(); it1++)
@@ -10619,6 +10648,24 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 				continue;
 
 			if((next_levelI < min_levelI) || (next_seqI < min_seqI))
+				continue;
+
+			int steps_along_graph;
+			int steps_along_seq;
+			if(directionPositive)
+			{
+				steps_along_graph = next_levelI - startLevel_graph;
+				steps_along_seq = next_seqI - start_sequence;
+			}
+			else
+			{
+				steps_along_graph = startLevel_graph - next_levelI;
+				steps_along_seq = start_sequence - next_seqI;
+			}
+			assert(steps_along_graph >= 0);
+			assert(steps_along_seq >= 0);
+			int distance_to_diagonal = abs(steps_along_graph - steps_along_seq);
+			if(distance_to_diagonal > bandSize)
 				continue;
 
 			std::string sequenceEmission = (directionPositive ? sequence.substr(previous_seqI, 1) : sequence.substr(previous_seqI-1, 1));
@@ -10663,9 +10710,28 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 			// gap in graph
 			int gapInGraph_next_levelI = previous_coordinates.at(0);
 			int gapInGraph_next_seqI = previous_coordinates.at(1) + (directionPositive ? 1 : -1);
-			if	(
+
+			int gapInGraph_steps_along_graph;
+			int gapInGraph_steps_along_seq;
+			if(directionPositive)
+			{
+				gapInGraph_steps_along_graph = gapInGraph_next_levelI - startLevel_graph;
+				gapInGraph_steps_along_seq = gapInGraph_next_seqI - start_sequence;
+			}
+			else
+			{
+				gapInGraph_steps_along_graph = startLevel_graph - gapInGraph_next_levelI;
+				gapInGraph_steps_along_seq = start_sequence - gapInGraph_next_seqI;
+			}
+			assert(gapInGraph_steps_along_graph >= 0);
+			assert(gapInGraph_steps_along_seq >= 0);
+			int gapInGraph_distance_to_diagonal = abs(gapInGraph_steps_along_graph - gapInGraph_steps_along_seq);
+
+			if	(	(gapInGraph_distance_to_diagonal <= bandSize) &&
+					(
 					(directionPositive && (gapInGraph_next_levelI <= max_levelI) && (gapInGraph_next_seqI <= max_seqI)) ||
 					((! directionPositive) && (gapInGraph_next_levelI >= min_levelI) && (gapInGraph_next_seqI >= min_seqI))
+					)
 				)
 			{
 				double score_gapInGraph_open = scores.at(previous_levelI).at(previous_seqI).at(previous_stateI).D + S_openGap + S_extendGap;
@@ -10706,9 +10772,28 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 			int gapInSequence_next_levelI = previous_coordinates.at(0) + (directionPositive ? 1 : -1);
 			int gapInSequence_next_seqI = previous_coordinates.at(1);
 
-			if	(
+			int gapInSequence_steps_along_graph;
+			int gapInSequence_steps_along_seq;
+			if(directionPositive)
+			{
+				gapInSequence_steps_along_graph = gapInSequence_next_levelI - startLevel_graph;
+				gapInSequence_steps_along_seq = gapInSequence_next_seqI - start_sequence;
+			}
+			else
+			{
+				gapInSequence_steps_along_graph = startLevel_graph - gapInSequence_next_levelI;
+				gapInSequence_steps_along_seq = start_sequence - gapInSequence_next_seqI;
+			}
+			assert(gapInSequence_steps_along_graph >= 0);
+			assert(gapInSequence_steps_along_seq >= 0);
+			int gapInSequence_distance_to_diagonal = abs(gapInSequence_steps_along_graph - gapInSequence_steps_along_seq);
+
+
+			if	(	(gapInSequence_distance_to_diagonal <= bandSize) &&
+					(
 					(directionPositive && (gapInSequence_next_levelI <= max_levelI) && (gapInSequence_next_seqI <= max_seqI)) ||
 					((! directionPositive) && (gapInSequence_next_levelI >= min_levelI) && (gapInSequence_next_seqI >= min_seqI))
+					)
 				)
 			{
 				std::vector<std::pair<int, Edge*> > nextZs = (directionPositive ? _graph_get_next_z_values_and_edges(previous_levelI, previous_stateI) : _graph_get_previous_z_values_and_edges(previous_levelI, previous_stateI));
@@ -10898,8 +10983,7 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 			std::cout << "\t\tfiltering" << "\n" << std::flush;
 
 		std::vector<std::vector<int> > m_thisDiagonal_filtered;
-		assert(m_thisDiagonal.size() > 0);
-		
+		if(m_thisDiagonal.size() > 0)
 		{
 			double max;
 			for(unsigned int i = 0; i < m_thisDiagonal.size(); i++)
@@ -10927,6 +11011,8 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 				assert(steps_along_seq >= 0);
 				
 				int distance_to_diagonal = abs(steps_along_graph - steps_along_seq);
+
+				assert(distance_to_diagonal <= bandSize);
 				
 				if(distance_to_diagonal <= bandSize)
 				{
@@ -10962,6 +11048,8 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 
 		m2_diagonal = m1_diagonal;
 		m1_diagonal = m_thisDiagonal;
+
+		// std::cout << "\t\tm1_diagonal.size(): " << m1_diagonal.size() << "\n" << std::flush;
 	}
 
 	std::vector<localExtension_pathDescription> forReturn;

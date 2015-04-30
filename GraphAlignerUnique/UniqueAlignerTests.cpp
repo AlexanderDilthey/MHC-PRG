@@ -496,7 +496,9 @@ void testSeedAndExtend_short()
 	size_t rightPositionCharacters_counted = 0;
 	size_t rightPositionCharacters_correct = 0;
 
-	bool verbose = false;
+	bool verbose = true;
+
+	bool greedyLocalExtension = true;
 
 	for(unsigned int graphIteration = 1; graphIteration <= 10; graphIteration++)
 	{
@@ -534,7 +536,7 @@ void testSeedAndExtend_short()
 		int test_iterations = 10;
 		for(int iteration = 1; iteration <= test_iterations; iteration++)
 		{
-			std::cout << "[SHORT] Test iteration " << iteration << "\n==============================================\n(individual iteration " << individualTests << ")\n\n" << std::flush;
+			std::cout << "[SHORT] Test iteration " << iteration << "\n==============================================\n(individual iteration " << individualTests << ", greedyLocalExtension = " << greedyLocalExtension << ")\n\n" << std::flush;
 
 			// generate random string
 			std::string randomString;
@@ -627,12 +629,12 @@ void testSeedAndExtend_short()
 //
 
 			std::vector<seedAndExtend_return_local> allBacktraces;
-			seedAndExtend_return_local wholeString_alignments_short = gA.seedAndExtend_short(randomString_noGaps, allBacktraces);
+			seedAndExtend_return_local wholeString_alignments_short = gA.seedAndExtend_short(randomString_noGaps, allBacktraces, greedyLocalExtension);
 //
 //			seedAndExtend_return_local wholeString_alignments_local = gA3.seedAndExtend_local(randomString_noGaps, allBacktraces);
 
 //			seedAndExtend_return wholeString_alignments = gA.seedAndExtend(randomString_noGaps);
-			seedAndExtend_return wholeString_alignments_2 = gA2.seedAndExtend(randomString_noGaps);
+			//seedAndExtend_return wholeString_alignments_2 = gA2.seedAndExtend(randomString_noGaps);
 
 //			 std::cerr << "wholeString_alignments.Score: " << wholeString_alignments.Score << "\n" << std::flush;
 
@@ -657,9 +659,9 @@ void testSeedAndExtend_short()
 //					std::cout << "\t\t\t" << wholeString_alignments_local.graph_aligned << "\n";
 //					std::cout << "\t\t\t" << wholeString_alignments_local.sequence_aligned << "\n\n" << std::flush;
 
-					std::cout << "\t\tCompare with (one, max-only) global alignment [global score " << wholeString_alignments_2.Score << "]>:\n";
-					std::cout << "\t\t\t" << wholeString_alignments_2.graph_aligned << "\n";
-					std::cout << "\t\t\t" << wholeString_alignments_2.sequence_aligned << "\n" << std::flush;
+//					std::cout << "\t\tCompare with (one, max-only) global alignment [global score " << wholeString_alignments_2.Score << "]>:\n";
+//					std::cout << "\t\t\t" << wholeString_alignments_2.graph_aligned << "\n";
+//					std::cout << "\t\t\t" << wholeString_alignments_2.sequence_aligned << "\n" << std::flush;
 				}
 
 				assert(thisAlignment.Score == thisAlignmentScore);
@@ -845,7 +847,7 @@ void testChains()
 }
 
 
-void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_length, double insertSize_mean, double insertSize_sd, std::string qualityMatrixFile, bool longBadReads)
+void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_length, double insertSize_mean, double insertSize_sd, std::string qualityMatrixFile, bool longBadReads, bool greedyLocalExtension)
 {
 	char removeUpper = 0;
 	char removeUpper_2nd = 0;
@@ -880,6 +882,8 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 	
 	std::cout << "Read length: " << read_length << "\n";
 	std::cout << "longBadReads: " << longBadReads << "\n";
+	std::cout << "greedyLocalExtension: " << greedyLocalExtension << "\n";
+
 	std::cout << std::flush;
 
 	// todo remove
@@ -1253,12 +1257,13 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 				if(useAllAlignments_short)
 				{				
 				
-					std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignment_pairs = graphAligners.at(tI)->seedAndExtend_short_allAlignments(rP, insertSize_mean, insertSize_sd);
+					std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignment_pairs = graphAligners.at(tI)->seedAndExtend_short_allAlignments(rP, insertSize_mean, insertSize_sd, greedyLocalExtension);
 							
 					alignment_pair = alignment_pairs.at(0);
 				}
 				else
 				{
+					assert(! greedyLocalExtension);
 					alignment_pair = graphAligners.at(tI)->seedAndExtend_local_paired_or_short(rP, usePairing, useShort, insertSize_mean, insertSize_sd, false, _IS_ignore);
 				}
 				
