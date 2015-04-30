@@ -3937,7 +3937,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 			vNW.freeMemory();
 
 			if(verbose)
-				std::cout << "\t\tScore " << finalScore << "\n" << std::flush;
+				std::cout << "\t\tScore post-extension: " << finalScore << "\n" << std::flush;
 
 			// int score_for_matches_from_chain = matches_this_chain * S_match;
 			int optimal_chain_score = S_match * sequence.length();
@@ -3963,6 +3963,10 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		}
 
 		std::pair<double, unsigned int> selectedMaximum = Utilities::findVectorMax(possibleBacktraces_scores);
+		if(verbose)
+		{
+			std::cout << std::flush << Utilities::timestamp() << "\tselected backtrace: " << selectedMaximum.second << ".\n" << std::flush;
+		}
 		seedAndExtend_return selectedBacktrace = possibleBacktraces.at(selectedMaximum.second);
 
 		std::vector<std::pair<double, unsigned int>> backtraces_scores_and_positions;
@@ -10444,7 +10448,7 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_diagonal_completeGreedy_extension(std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, bool directionPositive)
 {
 
-	int bandSize = 3;
+	int bandSize = 5;
 	
 	assert(g != 0);
 	if(directionPositive)
@@ -11271,6 +11275,12 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 	double maxScore;
 	std::vector<std::pair<int, int>> maxScore_coordinates;
 	
+	if(verbose)
+	{
+		std::cout << "achieved_levelI: " << achieved_levelI << " / achieved_seqI: " << achieved_seqI << std::flush;
+	}
+
+
 	if(directionPositive)
 	{
 		for(int levelI = achieved_levelI; levelI >= (achieved_levelI - 2*bandSize - 1); levelI--)
@@ -11282,9 +11292,15 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 					double S = altIt->second.D;
 					int z = altIt->first;
 					
+					if(verbose)
+					{
+						std::cout << "Consider score at: " << levelI << " / " << achieved_seqI << " / " << z << ": " << S << "\n" << std::flush;
+					}
+
 					if((maxScore_coordinates.size() == 0) || (S > maxScore))
 					{
 						maxScore = S;
+						maxScore_coordinates.clear();
 						maxScore_coordinates.push_back(make_pair(levelI, z));
 					}
 					else
@@ -11309,9 +11325,15 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 					double S = altIt->second.D;
 					int z = altIt->first;
 					
+					if(verbose)
+					{
+						std::cout << "Consider score at: " << levelI << " / " << achieved_seqI << " / " << z << ": " << S << "\n" << std::flush;
+					}
+
 					if((maxScore_coordinates.size() == 0) || (S > maxScore))
 					{
 						maxScore = S;
+						maxScore_coordinates.clear();
 						maxScore_coordinates.push_back(make_pair(levelI, z));
 					}
 					else
