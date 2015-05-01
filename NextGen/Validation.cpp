@@ -1408,7 +1408,7 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 			assert((tI >= 0) && (tI < graphAligners.size()));
 
 			std::map<int, double> _IS_ignore;
-			std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignment_pairs = graphAligners.at(tI)->seedAndExtend_short_allAlignments(rP, insertSize_mean, insertSize_sd);
+			std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignment_pairs = graphAligners.at(tI)->seedAndExtend_short_allAlignments(rP, insertSize_mean, insertSize_sd, true);
 
 			if(alignment_pairs.size() > 1)
 			{

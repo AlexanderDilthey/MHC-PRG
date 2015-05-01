@@ -5097,45 +5097,26 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 
 				assert((sequencePosition_left+1) == exitEdgeToExtend->to_y);
 
-
 				std::vector<localExtension_pathDescription> forwardExtensions;
-				if(greedyLocalExtension)
+				if(verbose)
 				{
-					if(verbose)
-					{
-						std::cout << "\t" << "fullNeedleman_diagonal_completeGreedy_extension from left end (inwards)\n"; 
-					}
+					std::cout << "\t" << "fullNeedleman_diagonal_extension from left end (inwards)\n";
+				}
 
-					forwardExtensions = fullNeedleman_diagonal_completeGreedy_extension(
-							sequence,
-							exitEdgeToExtend->to_y,
-							exitEdgeToExtend->to_x,
-							exitEdgeToExtend->to_z,
-							gapBoundary_right_level,
-							sequencePosition_right,
-							true
-					);
-				}
-				else
-				{
-					if(verbose)
-					{
-						std::cout << "\t" << "fullNeedleman_diagonal_extension from left end (inwards)\n"; 
-					}
-								
-					forwardExtensions = fullNeedleman_diagonal_extension(
-							sequence,
-							exitEdgeToExtend->to_y,
-							exitEdgeToExtend->to_x,
-							exitEdgeToExtend->to_z,
-							gapBoundary_right_level,
-							sequencePosition_right,
-							-11,
-							&vNW,
-							true,
-							false
-					);
-				}
+				forwardExtensions = fullNeedleman_diagonal_extension(
+						sequence,
+						exitEdgeToExtend->to_y,
+						exitEdgeToExtend->to_x,
+						exitEdgeToExtend->to_z,
+						gapBoundary_right_level,
+						sequencePosition_right,
+						-11,
+						&vNW,
+						true,
+						false,
+						greedyLocalExtension
+				);
+
 
 				if(forwardExtensions.size() > 0)
 				{
@@ -5172,43 +5153,25 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& 
 
 
 				std::vector<localExtension_pathDescription> backwardExtensions;
-				if(greedyLocalExtension)
+				if(verbose)
 				{
-					if(verbose)
-					{
-						std::cout << "\t" << "fullNeedleman_diagonal_completeGreedy_extension from left end (inwards)\n"; 
-					}
+					std::cout << "\t" << "fullNeedleman_diagonal_extension from right end (inwards)\n";
+				}
 
-					backwardExtensions = fullNeedleman_diagonal_completeGreedy_extension(
-							sequence,
-							entryEdgeToExtend->from_y,
-							entryEdgeToExtend->from_x,
-							entryEdgeToExtend->from_z,
-							gapBoundary_left_level,
-							((leftChain) ? (sequencePosition_left+1) : 0),
-							false
-					);
-				}
-				else
-				{
-					if(verbose)
-					{
-						std::cout << "\t" << "fullNeedleman_diagonal_extension from right end (inwards)\n"; 
-					}
-									
-					backwardExtensions = fullNeedleman_diagonal_extension(
-							sequence,
-							entryEdgeToExtend->from_y,
-							entryEdgeToExtend->from_x,
-							entryEdgeToExtend->from_z,
-							gapBoundary_left_level,
-							((leftChain) ? (sequencePosition_left+1) : 0),
-							-11,
-							&vNW,
-							false,
-							false
-					);
-				}
+				backwardExtensions = fullNeedleman_diagonal_extension(
+						sequence,
+						entryEdgeToExtend->from_y,
+						entryEdgeToExtend->from_x,
+						entryEdgeToExtend->from_z,
+						gapBoundary_left_level,
+						((leftChain) ? (sequencePosition_left+1) : 0),
+						-11,
+						&vNW,
+						false,
+						false,
+						greedyLocalExtension
+				);
+
 
 				if(backwardExtensions.size() > 0)
 				{
@@ -9467,8 +9430,10 @@ double GraphAlignerUnique::score(std::string reconstructed_graph, std::vector<in
 }
 
 
-std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_diagonal_extension(std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, int diagonal_stop_threshold, VirtualNWTable_Unique* blockedPathsTable, bool directionPositive, bool returnGlobalScore)
+std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_diagonal_extension(std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, int diagonal_stop_threshold, VirtualNWTable_Unique* blockedPathsTable, bool directionPositive, bool returnGlobalScore, bool preferSequenceCompleAlignments)
 {
+	assert(! ((returnGlobalScore) && (preferSequenceCompleAlignments)));
+
 	assert(g != 0);
 	if(directionPositive)
 	{
@@ -9599,6 +9564,8 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 	int threshold_for_filtering = 15;
 	int maximum_steps_nonIncrease = 40;
 
+
+	std::set<std::string> achieved_complete_sequence_alignments;
 
 	for(unsigned int stateI = 0; stateI < statesPerLevel0; stateI++)
 	{
@@ -10032,6 +9999,25 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 							scores[levelI][seqI][stateI].SequenceGap = selectedScore_SequenceGap;
 							scores_backtrace[levelI][seqI][stateI].SequenceGap = selectedStep_SequenceGap;
 
+							if(preferSequenceCompleAlignments)
+							{
+								std::string id_levelI_stateI = Utilities::ItoStr(levelI) + "/" + Utilities::ItoStr(stateI);
+								if(directionPositive)
+								{
+									if(seqI == max_seqI)
+									{
+										achieved_complete_sequence_alignments.insert(id_levelI_stateI);
+									}
+								}
+								else
+								{
+									if(seqI == min_seqI)
+									{
+										achieved_complete_sequence_alignments.insert(id_levelI_stateI);
+									}
+								}
+							}
+
 							std::vector<int> thisCoordinates;
 							thisCoordinates.push_back(levelI);
 							thisCoordinates.push_back(seqI);
@@ -10375,40 +10361,104 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 
 	if(! returnGlobalScore)
 	{
-		if(currentMaximum > 0)
+		bool have_backtrace_sequenceComplete = false;
+
+		int sequenceCompleteBacktrace_levelI;
+		int sequenceCompleteBacktrace_seqI;
+		int sequenceCompleteBacktrace_stateI;
+		double sequenceCompleteBacktrace_score;
+
+
+		if(preferSequenceCompleAlignments)
 		{
-			if(verbose)
-			{
-				std::cout << "\tMaximum " << currentMaximum << ", achieved at " << currentMaxima_coordinates.size() << " positions!\n" << std::flush;
-			}
+			std::vector<std::string> sequenceComplete_backtraceCoordinates_maxScores;
+			double maxScore;
 
-			for(int maximumI = 0; maximumI < (int)currentMaxima_coordinates.size(); maximumI++)
+			int coordinate_seqI = (directionPositive ? max_seqI : min_seqI);
+
+			for(std::set<std::string>::iterator coordinateIt = achieved_complete_sequence_alignments.begin(); coordinateIt != achieved_complete_sequence_alignments.end(); coordinateIt++)
 			{
-				std::vector<int> coordinates = currentMaxima_coordinates.at(maximumI);
-				if(scores.at(coordinates.at(0)).at(coordinates.at(1)).at(coordinates.at(2)).D != minusInfinity)
+				std::string coordinates = *coordinateIt;
+				std::vector<std::string> coordinate_components = Utilities::split(coordinates, "/");
+				assert(coordinate_components.size() == 2);
+				int coordinate_levelI = Utilities::StrtoI(coordinate_components.at(0));
+				int coordinate_stateI = Utilities::StrtoI(coordinate_components.at(1));
+
+				double S = scores.at(coordinate_levelI).at(coordinate_seqI).at(coordinate_stateI).D;
+
+				if((coordinateIt == achieved_complete_sequence_alignments.begin()) || (S > maxScore))
 				{
-					if(verbose)
-						std::cout << " - Start maximum backtrace from " <<coordinates.at(0) << ", " <<  coordinates.at(1) << ", " << coordinates.at(2) << "\n" << std::flush;
-
-					backtraceFrom(coordinates.at(0), coordinates.at(1), coordinates.at(2), scores.at(coordinates.at(0)).at(coordinates.at(1)).at(coordinates.at(2)).D);
+					sequenceComplete_backtraceCoordinates_maxScores.clear();
+					sequenceComplete_backtraceCoordinates_maxScores.push_back(coordinates);
+					maxScore = S;
+				}
+				else if(S == maxScore)
+				{
+					sequenceComplete_backtraceCoordinates_maxScores.push_back(coordinates);
 				}
 			}
+
+			if(sequenceComplete_backtraceCoordinates_maxScores.size() > 0)
+			{
+				have_backtrace_sequenceComplete = true;
+
+				int selectedIndex = Utilities::randomNumber_nonCritical(sequenceComplete_backtraceCoordinates_maxScores.size() - 1, &(rng_seeds.at(omp_get_thread_num())));
+				assert(selectedIndex >= 0);
+				assert(selectedIndex < (int)sequenceComplete_backtraceCoordinates_maxScores.size());
+				std::string coordinates = sequenceComplete_backtraceCoordinates_maxScores.at(selectedIndex);
+
+				std::vector<std::string> coordinate_components = Utilities::split(coordinates, "/");
+				assert(coordinate_components.size() == 2);
+
+				sequenceCompleteBacktrace_levelI = Utilities::StrtoI(coordinate_components.at(0));
+				sequenceCompleteBacktrace_seqI = coordinate_seqI;
+				sequenceCompleteBacktrace_stateI = Utilities::StrtoI(coordinate_components.at(1));
+				sequenceCompleteBacktrace_score = maxScore;
+
+			}
+
 		}
-
-		if(verbose)
-			std::cout << "Have hit " << hit_NW_paths.size() << " NW paths, backtrace independent of achieved value!\n" << std::flush;
-
-		for(std::map<NWPath*, std::pair<double, std::vector<int> > >::iterator hitPathsIt = hit_NW_paths.begin(); hitPathsIt != hit_NW_paths.end(); hitPathsIt++)
+		if(preferSequenceCompleAlignments && have_backtrace_sequenceComplete)
 		{
-			// NWPath* path = hitPathsIt->first;
-			double score = hitPathsIt->second.first;
-			std::vector<int> coordinates = hitPathsIt->second.second;
-			assert(scores.at(coordinates.at(0)).at(coordinates.at(1)).at(coordinates.at(2)).D == minusInfinity);
+			backtraceFrom(sequenceCompleteBacktrace_levelI, sequenceCompleteBacktrace_seqI, sequenceCompleteBacktrace_stateI, sequenceCompleteBacktrace_score);
+		}
+		else
+		{
+			if(currentMaximum > 0)
+			{
+				if(verbose)
+				{
+					std::cout << "\tMaximum " << currentMaximum << ", achieved at " << currentMaxima_coordinates.size() << " positions!\n" << std::flush;
+				}
+
+				for(int maximumI = 0; maximumI < (int)currentMaxima_coordinates.size(); maximumI++)
+				{
+					std::vector<int> coordinates = currentMaxima_coordinates.at(maximumI);
+					if(scores.at(coordinates.at(0)).at(coordinates.at(1)).at(coordinates.at(2)).D != minusInfinity)
+					{
+						if(verbose)
+							std::cout << " - Start maximum backtrace from " <<coordinates.at(0) << ", " <<  coordinates.at(1) << ", " << coordinates.at(2) << "\n" << std::flush;
+
+						backtraceFrom(coordinates.at(0), coordinates.at(1), coordinates.at(2), scores.at(coordinates.at(0)).at(coordinates.at(1)).at(coordinates.at(2)).D);
+					}
+				}
+			}
 
 			if(verbose)
-				std::cout << " - Start NW path backtrace from " << coordinates.at(0) << ", " <<  coordinates.at(1) << ", " << coordinates.at(2) << "\n" << std::flush;
+				std::cout << "Have hit " << hit_NW_paths.size() << " NW paths, backtrace independent of achieved value!\n" << std::flush;
 
-			backtraceFrom(coordinates.at(0), coordinates.at(1), coordinates.at(2), score);
+			for(std::map<NWPath*, std::pair<double, std::vector<int> > >::iterator hitPathsIt = hit_NW_paths.begin(); hitPathsIt != hit_NW_paths.end(); hitPathsIt++)
+			{
+				// NWPath* path = hitPathsIt->first;
+				double score = hitPathsIt->second.first;
+				std::vector<int> coordinates = hitPathsIt->second.second;
+				assert(scores.at(coordinates.at(0)).at(coordinates.at(1)).at(coordinates.at(2)).D == minusInfinity);
+
+				if(verbose)
+					std::cout << " - Start NW path backtrace from " << coordinates.at(0) << ", " <<  coordinates.at(1) << ", " << coordinates.at(2) << "\n" << std::flush;
+
+				backtraceFrom(coordinates.at(0), coordinates.at(1), coordinates.at(2), score);
+			}
 		}
 	}
 	else
