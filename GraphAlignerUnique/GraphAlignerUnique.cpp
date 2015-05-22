@@ -3655,8 +3655,8 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		std::cout << Utilities::timestamp() << " Enter GraphAlignerUnique::seedAndExtend_short(..)!\n" << std::flush;
 
 	if(sequence_nonReverse.length() > 150)
-	{
-		maximumConsideredChains = 20;
+	{ 
+		maximumConsideredChains = 15;
 	}
 	if(sequence_nonReverse.length() > 500)
 	{

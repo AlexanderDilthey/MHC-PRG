@@ -1344,7 +1344,7 @@ void alignLongUnpairedReadsToHLAGraph(std::string FASTQs, std::string graphDir, 
 void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::string graphDir, std::string referenceGenomeFile, std::vector<std::pair<double, double>> inserSize_mean_sd_perFile)
 {
 	int aligner_kMerSize = 25;
-	int outerThreads = 8;
+	int outerThreads = 40;
 	//int outerThreads = 1;
 	int skipPairs_MOD = 1;
 	bool useShort = true;

@@ -171,9 +171,10 @@ elsif($sampleIDs =~ /^all/)
 	{
 		@sampleIDs = @sampleIDs[5 .. $#sampleIDs];
 		@sampleIDs = grep {$_ !~ /AA02O9Q_Z2/} @sampleIDs;
-		@sampleIDs = grep {$_ !~ /AA02O9R/} @sampleIDs;
-		
+		@sampleIDs = grep {$_ !~ /AA02O9R/} @sampleIDs;		
 		warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nRemove first five and NA12878 and high-coverage sample for validation!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
+		
+		# @sampleIDs = @sampleIDs[0 .. 4];
 		
 		die unless(($actions eq 'v') or ($actions eq 'w'));
 	}
@@ -1687,7 +1688,7 @@ if($actions =~ /w/)
 						$alleles_pt_gt_disagree[$invertImputations] += $thisPosition_gt_disagree;
 						$alleles_pt_gt_missing[$invertImputations] += $thisPosition_gt_missing;
 					
-						if(($invertImputations == 0) and ($thisPosition_gt_agree != 2))
+						if(($invertImputations == 0) and ($thisPosition_gt_agree != 2) and 0)
 						{
 							print "Position $i -- agreement: $thisPosition_gt_agree\n";
 							print "\tTrue genotypes: ", join('/', $reference_haplotypes_split[0][$i], $reference_haplotypes_split[1][$i]), "\n";
