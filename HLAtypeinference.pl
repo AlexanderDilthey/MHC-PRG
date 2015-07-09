@@ -166,6 +166,11 @@ elsif($sampleIDs =~ /^all/)
 		my $iteration = $1;
 		@sampleIDs = grep {$_ =~ /^I${iteration}_/i} @sampleIDs;
 	}
+	else
+	{
+		die "Does this make sense?";
+		@sampleIDs = grep {$_ =~ /^$sampleIDs/i} @sampleIDs;	
+	}
 	
 	if($actions =~ /v|w/)
 	{
