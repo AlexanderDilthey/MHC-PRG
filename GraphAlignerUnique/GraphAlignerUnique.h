@@ -136,7 +136,7 @@ public:
 	seedAndExtend_return_local seedAndExtend_short(std::string sequence, std::vector<seedAndExtend_return_local>& allBacktraces, bool greedyLocalExtension = false);
 
 	std::pair<seedAndExtend_return_local, seedAndExtend_return_local> seedAndExtend_local_paired_or_short(oneReadPair readPair, bool usePairing, bool use_short, double insertSize_mean, double insertSize_sd, bool estimateInsertSize, std::map<int, double>& insertSize_posterior_ret);
-	std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd, bool greedyLocalExtension = false);
+	std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd, bool greedyLocalExtension = false, bool debug = false);
 
 	std::vector<seedAndExtend_return_local> seedAndExtend_longlocal_allAlignments(oneRead R);
 

@@ -404,6 +404,8 @@ int main(int argc, char *argv[])
 		std::string IS_mean;
 		std::string IS_sd;
 		
+		bool debug = false;
+		
 		for(unsigned int i = 0; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--input_FASTQ")
@@ -420,6 +422,12 @@ int main(int argc, char *argv[])
 			{
 				referenceGenome = arguments.at(i+1);
 			}
+
+			if(arguments.at(i) == "--debug")
+			{
+				debug = true;
+			}
+			
 			
 			if(arguments.at(i) == "--IS_mean")
 			{
@@ -437,6 +445,11 @@ int main(int argc, char *argv[])
 		assert(referenceGenome.length());
 
 		std::vector<std::pair<double, double>> inserSize_mean_sd_perFile;
+		
+		if(debug)
+		{
+			assert(IS_mean.length());
+		}
 		
 		if(IS_mean.length())
 		{
@@ -459,7 +472,7 @@ int main(int argc, char *argv[])
 			estimateInsertSizeFromGraph(input_FASTQ, graph_dir, inserSize_mean_sd_perFile);
 		}
 		
-		alignShortReadsToHLAGraph_multipleAlignments(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile);
+		alignShortReadsToHLAGraph_multipleAlignments(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile, debug);
 	}
 	else if((arguments.size() > 0) && (arguments.at(1) == "alignLongUnpairedReadsToHLAGraph"))
 	{

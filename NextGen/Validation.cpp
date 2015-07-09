@@ -1341,10 +1341,10 @@ void alignLongUnpairedReadsToHLAGraph(std::string FASTQs, std::string graphDir, 
 	}
 }
 
-void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::string graphDir, std::string referenceGenomeFile, std::vector<std::pair<double, double>> inserSize_mean_sd_perFile)
+void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::string graphDir, std::string referenceGenomeFile, std::vector<std::pair<double, double>> inserSize_mean_sd_perFile, bool debug)
 {
 	int aligner_kMerSize = 25;
-	int outerThreads = 40;
+	int outerThreads = (debug ? 1: 40);
 	//int outerThreads = 1;
 	int skipPairs_MOD = 1;
 	bool useShort = true;
@@ -1408,7 +1408,7 @@ void alignShortReadsToHLAGraph_multipleAlignments(std::string FASTQs, std::strin
 			assert((tI >= 0) && (tI < graphAligners.size()));
 
 			std::map<int, double> _IS_ignore;
-			std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignment_pairs = graphAligners.at(tI)->seedAndExtend_short_allAlignments(rP, insertSize_mean, insertSize_sd, true);
+			std::vector<std::pair<seedAndExtend_return_local, seedAndExtend_return_local>> alignment_pairs = graphAligners.at(tI)->seedAndExtend_short_allAlignments(rP, insertSize_mean, insertSize_sd, true, debug);
 
 			if(alignment_pairs.size() > 1)
 			{

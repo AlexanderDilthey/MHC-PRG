@@ -29,6 +29,8 @@
 
 
 namespace GraphAlignerUnique {
+int _dbg_local_chainI = 0;
+
 GraphAlignerUnique::GraphAlignerUnique(Graph* graph, int k) : g(graph), kMerSize(k), gI(g, k){
 
 	std::cout << "T: " << omp_get_thread_num() << "\n" << std::flush;
@@ -1884,10 +1886,10 @@ std::vector<seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_longlo
 	std::reverse(read_backtraces.begin(), read_backtraces.end());
 	
 
-	return read_backtraces;
+	return read_backtraces; 
 }
 
-std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > GraphAlignerUnique::seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd, bool greedyLocalExtension)
+std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > GraphAlignerUnique::seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd, bool greedyLocalExtension, bool debug)
 {
 	assert(g != 0);
 
@@ -1907,6 +1909,11 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 	verbose = ( readID_2_group.count(readPair.reads.first.name) || readID_2_group.count(readPair.reads.second.name) );
 
 	verbose = false;
+	
+	if(debug)
+	{
+		verbose = true;
+	}
 	
 	std::string GROUP;
 
@@ -3788,6 +3795,8 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 		for(int chainI = 0; chainI < chains_for_sequence.size(); chainI++)
 		{
 
+			_dbg_local_chainI = chainI;
+			
 			assert(currentChain != chains_orderedByLength.end());
 			kMerEdgeChain* thisChain = *currentChain;
 
@@ -4742,7 +4751,7 @@ void GraphAlignerUnique::vNW_completeRemainingGaps_and_score(std::string& sequen
 void GraphAlignerUnique::vNW_completeRemainingGaps_and_score_local(std::string& sequence, VirtualNWTable_Unique& vNW, std::vector<kMerEdgeChain*>& sequencePositions_covered, std::map<kMerEdgeChain*, NWPath*>& chains2Paths, std::map<kMerEdgeChain*, int>& currentChains_start, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startNormal, std::vector<std::map<NWEdge*, graphPointDistance> >& lastPositionDistances_perZ_startAffineGap, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startNormal, std::map<NWEdge*, std::map<NWEdge*, graphPointDistance> >& NWedges_graphDist_startAffineGap, double& finalScore, int& finalScore_z, NWEdge*& finalScore_backtrack, bool greedyLocalExtension)
 {
 	assert(g != 0);
-	bool verbose = false;
+	bool verbose = false; 
 	// bool superquiet = true;
 
 	double minusInfinity = -1 * numeric_limits<double>::max();
@@ -9504,6 +9513,10 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 	if(verbose)
 	{
 		std::cout << "fullNeedleman_affine_diagonal_extension(..) called, direction " << directionPositive << ".\n" << std::flush;
+		std::cout << "\t" << "start_sequence" << ": " << start_sequence << "\n";
+		std::cout << "\t" << "maxPosition_sequence" << ": " << maxPosition_sequence << "\n";
+		std::cout << "\t" << "startLevel_graph" << ": " << startLevel_graph << "\n";
+		std::cout << "\t" << "maxLevel_graph" << ": " << maxLevel_graph << "\n";
 	}
 
 	unsigned int levels = g->NodesPerLevel.size();
@@ -10371,10 +10384,42 @@ std::vector<localExtension_pathDescription> GraphAlignerUnique::fullNeedleman_di
 
 		if(preferSequenceCompleAlignments)
 		{
+		
+			int coordinate_seqI = (directionPositive ? max_seqI : min_seqI);
+
+			if(0 && directionPositive && (_dbg_local_chainI == 0))
+			{				
+				std::cout << "fullNeedleman_affine_diagonal_extension(..) called, direction " << directionPositive << ".\n" << std::flush;
+				std::cout << "\t" << "_dbg_local_chainI" << ": " << _dbg_local_chainI << "\n";
+				std::cout << "\t" << "start_sequence" << ": " << start_sequence << "\n";
+				std::cout << "\t" << "maxPosition_sequence" << ": " << maxPosition_sequence << "\n";
+				std::cout << "\t" << "startLevel_graph" << ": " << startLevel_graph << "\n";
+				std::cout << "\t" << "maxLevel_graph" << ": " << maxLevel_graph << "\n";
+				std::cout << "\t" << "achieved_complete_sequence_alignments.size()" << ": " << achieved_complete_sequence_alignments.size() << "\n";
+				
+				for(std::set<std::string>::iterator coordinateIt = achieved_complete_sequence_alignments.begin(); coordinateIt != achieved_complete_sequence_alignments.end(); coordinateIt++)
+				{
+					std::string coordinates = *coordinateIt;
+					std::vector<std::string> coordinate_components = Utilities::split(coordinates, "/");
+					assert(coordinate_components.size() == 2);
+					int coordinate_levelI = Utilities::StrtoI(coordinate_components.at(0));
+					int coordinate_stateI = Utilities::StrtoI(coordinate_components.at(1));
+
+					double S = scores.at(coordinate_levelI).at(coordinate_seqI).at(coordinate_stateI).D;
+					
+					std::cout << "\t\t\tAlternative:\n";
+					std::cout << "\t\t\t\t" << "coordinate_seqI" << ": " << coordinate_seqI << "\n";
+					std::cout << "\t\t\t\t" << "coordinate_levelI" << ": " << coordinate_levelI << "\n";
+					std::cout << "\t\t\t\t" << "coordinate_stateI" << ": " << coordinate_stateI << "\n";
+					std::cout << "\t\t\t\t" << "S" << ": " << S << "\n";
+				}
+				
+				std::cout << std::flush;
+			}
+			
 			std::vector<std::string> sequenceComplete_backtraceCoordinates_maxScores;
 			double maxScore;
 
-			int coordinate_seqI = (directionPositive ? max_seqI : min_seqI);
 
 			for(std::set<std::string>::iterator coordinateIt = achieved_complete_sequence_alignments.begin(); coordinateIt != achieved_complete_sequence_alignments.end(); coordinateIt++)
 			{
