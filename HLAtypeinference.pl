@@ -13,7 +13,6 @@ use File::Basename;
 
 my $kMer_size = 55;  
 
-
 # my @testCases = (
 	# [[qw/A A/], [qw/A A/]],
 	# [[qw/? A/], [qw/A A/]],
@@ -47,6 +46,7 @@ my $T = 0;
 my $minCoverage = 0;
 my $all_2_dig = 0;
 my $only_4_dig = 1;
+my $reduce_to_4_dig = 0;
 my $HiSeq250bp = 0;
 my $fastExtraction = 0;
 
@@ -73,6 +73,7 @@ GetOptions ('graph:s' => \$graph,
  'fastExtraction:s' => \$fastExtraction, 
  'fromPHLAT:s' => \$fromPHLAT,
  'fromHLAreporter:s' => \$fromHLAreporter,
+ 'reduce_to_4_dig:s' => \$reduce_to_4_dig,
 );         
 
 die if($fromPHLAT and $fromHLAreporter);
@@ -203,6 +204,8 @@ if(scalar(@sampleIDs) > 5)
 
 #@sampleIDs = $sampleIDs[0]; # todo remove
 #warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples:\n".join("\n", @sampleIDs)."\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
+
+# die Dumper(\@sampleIDs, \@BAMs);
 
 if($actions =~ /p/)
 {
@@ -582,6 +585,8 @@ if($actions =~ /v/)
 		$line =~ s/\n//g;
 		$line =~ s/\r//g;
 		
+		next unless($line);
+		
 		my @fields = split(/[\t ]/, $line);
 		my %line = (mesh @header_fields, @fields);
 		
@@ -601,6 +606,8 @@ if($actions =~ /v/)
 	my %sample_noI_toI;
 	
 	my $total_imputations = 0;
+	
+	my %missing_reference_data;
 	
 	my $summary_file = 'temp/summary_' . $sample_IDs_abbr . '.txt';	
 	open(SUMMARY, '>', $summary_file) or die "Cannot open $summary_file";
@@ -705,7 +712,11 @@ if($actions =~ /v/)
 	my %quality_measures; # not used
 	my $pileup_href = {};
 	
+	# die Dumper(\%imputed_HLA);
+	
 	my @loci = sort keys %imputed_HLA;
+	
+	# die Dumper(\@loci);
 	
 	my $process_quality_measures = sub {};
 	
@@ -752,6 +763,12 @@ if($actions =~ /v/)
 			$debug = 0;
 			
 			my @imputed_hla_values = map { $imputed_HLA{$locus}{$indivID}{$_} } keys %{$imputed_HLA{$locus}{$indivID}};
+			
+			if(grep {simpleHLA::autoHLA_is2digit($_)} @imputed_hla_values)
+			{
+				die "Warning: 2-digit alleles detected in the inference set\n" . Dumper(\@imputed_hla_values); # 2-digit test
+			}
+			
 			my @imputed_hla_values_q = map { my $r = $imputed_HLA_Q{$locus}{$indivID}{$_}; die unless(defined $r); $r } keys %{$imputed_HLA{$locus}{$indivID}};
 			
 			die "Undefined HLA ".join(', ', @imputed_hla_values) unless(scalar(grep {defined $_} @imputed_hla_values) == scalar(@imputed_hla_values));
@@ -759,29 +776,47 @@ if($actions =~ /v/)
 			my @reference_hla_values;
 			
 			next INDIV unless($#imputed_hla_values == 1);
-			unless(exists $reference_data{$indivID})
+			
+			my $reference_lookup_ID = $indivID;
+			if($reference_lookup_ID =~ /^downsample_/)
 			{
+				$reference_lookup_ID =~ s/^downsample_(I\d+_)?//;
+				$reference_lookup_ID =~ s/_DSC\d+_\d+//;
+				
+			}
+			unless(exists $reference_data{$reference_lookup_ID})
+			{
+				$missing_reference_data{$reference_lookup_ID}{$locus}++;
 				# warn "No reference data for $locus $indivID";
 			}
-			next INDIV unless(exists $reference_data{$indivID});
+			next INDIV unless(exists $reference_data{$reference_lookup_ID});
 			
-			$reference_data{$indivID}{'HLA'.$locus} or die;
+			$reference_data{$reference_lookup_ID}{'HLA'.$locus} or die;
 			
-			if($reference_data{$indivID}{'HLA'.$locus})
+			if($reference_data{$reference_lookup_ID}{'HLA'.$locus})
 			{
-				@reference_hla_values = split(/\//, $reference_data{$indivID}{'HLA'.$locus});
+				@reference_hla_values = split(/\//, $reference_data{$reference_lookup_ID}{'HLA'.$locus});
 			}
 
-			die Dumper($reference_data{$indivID}, \@reference_hla_values) unless($#reference_hla_values == 1);				
+			die Dumper($reference_data{$reference_lookup_ID}, \@reference_hla_values) unless($#reference_hla_values == 1);				
 						
 			die "Undefined HLA ".join(', ', @reference_hla_values) unless(scalar(grep {defined $_} @reference_hla_values) == scalar(@reference_hla_values));			
-			@reference_hla_values = grep {! &simpleHLA::is_missing($_)} @reference_hla_values;
+			@reference_hla_values = grep {! &simpleHLA::modernHLA_is_missing($_)} @reference_hla_values;
 
-			next if($#reference_hla_values == -1);
+			if($#reference_hla_values == -1)
+			{
+				$missing_reference_data{$reference_lookup_ID}{$locus}++;
+				next;
+			}
 						
 			if($only_4_dig)
 			{
 				next unless (&simpleHLA::HLA_is4digit($reference_hla_values[0]) and (($#reference_hla_values == 0) || (&simpleHLA::HLA_is4digit($reference_hla_values[1]))));
+			}
+			
+			if($reduce_to_4_dig)
+			{
+				@reference_hla_values = map {simpleHLA::HLA_4digit($_)} @reference_hla_values;
 			}
 					
 			$imputed_HLA_Calls{$locus}{sum} += scalar(@imputed_hla_values);		
@@ -808,11 +843,11 @@ if($actions =~ /v/)
 			
 			if($all_2_dig)
 			{
-				@reference_hla_values = map {&simpleHLA::HLA_2digit($_)} @reference_hla_values;
-				@imputed_hla_values = map {join(';', map {&simpleHLA::HLA_2digit($_)} split(/;/, $_))} @imputed_hla_values;
+				@reference_hla_values = map {&simpleHLA::autoHLA_2digit($_)} @reference_hla_values;
+				@imputed_hla_values = map {join(';', map {&simpleHLA::autoHLA_2digit($_)} split(/;/, $_))} @imputed_hla_values;
 			}
 						
-			# print Dumper(\@reference_hla_values, @imputed_hla_values), "\n";
+			# die Dumper(\@reference_hla_values, \@imputed_hla_values), "\n";
 		
 			my $comparisons_before = $comparisons;
 			my $problem_locus_detail_before = $problem_locus_detail{$locus};
@@ -1425,6 +1460,15 @@ if($actions =~ /v/)
 	
 	print "\n";
 	close(SUMMARY);
+	
+	if(scalar(keys %missing_reference_data))
+	{
+		print "Missing reference data for individuals:\n";
+		foreach my $indivID (keys %missing_reference_data)
+		{
+			print " - ", $indivID, "\n";
+		}
+	}
 }
 
 
@@ -1930,70 +1974,133 @@ sub compatibleStringAlleles_individual
 
 
 
-sub compatibleAlleles
-{
-	my $alleles_validation = shift;
-	my $alleles_inference = shift;
+# sub compatibleAlleles
+# {
 
-	die unless($#{$alleles_inference} == 1);
-	die unless($#{$alleles_validation} == 1);
+	# my $alleles_validation = shift;
+	# my $alleles_inference = shift;
 
-	my $r1 = compatibleAlleles_noFlip($alleles_validation, $alleles_inference);
+	# die unless($#{$alleles_inference} == 1);
+	# die unless($#{$alleles_validation} == 1);
+
+	# my $r1 = compatibleAlleles_noFlip($alleles_validation, $alleles_inference);
 	
-	my $alleles_validation_flipped = [reverse(@$alleles_validation)];
-	my $r2 = compatibleAlleles_noFlip($alleles_validation_flipped, $alleles_inference);
+	# my $alleles_validation_flipped = [reverse(@$alleles_validation)];
+	# my $r2 = compatibleAlleles_noFlip($alleles_validation_flipped, $alleles_inference);
 	
-	return (($r1 > $r2) ? $r1 : $r2);
-}
+	# return (($r1 > $r2) ? $r1 : $r2);
+# }
 
-sub compatibleAlleles_noFlip
-{
-	my $alleles_validation = shift;
-	my $alleles_inference = shift;
 
-	die unless($#{$alleles_inference} == 1);
-	die unless($#{$alleles_validation} == 1);
+# sub compatibleAlleles_noFlip
+# {
+
+	# my $alleles_validation = shift;
+	# my $alleles_inference = shift;
+
+	# die unless($#{$alleles_inference} == 1);
+	# die unless($#{$alleles_validation} == 1);
 
 	
-	my $alleles_compatible = 0;
+	# my $alleles_compatible = 0;
 	
-	for(my $aI = 0; $aI < 2; $aI++)
-	{	
-		$alleles_compatible += (compatibleAlleles_individual(undef, $alleles_validation->[$aI], $alleles_inference->[$aI]));
-	}
+	# for(my $aI = 0; $aI < 2; $aI++)
+	# {	
+
+		# $alleles_compatible += (compatibleAlleles_individual(undef, $alleles_validation->[$aI], $alleles_inference->[$aI]));
+	# }
+
 		
-	return $alleles_compatible;
-}
+	# return $alleles_compatible;
+# }
+
 
 sub compatibleAlleles_individual
 {
 	my $locus = shift;
 	my $allele_validation = shift;
-		my $allele_validation_original = $allele_validation;
-		
 	my $allele_inference = shift;
 	
-	die unless(length($allele_validation) >= 4); die unless($allele_validation =~ /^\d\d/);
+	# die Dumper($allele_validation, $allele_inference);
 	
+	my @components_allele_validation = split(/;/, $allele_validation);
+	if(scalar(@components_allele_validation) > 1)
+	{
+		my $found_compatible = 0;
+		foreach my $validation_allele (@components_allele_validation)
+		{
+			$found_compatible += compatibleAlleles_individual($locus, $validation_allele, $allele_inference);
+			last if($found_compatible);
+		}
+		if($found_compatible)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}	
+	
+	my $allele_validation_original = $allele_validation;
+		
+	
+	die unless(length($allele_validation) >= 4);
+	die unless($allele_inference =~ /:/);
+
+	
+	#die unless($allele_validation =~ /^\d\d/);
+
 	my $components_validation;
 	if($allele_validation !~ /\:/)
 	{
+		die if($allele_validation =~ /\//);
 		$allele_validation = substr($allele_validation, 0, 2).':'.substr($allele_validation, 2);
 		$components_validation = 2;
+		$allele_validation =~ s/g//i;
+		
 	}
 	else
 	{
 		my @_components = split(/\:/, $allele_validation);
 		$components_validation = scalar(@_components);
+		die "Weird allele code $allele_validation" if($allele_validation =~ /g/i);
+		die if($allele_validation =~ /D/i);
+			
 	}
 	die unless(defined $components_validation);
-	
+	die unless($components_validation >= 2);
+
 	
 	my $true_allele = $allele_validation;
-	$true_allele =~ s/g//;
+
 		
 	my $inferred_alleles = $allele_inference;
 	my @inferred_alleles = split(/;/, $inferred_alleles);
+	
+	# if inferred allele has fewer components than validation allele: add 0s, mismatch if validation allele is not 0 at this position
+	# => conservative
+	# if inferred allele has more components than validation allele, truncate inferred allele
+	# e.g. inferred: 02:03:01, validation allele: 03:01, truncated inferred allele: 02:03
+	# if inferred and validation allele have different 4-digit groups, we always generate a mismatch
+	# if inferred and validation allele have the same 4-digit group, we generate a match
+	# e.g. inferred 02:03:01, validation: 02:03
+	# is this a problem? No. Consider two scenarios:
+	# - validation allele typed to complete 4-digit (amino acid sequence, all exons) resolution: this is what we want
+	# - validation allele typed to SBT G-groups: this case is not a problem.
+	# 		Case 1: specified as G, i.e. 02:03G
+	#			This is a bad example, because 02:03G is not a valid G allele - needs to be six digits, e.g.
+	#			02:03:01G. This is fine as long as our output is also at G group level (i.e. no
+	#			higher resolution than exon 2 / exons 2,3), as 02:03:01 will be one of our output alleles
+	#			if and only if we infer 02:03:01G as a result.
+	# 			Gs are confusing and we will deactivate them now.
+	#			(Or enable proper translation)
+	#  		Case 2: specified as explicit allele list, separated with slashes - we now assume that 02:03 is 
+	#   			one such explicit member of a list.
+	#			This case does not exist. If 02:03:01 exists as a named allele, other alleles like 02:03:02 must also exist,
+	#			and 02:03 would not be an individual member of any G group (because all members with identical
+	#			4-digit group would be differentiated by their 6-digit groups).
+
 	
 	@inferred_alleles = map {
 		# die "Can't parse allele $_" unless($_ =~ /^\s*\w+\*(\d\d\d?)\:(\d\d\d?N?).*$/);
@@ -2144,74 +2251,90 @@ sub twoValidationAlleles_2_proper_names
 	$locus =~ s/HLA//;
 	for(my $aI = 0; $aI < 2; $aI++)
 	{
-		my $validation_allele = $alleles_validation->[$aI];
-		
-		if($validation_allele =~ /\:/)
+		my @vA = split(/;/, $alleles_validation->[$aI]);
+		REFALLELE: foreach my $validation_allele (@vA)
 		{
-			$validation_allele = $locus . '*' . $validation_allele;
-			# $validation_allele =~ s/g//;
-			# my @components = split(/\:/, $validation_alleles),
+			my $original_validation_allele = $validation_allele;
 			
-			# die unless(length($validation_allele) >= 4);
-			
-			# $validation_allele = substr($validation_allele, 0, 2) . ':' . substr($validation_allele, 2);
-			# $validation_allele = $locus . '*' . $validation_allele;
-		
-		}
-		else
-		{
-			$validation_allele =~ s/g//;
-			die unless(length($validation_allele) >= 4);
-			
-			$validation_allele = substr($validation_allele, 0, 2) . ':' . substr($validation_allele, 2);
-			$validation_allele = $locus . '*' . $validation_allele;
-		}
-		my @validation_alleles = ($validation_allele);
-		
-		my $extensions = 0;
-		my $notFoundFirstRound = 0;
-		while( not exists $exon_sequences->{$validation_allele} )
-		{
-			$extensions++;
-		
-			$validation_allele .= ':01';
-			if($extensions > 3)
+			if($validation_allele =~ /\:/)
 			{
-				$notFoundFirstRound = 1;
-				last;
+				$validation_allele = $locus . '*' . $validation_allele;
+				# $validation_allele =~ s/g//;
+				# my @components = split(/\:/, $validation_alleles),
+				
+				# die unless(length($validation_allele) >= 4);
+				
+				# $validation_allele = substr($validation_allele, 0, 2) . ':' . substr($validation_allele, 2);
+				# $validation_allele = $locus . '*' . $validation_allele;
+			
 			}
-		}
-		
-		if($notFoundFirstRound)
-		{
+			else
+			{
+				$validation_allele =~ s/g//;
+				die unless(length($validation_allele) >= 4);
+				
+				$validation_allele = substr($validation_allele, 0, 2) . ':' . substr($validation_allele, 2);
+				$validation_allele = $locus . '*' . $validation_allele;
+			}
+			my @validation_alleles = ($validation_allele);
+			
+			my @history_extensions = ($validation_allele);
 			my $extensions = 0;
-			while(scalar(grep {exists $exon_sequences->{$_}} @validation_alleles) == 0)
+			my $notFoundFirstRound = 0;
+			while( not exists $exon_sequences->{$validation_allele} )
 			{
 				$extensions++;
-				my $viMax = $#validation_alleles;
-				for(my $vI = 0; $vI <= $viMax; $vI++)
-				{
-					my $a1 = $validation_alleles[$vI];
-					$validation_alleles[$vI] .= ':01';
-					push(@validation_alleles, $a1.':02');
-				}
-				
+			
 				$validation_allele .= ':01';
+				push(@history_extensions, $validation_allele);
 				if($extensions > 3)
 				{
-					print Dumper([grep {$_ =~ /DQB1/} keys %$exon_sequences]);
-					die Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]]);
+					$notFoundFirstRound = 1;
+					last;
 				}
-			}		
+				
+			}
 			
-			my @foundAlleles = grep {exists $exon_sequences->{$_}} @validation_alleles;
-			die unless(scalar(@foundAlleles) > 0);
-			push(@forReturn, $foundAlleles[0]);		
-			
-		}
-		else
-		{
-			push(@forReturn, $validation_allele);		
+			if($notFoundFirstRound)
+			{
+				my $extensions = 0;
+				while(scalar(grep {exists $exon_sequences->{$_}} @validation_alleles) == 0)
+				{
+					$extensions++;
+					my $viMax = $#validation_alleles;
+					for(my $vI = 0; $vI <= $viMax; $vI++)
+					{
+						my $a1 = $validation_alleles[$vI];
+						$validation_alleles[$vI] .= ':01';
+						push(@validation_alleles, $a1.':02');
+					}
+					
+					$validation_allele .= ':01';
+					if($extensions > 3)
+					{
+						# print Dumper([grep {$_ =~ /DQB1/} keys %$exon_sequences]);
+						if($validation_allele eq $vA[$#vA])
+						{
+							die Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);
+						}
+						else
+						{
+							next REFALLELE;
+						}
+					}
+				}		
+				
+				my @foundAlleles = grep {exists $exon_sequences->{$_}} @validation_alleles;
+				die unless(scalar(@foundAlleles) > 0);
+				push(@forReturn, $foundAlleles[0]);	
+				last REFALLELE;				
+				
+			}
+			else
+			{
+				push(@forReturn, $validation_allele);
+				last REFALLELE;
+			}
 		}
 	}
 			

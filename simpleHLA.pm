@@ -1,5 +1,11 @@
 package simpleHLA;
 
+sub modernHLA_is_missing
+{
+	my $hla = shift;
+	return($hla =~ /\?/);
+}
+
 sub is_missing
 {
 	my $hla = shift;
@@ -167,6 +173,75 @@ sub is_compatible
 	}
 }
 
+
+sub autoHLA_2digit
+{
+	my $hla = shift;
+	if($hla =~ /:/)
+	{
+		return modernHLA_2digit($hla);
+	}
+	else
+	{
+		return HLA_2digit($hla);
+	}
+}
+
+sub modernHLA_4digit
+{
+	my $hla = shift;
+	die unless($hla);
+	my @elements = split(/:/, $hla);
+	foreach my $e (@elements)
+	{
+		die if(length($e) < 2);
+		die "Problem with HLA $hla" unless($e =~ /^\d\d/);
+		die "Problem with HLA $hla $e" if(length($e) > 3);
+	}
+	
+	die unless(scalar(@elements) >= 2);
+	
+	return join(':', @elements[0, 1]);
+}
+
+
+sub modernHLA_2digit
+{
+	my $hla = shift;
+	die unless($hla);
+	my @elements = split(/:/, $hla);
+	foreach my $e (@elements)
+	{
+		die if(length($e) < 2);
+		if($e eq $elements[0])
+		{  
+			die "Problem with HLA $hla $e" unless($e =~ /^(\w+\*)?(\d\d)/);
+			die "Problem with HLA $hla $e" if(length($2) > 3);
+
+		}
+		else
+		{
+			die "Problem with HLA $hla $e" unless($e =~ /^\d\d/);
+			die "Problem with HLA $hla $e" if(length($e) > 3);			
+		}
+		
+	}
+	
+	die unless(scalar(@elements) >= 2);
+	
+	if(scalar(@elements) == 1)
+	{
+		push(@elements, '00');
+	}
+	else
+	{
+		$elements[1] = '00';
+		@elements = @elements[0, 1];
+	}
+	
+	return join(':', @elements[0, 1]);
+}
+
 sub HLA_2digit
 {
 	my $hla = shift;
@@ -211,6 +286,7 @@ sub HLA_4digit
 	if($hla =~ /\:/)
 	{
 		my @components = split(/\:/, $hla);
+		die unless($#components >= 1);
 		if($#components == 0)
 		{
 			return $components[0].':00';
@@ -275,11 +351,34 @@ sub HLA_reduce_to_2
 	}
 }
 
+
+sub autoHLA_is2digit
+{
+	my $hla = shift;
+	if($hla =~ /:/)
+	{
+		return modernHLA_is2digit($hla);
+	}
+	else
+	{
+		return HLA_is2digit($hla);
+	}
+}
+
+
 sub HLA_is2digit
 {
 	my $hla = shift;
 	$hla = &HLA_4digit($hla);
 	return (not HLA_is_g($hla)) && (substr($hla, 2, 2) eq '00');	
+}
+
+sub modernHLA_is2digit
+{
+	my $hla = shift;
+	my @components = split(/\:/, $hla);
+	die unless($#components >= 1);
+	return($components[1] =~ /^0+$/);		
 }
 
 sub HLA_is4digit

@@ -29,7 +29,7 @@
 #include "../GraphAlignerUnique/GraphAlignerUnique.h"
 
 readFilter::readFilter() {
-	positiveThreshold = -1;
+	positiveThreshold = -1;  
 	negativeThreshold = -1;
 	k = -1;
 	positiveUnique = false;
@@ -38,7 +38,7 @@ readFilter::readFilter() {
 	positiveUnique_threshold = 10;
 	negativePreserveUnique_threshold = 1;
 	HiSeq250bp = false;
-	threads = 2;
+	threads = 32;
 }
 
 
