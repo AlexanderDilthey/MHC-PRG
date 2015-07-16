@@ -242,6 +242,10 @@ if($actions =~ /p/)
 		{
 			$command .= qq( --referenceGenome $referenceGenome);
 		}	
+		else
+		{
+			die "Positive filtering should use reference genome, deactivate only if you know what you are doing!";
+		}
 		
 		if($HiSeq250bp)
 		{
@@ -727,7 +731,8 @@ if($actions =~ /v/)
 		$basket = 9 if($basket == 10);
 		return $basket;			
 	};
-		
+	
+	my %types_as_validated;
 	foreach my $locus (@loci)
 	{
 		my $arbitraty_indiv = (keys %reference_data)[0];
@@ -797,6 +802,8 @@ if($actions =~ /v/)
 			{
 				@reference_hla_values = split(/\//, $reference_data{$reference_lookup_ID}{'HLA'.$locus});
 			}
+			
+			$types_as_validated{$reference_lookup_ID}{$locus} = \@reference_hla_values;
 
 			die Dumper($reference_data{$reference_lookup_ID}, \@reference_hla_values) unless($#reference_hla_values == 1);				
 						
@@ -816,7 +823,14 @@ if($actions =~ /v/)
 			
 			if($reduce_to_4_dig)
 			{
-				@reference_hla_values = map {simpleHLA::HLA_4digit($_)} @reference_hla_values;
+				my @reference_hla_values_before = @reference_hla_values;
+				@reference_hla_values = map {
+					my @inputAlleles = split(/;/, $_);
+					join(';', map {simpleHLA::HLA_4digit($_)} @inputAlleles)		
+				} @reference_hla_values;
+				
+				print "Before:\n\t".join(' / ', @reference_hla_values_before), "\n";
+				print "After:\n\t".join(' / ', @reference_hla_values), "\n\n";
 			}
 					
 			$imputed_HLA_Calls{$locus}{sum} += scalar(@imputed_hla_values);		
@@ -846,9 +860,11 @@ if($actions =~ /v/)
 				@reference_hla_values = map {&simpleHLA::autoHLA_2digit($_)} @reference_hla_values;
 				@imputed_hla_values = map {join(';', map {&simpleHLA::autoHLA_2digit($_)} split(/;/, $_))} @imputed_hla_values;
 			}
-						
-			# die Dumper(\@reference_hla_values, \@imputed_hla_values), "\n";
-		
+					
+			if($locus eq 'B')
+			{
+			#	print Dumper($indivID, \@reference_hla_values, \@imputed_hla_values), "\n";
+			}
 			my $comparisons_before = $comparisons;
 			my $problem_locus_detail_before = $problem_locus_detail{$locus};
 			
@@ -1469,6 +1485,15 @@ if($actions =~ /v/)
 			print " - ", $indivID, "\n";
 		}
 	}
+	
+	open(TYPES, '>', '_types_as_validated.txt') or die;
+	my @loci_for_print = sort {$a cmp $b} @loci;
+	print TYPES join(' ', 'IndividualID', map {'HLA' . $_ } @loci_for_print), "\n";
+	foreach my $indivID (sort keys %types_as_validated)
+	{
+		print TYPES join(' ', $indivID, map {((exists $types_as_validated{$indivID}{$_}) and (scalar(@{$types_as_validated{$indivID}{$_}}) > 0) ) ? join('/', @{$types_as_validated{$indivID}{$_}}) : '????/????'} @loci_for_print), "\n";
+	}
+	close(TYPES);
 }
 
 
@@ -1545,7 +1570,7 @@ if($actions =~ /w/)
 	
 	$debug = 1;
 	
-	foreach my $sampleID (@sampleIDs)
+	foreach my $sampleID (@sampleIDs) 
 	{
 		my $sampleID_noI = $sampleID;
 		$sampleID_noI =~ s/^I\d+_//g;
@@ -2045,7 +2070,7 @@ sub compatibleAlleles_individual
 	my $allele_validation_original = $allele_validation;
 		
 	
-	die unless(length($allele_validation) >= 4);
+	die "Weird allele $locus $allele_validation" unless(length($allele_validation) >= 4);
 	die unless($allele_inference =~ /:/);
 
 	
