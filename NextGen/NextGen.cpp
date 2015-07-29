@@ -2614,7 +2614,7 @@ LargeGraph* kMerify(Graph* g, bool quiet, int kMerSize, bool wantPGFprotection)
 					targetEdgeC++;
 					if(attachedEdges.at(idx)->pgf_protect)
 					{
-						num_of_PGFprotected++;
+						num_of_PGFprotected++;  
 					}
 				}
 				assert((num_of_PGFprotected == 0) || (num_of_PGFprotected == 1));

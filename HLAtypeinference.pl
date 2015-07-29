@@ -786,9 +786,13 @@ if($actions =~ /v/)
 			if($reference_lookup_ID =~ /^downsample_/)
 			{
 				$reference_lookup_ID =~ s/^downsample_(I\d+_)?//;
-				$reference_lookup_ID =~ s/_DSC\d+_\d+//;
-				
+				$reference_lookup_ID =~ s/_DSC\d+_\d+//;				
 			}
+			if($reference_lookup_ID =~ /^C_Platinum_/)
+			{
+				$reference_lookup_ID =~ s/C_Platinum_//;
+				
+			}			
 			unless(exists $reference_data{$reference_lookup_ID})
 			{
 				$missing_reference_data{$reference_lookup_ID}{$locus}++;

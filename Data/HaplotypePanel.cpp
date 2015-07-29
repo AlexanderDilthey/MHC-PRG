@@ -100,9 +100,11 @@ void HaplotypePanel::readFromFile(string filename, string positions)
 		vector<string> locus_IDs = header_fields;
 		locus_IDs.erase(locus_IDs.begin(), locus_IDs.begin()+eraseFields);
 
+		int lineI = 0;
 		while(haplotypes.good())
 		{
 			getline (haplotypes, line);
+			lineI++;
 			Utilities::eraseNL(line);
 			vector<string> line_fields = Utilities::split(line, ' ');
 
@@ -110,7 +112,7 @@ void HaplotypePanel::readFromFile(string filename, string positions)
 				continue;
 
 			if(line_fields.size() != header_fields.size())
-				errEx("Wrong field size: " + Utilities::ItoStr(line_fields.size()) + " vs expected " + Utilities::ItoStr(header_fields.size()));
+				errEx("Wrong field size: " + Utilities::ItoStr(line_fields.size()) + " vs expected " + Utilities::ItoStr(header_fields.size()) + " line " + Utilities::ItoStr(lineI));
 
 			string hID;
 			if(useChromosome)
