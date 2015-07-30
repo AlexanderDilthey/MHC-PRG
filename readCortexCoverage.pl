@@ -108,6 +108,9 @@ open(KMERS, '<', $interestingkMers) or die "Cannot open $interestingkMers";
 while(<KMERS>)
 {
 	chomp;
+	$_ =~ s/\n//g;
+	$_ =~ s/\r//g;
+	
 	my $kMer = $_;
 	push(@interesting_kMers, $kMer);
 	my $binary_kMer_1 = binaryRepresentation($kMer);
