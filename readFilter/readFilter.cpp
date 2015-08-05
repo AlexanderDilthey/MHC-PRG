@@ -38,7 +38,7 @@ readFilter::readFilter() {
 	positiveUnique_threshold = 10;
 	negativePreserveUnique_threshold = 1;
 	HiSeq250bp = false;
-	threads = 32;
+	threads = 12;
 }
 
 

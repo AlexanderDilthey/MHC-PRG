@@ -51,8 +51,6 @@ else
 	@sampleIDs = map {die unless($_ =~ /.+\/(.+?)\.bam/); $1} @BAMs;
 }
 
-#die Dumper(\@BAMs);
-
 if($action eq 'qsub')
 {
 	for(my $bI = 0; $bI <= $#BAMs; $bI++)
@@ -84,7 +82,7 @@ if($action eq 'qsub')
 		open(QSUB, '>', $qsub_filename) or die "Cannot open $qsub_filename";
 print QSUB qq(#!/bin/bash
 #\$ -P mcvean.prjc -q long.qc
-#\$ -pe shmem 2
+#\$ -pe shmem 12
 export PERL5LIB=/users/mcvean/dilthey/perl5/lib/perl5:\$PERL5LIB
 cd /gpfs1/well/gsk_hla/MHC-PRG/src
 $command_positive_filtering
