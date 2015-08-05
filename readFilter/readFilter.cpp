@@ -77,6 +77,7 @@ void readFilter::doFilter()
 	std::cout << "\t" << "negativePreserveUnique" << ": " << negativePreserveUnique << "\n";
 	std::cout << "\t" << "uniqueness_base" << ": " << uniqueness_base << "\n";
 	std::cout << "\t" << "uniqueness_subtract" << ": " << uniqueness_subtract << "\n";
+	std::cout << "\t" << "threads" << ": " << threads << "\n";
 
 	std::set<std::string> positive_kMers;
 

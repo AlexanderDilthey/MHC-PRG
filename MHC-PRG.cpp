@@ -1320,6 +1320,7 @@ int main(int argc, char *argv[])
 
 		int k = 25;
 
+		int threads = 12;
 		bool positiveUnique = false;
 		bool negativePreserveUnique = false;
 		bool HiSeq250bp = false;
@@ -1385,6 +1386,10 @@ int main(int argc, char *argv[])
 			{
 				HiSeq250bp = true;
 			}
+			if(arguments.at(i) == "--threads")
+			{
+				threads = Utilities::StrtoD(arguments.at(i+1));
+			}			
 		}
 
 		readFilter F;
@@ -1402,7 +1407,8 @@ int main(int argc, char *argv[])
 		F.uniqueness_subtract = uniqueness_subtract;
 		F.referenceGenomeFile = referenceGenome;
 		F.HiSeq250bp = HiSeq250bp;
-
+		F.threads = threads;
+		
 		F.doFilter();
 
 	}

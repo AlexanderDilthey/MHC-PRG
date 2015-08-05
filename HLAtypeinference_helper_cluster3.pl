@@ -15,7 +15,7 @@ my $iteration = 1;
 my $sampleIDs;
 my $BAMs;
 my $HiSeq250bp = 0;
-
+my $threads = 12;
 
 my $referenceGenome = qq(/gpfs1/well/chimp/oa/ref/hs37d5.fasta);
 #$referenceGenome = '';
@@ -29,6 +29,11 @@ GetOptions ('graph:s' => \$graph,
 );         
 
 my $target_directory_for_copying = qq(/Net/birch/data/dilthey/MHC-PRG/tmp/hla);
+
+if($iteration eq '2')
+{
+	$threads = 3;
+}
 
 my @BAMs;
 my @sampleIDs;
@@ -67,7 +72,7 @@ if($action eq 'qsub')
 		
 		my $qsub_filename = '../tmp/hla_qsub/'.$sampleID.'.bash';
 		
-		my $command_positive_filtering = qq(perl HLAtypeinference.pl --graph $graph --sampleIDs $sampleID --BAMs $BAM --actions p);
+		my $command_positive_filtering = qq(perl HLAtypeinference.pl --graph $graph --sampleIDs $sampleID --BAMs $BAM --actions p --threads $threads);
 		if($referenceGenome)
 		{
 			$command_positive_filtering .= qq( --referenceGenome $referenceGenome);
@@ -79,6 +84,8 @@ if($action eq 'qsub')
 		}
 		
 		print $command_positive_filtering, "\n";
+		if($threads == 12)
+		{
 		open(QSUB, '>', $qsub_filename) or die "Cannot open $qsub_filename";
 print QSUB qq(#!/bin/bash
 #\$ -P mcvean.prjc -q long.qc
@@ -88,6 +95,23 @@ cd /gpfs1/well/gsk_hla/MHC-PRG/src
 $command_positive_filtering
 );
 		close(QSUB);	
+		}elsif($threads == 3)
+		{
+		open(QSUB, '>', $qsub_filename) or die "Cannot open $qsub_filename";
+print QSUB qq(#!/bin/bash
+#\$ -P mcvean.prja -q long.qa
+#\$ -pe shmem 3
+export PERL5LIB=/users/mcvean/dilthey/perl5/lib/perl5:\$PERL5LIB
+cd /gpfs1/well/gsk_hla/MHC-PRG/src
+$command_positive_filtering
+);
+		close(QSUB);	
+			
+		}
+		else
+		{
+			die "Unknown threads: $threads";
+		}
 		
 		my $qsub_cmd = qq(qsub $qsub_filename);
 		
