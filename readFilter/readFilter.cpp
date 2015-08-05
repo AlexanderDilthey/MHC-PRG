@@ -848,6 +848,29 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 	
 	std::cout << "Limit to chromosome 6: " << limitToChromosome6 << "\n" << std::flush;
 	
+	BamTools::BamAlignment al;
+	// BamTools::BamRegion stretch_region_BAMTools;
+	// stretch_region_BAMTools.LeftRefID = -1;
+	// stretch_region_BAMTools.LeftPosition = 0;
+	// stretch_region_BAMTools.RightRefID = -1;;
+	// stretch_region_BAMTools.RightPosition = 1;
+	// thread_readers.at(0).SetRegion(stretch_region_BAMTools);	
+	// std::cout << "Set region.\n";
+	
+	// std::cout << "Jump region.\n";
+	// std::cout << thread_readers.at(0).Jump(-1, -1) << "\n";
+	// while(thread_readers.at(0).GetNextAlignmentCore(al))
+	// {
+		// std::cout << al.Name << "\n" << std::flush;
+		// std::cout << "\t" << al.RefID << "\n" << std::flush;
+		// if(al.RefID == -1)
+		// {
+			// al.BuildCharData();
+		// }
+	// }
+	
+	// assert(1 == 0);
+	
 	std::map<std::string, size_t> reads_from_regions;
 	#pragma omp parallel for
 	for(unsigned int rI = 0; rI <= N_regions; rI++)
@@ -885,14 +908,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 		else
 		{
 			std::cout << "\t" << Utilities::timestamp() << " T " << tI << " read unmapped reads. " << "\n" << std::flush;
-
-			BamTools::BamRegion stretch_region_BAMTools;
-			stretch_region_BAMTools.LeftRefID = -1;
-			stretch_region_BAMTools.LeftPosition = 0;
-			stretch_region_BAMTools.RightRefID = -1;;
-			stretch_region_BAMTools.RightPosition = 1;
-
-			thread_readers.at(tI).SetRegion(stretch_region_BAMTools);	
+			thread_readers.at(tI).Rewind();	
 			
 			regionID = "Unmapped";
 		}
@@ -900,7 +916,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 		bool isChromosome6 = false;
 		if(limitToChromosome6)
 		{
-			if((!((regionID == "6") || (regionID == "chr6")))) 
+			if((!((regionID == "6") || (regionID == "chr6"))))
 			{
 				continue;
 			}
@@ -938,8 +954,19 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 		std::vector<BamTools::BamAlignment> alignments;
 		alignments.reserve(alignments_at_once);
 		BamTools::BamAlignment al_readout;
-		while(thread_readers.at(tI).GetNextAlignment(al_readout))
+		while(thread_readers.at(tI).GetNextAlignmentCore(al_readout))
 		{
+			if( (rI != N_regions) ||
+				((rI == N_regions) && (al_readout.RefID == -1))
+			)
+			{
+				al_readout.BuildCharData();			
+			}
+			else
+			{
+				continue;
+			}
+			
 			alignments.push_back(al_readout);
 			size_t added_alignments = 1;
 			while((alignments_at_once < 10000) && (thread_readers.at(tI).GetNextAlignment(al_readout)))
@@ -953,7 +980,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 			for(unsigned int alignmentI = 0; alignmentI < alignments.size(); alignmentI++)
 			{
 				BamTools::BamAlignment& al = alignments.at(alignmentI);
-
+								
 				int alignmentMappedPosition = -1;
 				if(al.IsMapped())
 				{

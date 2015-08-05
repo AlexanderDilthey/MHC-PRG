@@ -8,6 +8,7 @@ use Getopt::Long;
 use File::Basename;
 
 my $k = 31;
+$| = 1;
 
 my $file_target_kMers_details = qq(/gpfs1/well/gsk_hla/debugNA12891/DQB_target_kMers.txt);
 my $outputfile = qq(/gpfs1/well/gsk_hla/debugNA12891/extended_kMers.txt);
@@ -90,7 +91,6 @@ foreach my $ctxFile (@cortex_binaries)
 		die "Can't find $binaryCount";
 	}
 	
-	unlink($kMers_file) or die "Cannot unlink $kMers_file";
 	
 	open(KMERCOUNTS, '<', $binaryCount) or die "Cannot open $binaryCount";
 	while(<KMERCOUNTS>)
@@ -114,6 +114,9 @@ foreach my $ctxFile (@cortex_binaries)
 		$kMers_by_ctxFile{$ctxFile}{$kMer} = $count;
 	}
 	close(KMERCOUNTS);
+	
+	# unlink($kMers_file) or die "Cannot unlink $kMers_file";	
+	# unlink($binaryCount) or die "Cannot unlink $binaryCount";
 }
 
 my %__existing_header_fields = map {$_ => 1} @header_fields;
