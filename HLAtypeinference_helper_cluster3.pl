@@ -15,7 +15,7 @@ my $iteration = 1;
 my $sampleIDs;
 my $BAMs;
 my $HiSeq250bp = 0;
-my $threads = 12;
+my $threads = 1;
 
 my $referenceGenome = qq(/gpfs1/well/chimp/oa/ref/hs37d5.fasta);
 #$referenceGenome = '';
@@ -29,11 +29,6 @@ GetOptions ('graph:s' => \$graph,
 );         
 
 my $target_directory_for_copying = qq(/Net/birch/data/dilthey/MHC-PRG/tmp/hla);
-
-if($iteration eq '2')
-{
-	$threads = 3;
-}
 
 my @BAMs;
 my @sampleIDs;
@@ -84,22 +79,11 @@ if($action eq 'qsub')
 		}
 		
 		print $command_positive_filtering, "\n";
-		if($threads == 12)
+		if($threads == 1)
 		{
 		open(QSUB, '>', $qsub_filename) or die "Cannot open $qsub_filename";
 print QSUB qq(#!/bin/bash
-#\$ -P mcvean.prjc -q long.qc
-#\$ -pe shmem 12
-export PERL5LIB=/users/mcvean/dilthey/perl5/lib/perl5:\$PERL5LIB
-cd /gpfs1/well/gsk_hla/MHC-PRG/src
-$command_positive_filtering
-);
-		close(QSUB);	
-		}elsif($threads == 3)
-		{
-		open(QSUB, '>', $qsub_filename) or die "Cannot open $qsub_filename";
-print QSUB qq(#!/bin/bash
-#\$ -P mcvean.prja -q long.qa
+#\$ -P mcvean.prja -q short.qa    
 #\$ -pe shmem 3
 export PERL5LIB=/users/mcvean/dilthey/perl5/lib/perl5:\$PERL5LIB
 cd /gpfs1/well/gsk_hla/MHC-PRG/src

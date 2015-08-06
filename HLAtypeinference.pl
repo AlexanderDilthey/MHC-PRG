@@ -54,7 +54,7 @@ my $fromPHLAT = 0;
 my $fromHLAreporter = 0;
 
 my $referenceGenome;
-my $threads = 12;
+my $threads = 1;
 
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
 

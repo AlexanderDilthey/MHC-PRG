@@ -894,17 +894,36 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 			const BamTools::RefData& stretchSpec_BAMTools = thread_readers.at(tI).GetReferenceData().at(refIDidx);
 			assert((int)thisStretch.lastPos < (int)stretchSpec_BAMTools.RefLength);
 
+			regionID = thisStretch.ID;
+
+			if((!((regionID == "6") || (regionID == "chr6"))))
+			{
+				continue;
+			}				
+			
 			std::cout << "\t" << Utilities::timestamp() << " T " << tI << " read " << thisStretch.ID << " from " << thisStretch.firstPos << " to " << thisStretch.lastPos + 1 << "\n" << std::flush;
 
-			BamTools::BamRegion stretch_region_BAMTools;
-			stretch_region_BAMTools.LeftRefID = refIDidx;
-			stretch_region_BAMTools.LeftPosition = thisStretch.firstPos;
-			stretch_region_BAMTools.RightRefID = refIDidx;
-			stretch_region_BAMTools.RightPosition =  thisStretch.lastPos + 1;
+			if(limitToChromosome6)
+			{
+				BamTools::BamRegion stretch_region_BAMTools;
+				stretch_region_BAMTools.LeftRefID = refIDidx;
+				stretch_region_BAMTools.LeftPosition = thisStretch.firstPos;
+				stretch_region_BAMTools.RightRefID = refIDidx;
+				stretch_region_BAMTools.RightPosition =  thisStretch.lastPos + 1;
 
-			thread_readers.at(tI).SetRegion(stretch_region_BAMTools);
-			
-			regionID = thisStretch.ID;
+				thread_readers.at(tI).SetRegion(stretch_region_BAMTools);
+			}
+			else
+			{
+				assert(34000000 < thisStretch.lastPos);
+				BamTools::BamRegion stretch_region_BAMTools;
+				stretch_region_BAMTools.LeftRefID = refIDidx;
+				stretch_region_BAMTools.LeftPosition = 28000000;
+				stretch_region_BAMTools.RightRefID = refIDidx;
+				stretch_region_BAMTools.RightPosition =  34000000;
+
+				thread_readers.at(tI).SetRegion(stretch_region_BAMTools);		
+			}
 		}
 		else
 		{
@@ -912,20 +931,25 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 			thread_readers.at(tI).Rewind();	
 			
 			regionID = "Unmapped";
-		}
-		
-		bool isChromosome6 = false;
-		if(limitToChromosome6)
-		{
-			if((!((regionID == "6") || (regionID == "chr6"))))
+			
+			if(limitToChromosome6)
 			{
 				continue;
 			}
-			else
-			{
+		}
+			
+		bool isChromosome6 = false;
+		if(limitToChromosome6)
+		{
+			// if((!((regionID == "6") || (regionID == "chr6"))))
+			// {
+				// continue;
+			// }
+			// else
+			// {
 				isChromosome6 = true;
-				assert((regionID == "6") || (regionID == "chr6"));
-			}
+				// assert((regionID == "6") || (regionID == "chr6"));
+			// }
 		}
 		
 		#pragma omp critical
