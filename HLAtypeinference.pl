@@ -54,6 +54,7 @@ my $fromPHLAT = 0;
 my $fromHLAreporter = 0;
 
 my $referenceGenome;
+my $threads = 1;
 
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
 
@@ -74,6 +75,7 @@ GetOptions ('graph:s' => \$graph,
  'fromPHLAT:s' => \$fromPHLAT,
  'fromHLAreporter:s' => \$fromHLAreporter,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
+ 'threads:s' => \$threads,
 );         
 
 die if($fromPHLAT and $fromHLAreporter);
@@ -236,7 +238,7 @@ if($actions =~ /p/)
 			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
 		}
 		
-		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file );
+		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file --threads $threads );
 		
 		if($referenceGenome)
 		{
