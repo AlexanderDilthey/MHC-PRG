@@ -33,6 +33,11 @@ die "Please specify --file_target_kMers_details" unless($file_target_kMers_detai
 die "Please specify --outputfile" unless($outputfile);
 die "Please specify --cortex_binaries bin1[,bin2] .." unless(scalar(@cortex_binaries));
 
+print "kMers input file: ", $file_target_kMers_details, "\n";
+print "Output file: ", $outputfile, "\n";
+print "Cortex binaries:\n";
+print join("\n", map {' - ' . $_} @cortex_binaries), "\n";
+
 open(INKMERS, '<', $file_target_kMers_details) or die "Cannot open $file_target_kMers_details";
 my $headerLine = <INKMERS>;
 chomp($headerLine);
