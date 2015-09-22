@@ -1107,12 +1107,18 @@ int main(int argc, char *argv[])
 
 		int kMer_size = 55;
 		bool protectPGF = true;
+		int suffixLength = 20;
+		
 		for(unsigned int i = 2; i < arguments.size(); i++)
 		{
 			if(arguments.at(i) == "--kmer")
 			{
 				kMer_size = Utilities::StrtoI(arguments.at(i+1));
 			}
+			if(arguments.at(i) == "--suffixLength")
+			{
+				suffixLength = Utilities::StrtoI(arguments.at(i+1));
+			}			
 			if(arguments.at(i) == "--noPGFprotection")
 			{
 				protectPGF = false;
@@ -1122,7 +1128,8 @@ int main(int argc, char *argv[])
 		string haplotypes_files_list = haplotypes_files_dir+"/segments.txt";
 
 		cout << "Create variation graph based on haplotype specified in list files " << haplotypes_files_list << ", with positions" << positions_file << "\n\n" << flush;
-
+		cout << "\t" << "suffixLength: " << suffixLength << "\n" << flush;
+		
 		Graph* combinedGraph = new Graph();
 		int combinedLevel = -1;
 		ifstream filesStream;
@@ -1154,7 +1161,7 @@ int main(int argc, char *argv[])
 
 				std::cout << "Reading " << haplotypes_file << "\n" << std::flush;
 
-				Graph* g = variationGraph(haplotypes_file, positions_file, protectPGF);
+				Graph* g = variationGraph(haplotypes_file, positions_file, protectPGF, suffixLength);
 				string output_file = haplotypes_file+".graph";
 				g->writeToFile(output_file);
 
@@ -1228,8 +1235,15 @@ int main(int argc, char *argv[])
 		combinedGraph->checkConsistency(false);
 
 		combinedGraph->writeToFile(graph_output_file);
-		combinedGraph->printComplexity(graph_output_file+".complexity");
+		// combinedGraph->printComplexity(graph_output_file+".complexity");
 
+
+		cout << "Combined graph info:\n";
+		cout << "\tLevels: " << combinedGraph->NodesPerLevel.size() << "\n";
+		cout << "\tNodes: " << combinedGraph->Nodes.size() << "\n";
+		cout << "\tEdges: " << combinedGraph->Edges.size() << "\n";
+		cout << flush;
+		
 		exit(0);
 
 		string kMerified_graph_file = graph_output_file+".kmers";

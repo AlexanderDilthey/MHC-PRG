@@ -29,7 +29,7 @@ map<string, string> readHLAalleleAlignments(string file, vector<int>& fourNumber
 string alleleAndLocusIdentifier(string locus, string allele);
 int pointerStrintLength = -1;
 
-Graph* variationGraph(string input_panel, string positions_file, bool wantPGFprotection)
+Graph* variationGraph(string input_panel, string positions_file, bool wantPGFprotection, int want_suffix_length)
 {
 	cout << "Read haplotypes panel...\n" << flush;
 
@@ -297,9 +297,7 @@ Graph* variationGraph(string input_panel, string positions_file, bool wantPGFpro
 				pairsToCheck.push_back(p);
 			}
 		}
-		set<int> groupsDeleted;
-
-		int want_suffix_length = 20;
+		set<int> groupsDeleted;		
 
 		while(pairsToCheck.size() != 0)
 		{
@@ -613,7 +611,8 @@ Graph* variationGraph(string input_panel, string positions_file, bool wantPGFpro
 
 	}
 
-	g->removeStarPaths();
+	// todo re-activate  
+	// g->removeStarPaths();
 	
 	if(wantPGFprotection)
 	{
@@ -720,8 +719,6 @@ Graph* variationGraph(string input_panel, string positions_file, bool wantPGFpro
 	}
 	
 	cout << "\n\nBuilding nucleotide graph done!\n\n" << flush;
-
-
 
 	return g;
 

@@ -12,7 +12,7 @@
 
 using namespace std;
 
-Graph* variationGraph(string input_panel, string positions_file, bool wantPGFprotection = true);
+Graph* variationGraph(string input_panel, string positions_file, bool wantPGFprotection = true, int want_suffix_length = 20);
 
 Graph* augmentGraph(Graph* g, string input_panel, string positions_file, string locus, string HLAAlleleAlignmentDir);
 void loadAndAugmentGraph(string graph_file, string input_panel, string positions_file, string locus, string HLAAlleleAlignmentDir);
