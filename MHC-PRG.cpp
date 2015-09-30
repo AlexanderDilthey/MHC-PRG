@@ -1122,6 +1122,7 @@ int main(int argc, char *argv[])
 		string haplotypes_files_list = haplotypes_files_dir+"/segments.txt";
 
 		cout << "Create variation graph based on haplotype specified in list files " << haplotypes_files_list << ", with positions" << positions_file << "\n\n" << flush;
+		cout << "k = " << kMer_size << "\n\n" << flush;
 
 		Graph* combinedGraph = new Graph();
 		int combinedLevel = -1;
@@ -1228,8 +1229,14 @@ int main(int argc, char *argv[])
 		combinedGraph->checkConsistency(false);
 
 		combinedGraph->writeToFile(graph_output_file);
-		combinedGraph->printComplexity(graph_output_file+".complexity");
+		// combinedGraph->printComplexity(graph_output_file+".complexity");
 
+		cout << "Combined graph info:\n"
+		cout << "\tLevels: " << combinedGraph->NodesPerLevel.size() << "\n";
+		cout << "\tNodes: " << combinedGraph->Nodes.size() << "\n";
+		cout << "\tEdges: " << combinedGraph->Edges.size() << "\n";
+		cout << flush;
+		
 		exit(0);
 
 		string kMerified_graph_file = graph_output_file+".kmers";

@@ -613,7 +613,7 @@ Graph* variationGraph(string input_panel, string positions_file, bool wantPGFpro
 
 	}
 
-	g->removeStarPaths();
+	// g->removeStarPaths();
 	
 	if(wantPGFprotection)
 	{
@@ -719,9 +719,7 @@ Graph* variationGraph(string input_panel, string positions_file, bool wantPGFpro
 		}
 	}
 	
-	cout << "\n\nBuilding nucleotide graph done!\n\n" << flush;
-
-
+	cout << "\n\nBuilding nucleotide graph done!\n" << flush;
 
 	return g;
 

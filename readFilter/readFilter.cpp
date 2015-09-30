@@ -933,7 +933,7 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 			regionID = "Unmapped";
 			
 			if(limitToChromosome6)
-			{
+			{  
 				continue;
 			}
 		}

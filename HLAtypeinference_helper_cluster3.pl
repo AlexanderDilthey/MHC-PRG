@@ -65,7 +65,16 @@ if($action eq 'qsub')
 		
 		die unless(defined $sampleID);
 		
+		my $dir_output = '../tmp/hla/'.$sampleID;
+		unless(-e $dir_output)
+		{
+			mkdir($dir_output) or die "Cannot mkdir $dir_output";
+		}
+		
+		my $time_file = $dir_output . '/time_p.txt';
+		
 		my $qsub_filename = '../tmp/hla_qsub/'.$sampleID.'.bash';
+		
 		
 		my $command_positive_filtering = qq(perl HLAtypeinference.pl --graph $graph --sampleIDs $sampleID --BAMs $BAM --actions p --threads $threads);
 		if($referenceGenome)
@@ -87,7 +96,7 @@ print QSUB qq(#!/bin/bash
 #\$ -pe shmem 3
 export PERL5LIB=/users/mcvean/dilthey/perl5/lib/perl5:\$PERL5LIB
 cd /gpfs1/well/gsk_hla/MHC-PRG/src
-$command_positive_filtering
+/usr/bin/time -v $command_positive_filtering &> $time_file
 );
 		close(QSUB);	
 			
