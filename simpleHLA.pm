@@ -209,6 +209,8 @@ sub modernHLA_2digit
 {
 	my $hla = shift;
 	die unless($hla);
+	$hla =~ s/N//;
+	$hla =~ s/Q//;
 	my @elements = split(/:/, $hla);
 	foreach my $e (@elements)
 	{

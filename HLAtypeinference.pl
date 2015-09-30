@@ -863,7 +863,7 @@ if($actions =~ /v/)
 			
 			if($all_2_dig)
 			{
-				@reference_hla_values = map {&simpleHLA::autoHLA_2digit($_)} @reference_hla_values;
+				@reference_hla_values = map {join(';', map {&simpleHLA::autoHLA_2digit($_)} split(/;/, $_))} @reference_hla_values;
 				@imputed_hla_values = map {join(';', map {&simpleHLA::autoHLA_2digit($_)} split(/;/, $_))} @imputed_hla_values;
 			}
 					
