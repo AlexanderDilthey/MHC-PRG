@@ -395,6 +395,23 @@ void fill_loci_2_exons(std::map<std::string, std::vector<std::string> >& loci_2_
 
 	std::vector<std::string> exons_DRB1 = {"exon_2"};
 	loci_2_exons["DRB1"] = exons_DRB1;
+
+	loci_2_exons["DPA1"] = {"exon_2"};
+	loci_2_exons["DPB1"] = {"exon_2"};
+	loci_2_exons["DRA"] = {"exon_2"};
+	loci_2_exons["DRB3"] = {"exon_2"};
+	loci_2_exons["DRB4"] = {"exon_2"};
+
+	loci_2_exons["E"] = {"exon_2", "exon_3"};
+	loci_2_exons["F"] = {"exon_2", "exon_3"};
+	loci_2_exons["G"] = {"exon_2", "exon_3"};
+	loci_2_exons["H"] = {"exon_2", "exon_3"};
+	loci_2_exons["J"] = {"exon_2", "exon_3"};
+	loci_2_exons["K"] = {"exon_2", "exon_3"};
+	loci_2_exons["L"] = {"exon_2", "exon_3"};
+	loci_2_exons["V"] = {"exon_2", "exon_3"};
+
+
 }
 
 double alignmentWeightedOKFraction(oneRead& underlyingRead, seedAndExtend_return_local& alignment)
@@ -3821,11 +3838,20 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	assert(Utilities::fileReadable(graph));
 
 	// define loci
-	std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
+	std::vector<std::string> loci;
 	//std::vector<std::string> loci = {"A"}; // todo activate later
 
 	forReturn_lociString = Utilities::join(loci, ",");
 
+	bool allLoci = true;
+	if(allLoci)
+	{
+		std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1", "DPA1", "DPB1", "DRA", "DRB3", "DRB4", "E", "F", "G", "H", "J", "K", "L", "V"};
+	}
+	else
+	{
+		std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
+	}
 	// define locus -> exon
 	std::map<std::string, std::vector<std::string> > loci_2_exons;
 	fill_loci_2_exons(loci_2_exons);
