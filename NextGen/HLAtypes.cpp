@@ -3846,11 +3846,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	bool allLoci = true;
 	if(allLoci)
 	{
-		std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1", "DPA1", "DPB1", "DRA", "DRB3", "DRB4", "E", "F", "G", "H", "J", "K", "L", "V"};
+		loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1", "DPA1", "DPB1", "DRA", "DRB3", "DRB4", "F", "G", "H", "J", "K", "L", "V"};
+		// loci = {"E", "F", "G", "H", "J", "K", "L", "V"};
+		// loci = {"F", "G", "H", "J", "K", "L", "V"};
 	}
 	else
 	{
-		std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
+		loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
 	}
 	// define locus -> exon
 	std::map<std::string, std::vector<std::string> > loci_2_exons;
