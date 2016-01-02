@@ -707,6 +707,7 @@ if($actions =~ /v/)
 	my %locus_avgCoverages;
 	my %locus_lowCoverages;
 	my %locus_minCoverages;
+	my @allLoci_allIndivs_avgCoverage;
 	
 	my %problem_locus_detail;
 	my %problem_locus_examined;
@@ -1144,9 +1145,10 @@ if($actions =~ /v/)
 			{
 				push(@{$locus_avgCoverages{$locus}{ok}}, $avgCoverage);
 				push(@{$locus_lowCoverages{$locus}{ok}}, $lowCoverage);
-				push(@{$locus_minCoverages{$locus}{ok}}, $minCoverage);
-				
+				push(@{$locus_minCoverages{$locus}{ok}}, $minCoverage);	
 			}
+			
+			push (@allLoci_allIndivs_avgCoverage, $avgCoverage);
 			
 			# print "\t", $thisIndiv_problems, "\n";
 			
@@ -1482,6 +1484,12 @@ if($actions =~ /v/)
 	
 	print "\n";
 	close(SUMMARY);
+	
+	print "Over all loci, all individuals:\n";
+	my @avg_avg_minMax = min_avg_max(@allLoci_allIndivs_avgCoverage);
+	print "\tAverage ", join(' / ', @avg_avg_minMax), "\n";
+	print "\tLow ", join(' / ', @avg_avg_minMax), "\n";
+	print "\tMin ", join(' / ', @avg_avg_minMax), "\n";
 	
 	if(scalar(keys %missing_reference_data))
 	{
