@@ -29,6 +29,185 @@ map<string, string> readHLAalleleAlignments(string file, vector<int>& fourNumber
 string alleleAndLocusIdentifier(string locus, string allele);
 int pointerStrintLength = -1;
 
+Graph* kMerGraph(string input_panel, string positions_file, int k)
+{
+	std::cout << "Enter kMerGraph(..)" << "\n" << std::flush;
+
+	cout << "Read haplotypes panel...\n" << flush;
+
+	HaplotypePanel hp;
+	hp.readFromFile(input_panel, positions_file);
+
+	cout << "\tdone...\n" << flush;
+
+	Graph* g = new Graph();
+	g->CODE = hp.CODE;
+
+	Node* n0 = new Node();
+	n0->level = 0;
+	n0->terminal = false;
+	g->registerNode(n0, 0);
+
+	for(unsigned int haplotypeI = 0; haplotypeI < hp.HaplotypeIDs.size(); haplotypeI++)
+	{
+		string haplotypeID = hp.HaplotypeIDs.at(haplotypeI);
+		assert(haplotypeID.substr(0,4) != "SNPs");
+	}
+
+	vector<string> loci = hp.getLoci();
+	positionsSorter sortClass;
+	sortClass.p = &(hp.LocusPositions);
+	sort(loci.begin(), loci.end(), sortClass);
+
+	string lastLocus = loci.at(loci.size()-1);
+	int lastLocusPosition = hp.LocusPositions[lastLocus];
+
+	string pufferLocusID = "END_PUFFER";
+	int pufferLocusLocation = lastLocusPosition+1;
+	loci.push_back(pufferLocusID);
+	hp.LocusPositions[pufferLocusID] = pufferLocusLocation;
+	hp.LocusStrands[pufferLocusID] = "+";
+	unsigned char puffer_symbol = hp.CODE.doCode(pufferLocusID, "*");
+	g->CODE = hp.CODE;
+	for(unsigned int haplotypeI = 0; haplotypeI < hp.HaplotypeIDs.size(); haplotypeI++)
+	{
+		hp.HaplotypesByLoci[pufferLocusID].push_back(puffer_symbol);
+	}
+
+	std::vector<std::string> haplotypes_as_strings;
+	haplotypes_as_strings.resize(hp.HaplotypeIDs.size());
+	for(unsigned int haplotypeI = 0; haplotypeI < hp.HaplotypeIDs.size(); haplotypeI++)
+	{
+		for(auto locus : loci)
+		{
+			unsigned char haplotype_locus_coded = hp.HaplotypesByLoci[locus].at(haplotypeI);
+			std::string nucleotide = g->CODE.deCode(locus, haplotype_locus_coded);
+			assert(nucleotide.length() == 1);
+			bool isNucleotide = (
+					(nucleotide == "A") ||
+					(nucleotide == "C") ||
+					(nucleotide == "G") ||
+					(nucleotide == "T") ||
+					(nucleotide == "N") ||
+					(nucleotide == "*") ||
+					(nucleotide == "_")
+			);
+
+			if(! isNucleotide)
+			{
+				std::cerr << "Weird nucleotide: " << nucleotide << "\n" << std::flush;
+			}
+			assert(isNucleotide);
+
+			haplotypes_as_strings.at(haplotypeI).push_back(nucleotide.at(0));
+		}
+	}
+
+	std::vector<Node*> haplotype_2_node;
+	haplotype_2_node.resize(hp.HaplotypeIDs.size(), n0);
+	for(int level = 0; level < (int)loci.size(); level++)
+	{
+
+		if((level % 1000) == 0)
+		{
+			cout << "\rLevel " << level << flush;
+		}
+
+		string locusID = loci.at(level);
+
+		std::map<Node*, std::string> thisLevel_nodes_2_kMers;
+		std::map<std::string, Node*> thisLevel_kMers_2_node;
+
+		std::vector<Node*> nextLevel_haplotype_2_node;
+		for(unsigned int haplotypeI = 0; haplotypeI < hp.HaplotypeIDs.size(); haplotypeI++)
+		{
+			int remaining_length = loci.size() - level;
+			int extract_kmer_length = (remaining_length > k) ? k : remaining_length;
+			std::string kMer = haplotypes_as_strings.at(haplotypeI).substr(level, extract_kmer_length);
+			assert((int)kMer.length() == extract_kmer_length);
+
+			std::string edgeLabel = haplotypes_as_strings.at(haplotypeI).substr(level, 1);
+			assert(g->CODE.knowAllele(locusID, edgeLabel));
+			unsigned char edgeCode = g->CODE.doCode(locusID, edgeLabel);
+
+			Node* fromNode = haplotype_2_node.at(haplotypeI);
+			Edge* e = 0;
+			for(auto existingEdge : fromNode->Outgoing_Edges)
+			{
+				if((existingEdge->emission == edgeCode) && (thisLevel_nodes_2_kMers.at(existingEdge->To) == kMer))
+				{
+					assert(e == 0);
+					e = existingEdge;
+					e->count++;
+					e->label += hp.HaplotypeIDs.at(haplotypeI) + " ";
+				}
+			}
+
+			if(e == 0)
+			{
+				Edge* newE = new Edge();
+
+				newE->count = 1;
+				newE->emission = edgeCode;
+				newE->locus_id = locusID;
+				newE->label = hp.HaplotypeIDs.at(haplotypeI) + " ";
+
+				newE->pgf_protect = false;
+
+				g->registerEdge(newE);
+				newE->From = fromNode;
+				fromNode->Outgoing_Edges.insert(newE);
+
+				if(thisLevel_kMers_2_node.count(kMer))
+				{
+					newE->To = thisLevel_kMers_2_node.at(kMer);
+					thisLevel_kMers_2_node.at(kMer)->Incoming_Edges.insert(newE);
+				}
+				else
+				{
+					Node* newN = new Node();
+					if(level == ((int)loci.size()-1))
+					{
+						newN->terminal = true;
+					}
+					else
+					{
+						newN->terminal = false;
+					}
+
+					newN->level = level + 1;
+					g->registerNode(newN, newN->level);
+
+					newE->To = newN;
+					newN->Incoming_Edges.insert(newE);
+					assert(thisLevel_kMers_2_node.count(kMer) == 0);
+					thisLevel_kMers_2_node[kMer] = newN;
+				}
+
+				e = newE;
+			}
+
+			nextLevel_haplotype_2_node.push_back(e->To);
+		}
+
+		haplotype_2_node = nextLevel_haplotype_2_node;
+	}
+
+	std::cout << "\nCheck consistency...\n" << std::flush;
+	g->checkConsistency(true);
+
+	std::cout << "\nCheck sequence presence...\n" << std::flush;
+	for(unsigned int seqI = 0; seqI < haplotypes_as_strings.size(); seqI++)
+	{
+		std::cout << "\t" << hp.HaplotypeIDs.at(seqI) << "\n";
+		g->checkSequencePresence(haplotypes_as_strings.at(seqI));
+	}
+
+	std::cout << "Exit kMerGraph." << "\n" << std::flush;
+
+	return g;
+}
+
 Graph* variationGraph(string input_panel, string positions_file, bool wantPGFprotection, int want_suffix_length)
 {
 	cout << "Read haplotypes panel...\n" << flush;

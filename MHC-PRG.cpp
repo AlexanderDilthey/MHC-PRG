@@ -1097,8 +1097,10 @@ int main(int argc, char *argv[])
 		kMerG->stats();
 
 	}
-	else if((arguments.size() > 0) && (arguments.at(1) == "createConcatenatedVariationGraphs"))
+	else if((arguments.size() > 0) && ((arguments.at(1) == "createConcatenatedVariationGraphs") || (arguments.at(1) == "createConcatenatedkMerGraphs")))
 	{
+		bool classicalPRG = (arguments.at(1) == "createConcatenatedVariationGraphs");
+
 		omp_set_num_threads(CONFIG.threads);
 
 		string haplotypes_files_dir = arguments.at(2);
@@ -1127,9 +1129,17 @@ int main(int argc, char *argv[])
 
 		string haplotypes_files_list = haplotypes_files_dir+"/segments.txt";
 
-		cout << "Create variation graph based on haplotype specified in list files " << haplotypes_files_list << ", with positions" << positions_file << "\n\n" << flush;
-		cout << "k = " << kMer_size << "\n\n" << flush;
-		cout << "\t" << "suffixLength: " << suffixLength << "\n" << flush;
+		if(classicalPRG)
+		{
+			cout << "Create variation graph based on haplotype specified in list files " << haplotypes_files_list << ", with positions" << positions_file << "\n\n" << flush;
+			cout << "k = " << kMer_size << "\n\n" << flush;
+			cout << "\t" << "suffixLength: " << suffixLength << "\n" << flush;
+		}
+		else
+		{
+			cout << "Create kMer graph based on haplotype specified in list files " << haplotypes_files_list << ", with positions" << positions_file << "\n\n" << flush;
+			cout << "k = " << kMer_size << "\n\n" << flush;
+		}
 
 		Graph* combinedGraph = new Graph();
 		int combinedLevel = -1;
@@ -1162,7 +1172,8 @@ int main(int argc, char *argv[])
 
 				std::cout << "Reading " << haplotypes_file << "\n" << std::flush;
 
-				Graph* g = variationGraph(haplotypes_file, positions_file, protectPGF, suffixLength);
+				Graph* g = classicalPRG ? variationGraph(haplotypes_file, positions_file, protectPGF, suffixLength) : kMerGraph(haplotypes_file, positions_file, kMer_size);
+
 				string output_file = haplotypes_file+".graph";
 				g->writeToFile(output_file);
 
@@ -1236,7 +1247,7 @@ int main(int argc, char *argv[])
 		combinedGraph->checkConsistency(false);
 
 		combinedGraph->writeToFile(graph_output_file);
-		// combinedGraph->printComplexity(graph_output_file+".complexity");
+		combinedGraph->printComplexity(graph_output_file+".complexity");
 
 		cout << "\tLevels: " << combinedGraph->NodesPerLevel.size() << "\n";
 		cout << "\tNodes: " << combinedGraph->Nodes.size() << "\n";

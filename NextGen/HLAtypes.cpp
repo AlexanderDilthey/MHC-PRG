@@ -75,6 +75,7 @@ bool veryConservativeReadLikelihoods = true;
 std::map<std::string, std::string> codon2AS;
 std::map<std::string, std::vector<std::string> > AS2codon;
 
+/*
 double logAvg(double a, double b)
 {
 	if(a > b)
@@ -86,6 +87,7 @@ double logAvg(double a, double b)
 		return(log(0.5) + (log(1 + exp(a - b)) + b));
 	}
 }
+*/
 
 class oneExonPosition {
 public:
@@ -2398,7 +2400,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 						double position_likelihood_h1 = read_likelihood_per_position(h1_underlying_position, r.genotype, r.qualities, r.graphLevel);
 						double position_likelihood_h2 = read_likelihood_per_position(h2_underlying_position, r.genotype, r.qualities, r.graphLevel);
 						
-						double combined_LL =  logAvg(position_likelihood_h1, position_likelihood_h2);
+						double combined_LL =  Utilities::logAvg(position_likelihood_h1, position_likelihood_h2);
 						double combined_L = exp(combined_LL);
 						if(!((combined_L >= 0) && (combined_L <= 1)))
 						{
@@ -4898,7 +4900,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					// double LL_average = log( (1 + (exp(LL_thisPositionSpecifier_cluster2+log(0.5)))/exp(LL_thisPositionSpecifier_cluster1+log(0.5)) )) + (LL_thisPositionSpecifier_cluster1+log(0.5));
 
 					// double LL_average_2 = log(0.5 * exp(LL_thisRead_cluster1) + 0.5 * exp(LL_thisRead_cluster2));
-					double LL_average_2_2 = logAvg(LL_thisRead_cluster1, LL_thisRead_cluster2);
+					double LL_average_2_2 = Utilities::logAvg(LL_thisRead_cluster1, LL_thisRead_cluster2);
 					
 					// if((exp(LL_thisRead_cluster1) == 0) && (exp(LL_thisRead_cluster2) == 0))
 					// {
@@ -4978,7 +4980,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 						double LL_thisBase_cluster1 = likelihoods_perCluster_perObservedBase.at(clusterI1).at(baseI);
 						double LL_thisBase_cluster2 = likelihoods_perCluster_perObservedBase.at(clusterI2).at(baseI);
 
-						double LL_thisBase_avg = logAvg(LL_thisBase_cluster1, LL_thisBase_cluster2);
+						double LL_thisBase_avg = Utilities::logAvg(LL_thisBase_cluster1, LL_thisBase_cluster2);
 						pair_log_likelihood_fromBases += LL_thisBase_avg;
 					}
 				}

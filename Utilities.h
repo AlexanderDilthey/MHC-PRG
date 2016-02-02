@@ -99,6 +99,8 @@ public:
 	static std::string removeFROM(std::string readID);
 		
 	static double LogSumLogPs (const std::vector<double>& v);
+	static double logAvg(double a, double b);
+
 
 };
 
