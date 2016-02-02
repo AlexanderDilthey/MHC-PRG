@@ -182,6 +182,7 @@ Graph* kMerGraph(string input_panel, string positions_file, int k)
 					newN->Incoming_Edges.insert(newE);
 					assert(thisLevel_kMers_2_node.count(kMer) == 0);
 					thisLevel_kMers_2_node[kMer] = newN;
+					thisLevel_nodes_2_kMers[newN] = kMer;
 				}
 
 				e = newE;
