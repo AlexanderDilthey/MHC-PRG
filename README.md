@@ -6,6 +6,8 @@ Welcome to MHC-PRG.
 
 MHC-PRG is a program that utilizes a Population Reference Graph of the human MHC region to improve genome inference (http://www.nature.com/ng/journal/v47/n6/full/ng.3257.html or open-access preprint http://biorxiv.org/content/early/2014/07/08/006973).
 
+For HLA type inference, see HLA-PRG (https://github.com/AlexanderDilthey/MHC-PRG/blob/master/HLA-PRG.md).
+
 We have tested MHC-PRG on samples with relatively high coverage (>30x). It may or may not work well on sample data with less coverage (we would certainly appreciate any feedback).
 
 Also, although the program has been executed many times on our servers, many bugs, in particular on non-Oxford servers, surely remain. When submitting bug reports, please provide as many details as possible.

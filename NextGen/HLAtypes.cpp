@@ -3843,14 +3843,16 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 	forReturn_lociString = Utilities::join(loci, ",");
 
-	bool allLoci = true;
+	bool allLoci = false;
 	if(allLoci)
 	{
-		std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1", "DPA1", "DPB1", "DRA", "DRB3", "DRB4", "E", "F", "G", "H", "J", "K", "L", "V"};
+		loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1", "DPA1", "DPB1", "DRA", "DRB3", "DRB4", "F", "G", "H", "J", "K", "L", "V"};
+		// loci = {"E", "F", "G", "H", "J", "K", "L", "V"};
+		// loci = {"F", "G", "H", "J", "K", "L", "V"};
 	}
 	else
 	{
-		std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
+		loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
 	}
 	// define locus -> exon
 	std::map<std::string, std::vector<std::string> > loci_2_exons;
@@ -4037,9 +4039,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
 	{
-
 		std::string locus = loci.at(locusI);
-
+		std::set<std::string> utilized_reads;
+		
 		int HLATypeInference_thisLocus_bases_used = 0;
 
 		std::string outputFN_allPairs = outputDirectory + "/R1_PP_"+locus+"_pairs.txt";
@@ -4442,6 +4444,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 							+ piledPosition.pairedRead_ID
 							+ "]";
 
+						utilized_reads.insert(piledPosition.thisRead_ID);
+							
 						piledUpGenotypes.push_back(pileUpString);
 					}
 
@@ -4462,6 +4466,16 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		}
 		pileUpStream.close();
 
+		std::string fileName_readIDs = outputDirectory + "/R1_readIDs_"+locus+".txt";
+		std::ofstream readIDsStream;
+		readIDsStream.open(fileName_readIDs.c_str());
+		assert(readIDsStream.is_open());
+		for(std::set<std::string>::iterator readIDit = utilized_reads.begin(); readIDit != utilized_reads.end(); readIDit++)
+		{
+			readIDsStream << *readIDit << "\n";
+		}
+		readIDsStream.close();
+		
 		// likelihoods for reads
 
 		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon-overlapping reads (" << exonPositions_fromReads.size() << "), conditional on underlying exons.\n" << std::flush;
