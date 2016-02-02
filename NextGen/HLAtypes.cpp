@@ -2365,7 +2365,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 						// assert(new_average_p >= 0);
 						// assert(new_average_p <= 1);
 
-						double new_average_logP = logAvg(ll_per_read.at(*readIDit).first, ll_per_read.at(*readIDit).second);
+						double new_average_logP = Utilities::logAvg(ll_per_read.at(*readIDit).first, ll_per_read.at(*readIDit).second);
 						// if(new_average_p == 0)
 						// {
 							// new_average_logP = -1e100;
