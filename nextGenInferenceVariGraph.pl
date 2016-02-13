@@ -543,7 +543,11 @@ if($collect eq '3')
 				}
 				
 				my $cmd = qq(java -Xmx2g -jar ${PICARD_SAM2FASTQ} INPUT=${BAM_file} OUTPUT_PER_RG=TRUE OUTPUT_DIR=${remapping_dir_reads});
-				print `$cmd`;
+				my $ret = system($cmd);
+				unless($ret == 0)
+				{
+					die "PICARD extraction command $cmd failed";	
+				}
 				
 				open(OK, '>', $extraction_dir_OK_flag) or die "Cannot open $extraction_dir_OK_flag";
 				print OK 1;
