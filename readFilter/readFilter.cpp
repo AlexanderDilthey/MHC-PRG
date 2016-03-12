@@ -470,7 +470,7 @@ void readFilter::doFilter()
 
 				for(unsigned int kI = 0; kI < kMers_2_rev.size(); kI++)
 				{
-					std::string kMer = kMers_1_rev.at(kI);
+					std::string kMer = kMers_2_rev.at(kI);
 					if(unique_kMers.count(kMer))
 					{
 						kMers_2_reverse_unique++;

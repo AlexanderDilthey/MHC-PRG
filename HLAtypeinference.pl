@@ -124,7 +124,7 @@ if(@sampleIDs)
 	{
 		unless($sampleID =~ /^[\w]+$/)
 		{
-			die "Please provide only sample IDs with normal characters.";
+			die "Please provide only sample IDs that consist of 'word' characters (regexp \\w+).";
 		}
 	}
 }	
@@ -256,7 +256,11 @@ if($actions =~ /p/)
 		
 		print "Now executing command:\n$command\n\n";
 		
-		system($command);
+		my $ret = system($command);
+		unless($ret == 0)
+		{
+			die "Command $command failed";
+		}
 	}
 }
 
@@ -298,7 +302,11 @@ if($actions =~ /l1/)
 		
 		print "Now executing command:\n$command\n\n";
 		
-		system($command);
+		my $ret = system($command);
+		unless($ret == 0)
+		{
+			die "Command $command failed";
+		}		
 	}
 }
 
@@ -350,7 +358,11 @@ if($actions =~ /l2/)
 		
 		print "Now executing command:\n$command\n\n";
 		
-		system($command);
+		my $ret = system($command);
+		unless($ret == 0)
+		{
+			die "Command $command failed";
+		}		
 	}
 }
 
@@ -390,7 +402,11 @@ if($actions =~ /n/)
 	
 	print "Now executing command:\n$command\n\n";
 	
-	system($command);
+	my $ret = system($command);
+	unless($ret == 0)
+	{
+		die "Command $command failed";
+	}	
 }
 
 
@@ -431,7 +447,11 @@ if($actions =~ /a/)
 	
 	print "Now executing command:\n$command\n\n";
 	
-	system($command);
+	my $ret = system($command);
+	unless($ret == 0)
+	{
+		die "Command $command failed";
+	}
 }
 
 
@@ -460,7 +480,11 @@ if($actions =~ /u/)
 	
 	print "Now executing command:\n$command\n\n";
 	
-	system($command);
+	my $ret = system($command);
+	unless($ret == 0)
+	{
+		die "Command $command failed";
+	}	
 }
 
 

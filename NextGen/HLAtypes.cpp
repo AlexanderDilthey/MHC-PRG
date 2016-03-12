@@ -1659,6 +1659,18 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 	std::vector<std::string> loci = Utilities::split(loci_str, ",");
 	std::vector<std::string> starting_haplotypes_perLocus_1 = Utilities::split(starting_haplotypes_perLocus_1_str, ",");
 	std::vector<std::string> starting_haplotypes_perLocus_2 = Utilities::split(starting_haplotypes_perLocus_2_str, ",");
+	
+	if(!((loci.size() == starting_haplotypes_perLocus_1.size()) && (loci.size() == starting_haplotypes_perLocus_2.size())))
+	{
+		std::cout << "Problem!\n";
+		std::cout << "\t" << "loci.size()" << ": " << loci.size() << "\n";
+		std::cout << "\t" << "starting_haplotypes_perLocus_1.size()" << ": " << starting_haplotypes_perLocus_1.size() << "\n";
+		std::cout << "\t" << "starting_haplotypes_perLocus_2.size()" << ": " << starting_haplotypes_perLocus_2.size() << "\n";
+		std::cout << "\t" << "loci_str" << ": " << loci_str << "\n";
+		std::cout << "\t" << "starting_haplotypes_perLocus_1_str" << ": " << starting_haplotypes_perLocus_1_str << "\n";
+		std::cout << "\t" << "starting_haplotypes_perLocus_2_str" << ": " << starting_haplotypes_perLocus_2_str << "\n";
+		std::cout << "\n" << std::flush;
+	}
 	assert(loci.size() == starting_haplotypes_perLocus_1.size());
 	assert(loci.size() == starting_haplotypes_perLocus_2.size());
 
@@ -3843,8 +3855,6 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	std::vector<std::string> loci;
 	//std::vector<std::string> loci = {"A"}; // todo activate later
 
-	forReturn_lociString = Utilities::join(loci, ",");
-
 	bool allLoci = false;
 	if(allLoci)
 	{
@@ -3856,6 +3866,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	{
 		loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
 	}
+	
+	forReturn_lociString = Utilities::join(loci, ",");
+
 	// define locus -> exon
 	std::map<std::string, std::vector<std::string> > loci_2_exons;
 	fill_loci_2_exons(loci_2_exons);
