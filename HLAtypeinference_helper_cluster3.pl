@@ -13,11 +13,13 @@ my $graph = 'hla';
 my $action = '';
 my $iteration = 1;
 my $sampleIDs;
-my $BAMs;
+my $BAMs; 
 my $HiSeq250bp = 0;
 my $threads = 1;
 
-my $referenceGenome = qq(/gpfs1/well/chimp/oa/ref/hs37d5.fasta);
+# my $referenceGenome = qq(/gpfs1/well/chimp/oa/ref/hs37d5.fasta);
+my $referenceGenome = qq(/gpfs1/well/gsk_hla/GRCh37.60/fasta/combined/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.fa);
+
 #$referenceGenome = '';
 
 GetOptions ('graph:s' => \$graph,
