@@ -1,10 +1,18 @@
 # MHC-PRG
 
+##HLA type inference
+
+If you are interested in HLA typing, please see the HLA*PRG readme file:
+
+https://github.com/AlexanderDilthey/MHC-PRG/blob/master/HLA-PRG.md
+
 ## Overview
 
 Welcome to MHC-PRG.
 
 MHC-PRG is a program that utilizes a Population Reference Graph of the human MHC region to improve genome inference (http://www.nature.com/ng/journal/v47/n6/full/ng.3257.html or open-access preprint http://biorxiv.org/content/early/2014/07/08/006973).
+
+MHC-PRG will not do HLA type inference. For HLA type inference, see HLA-PRG (https://github.com/AlexanderDilthey/MHC-PRG/blob/master/HLA-PRG.md).
 
 We have tested MHC-PRG on samples with relatively high coverage (>30x). It may or may not work well on sample data with less coverage (we would certainly appreciate any feedback).
 
@@ -35,6 +43,18 @@ To install the package, please follow this procedure:
 5. Start using the software. Our data package comes with data for NA12878 in the right formats.
 
 ### Software dependencies
+
+#### For HLA typing
+
+If you are only installing MHC-PRG to run the HLA*PRG component:
+
+Boost (1.52)
+
+Bamtools (commit https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e)
+
+#### For MHC-PRG
+
+If you are installing MHC-PRG to reproduce the results from our Nature Genetics paper:
 
 The pipeline requires Cortex (1.0.5.12), BWA (0.6.2-r126), Stampy (1.0.20), the PICARD_SAM2FASTQ from Picard (1.83), samtools (0.1.18), Platypus (0.2.0), Boost (1.52), Bamtools (commit https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e) and sometimes zlib. The numbers in brackets indicate the version numbers as currently used for testing.
 

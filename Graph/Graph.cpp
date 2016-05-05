@@ -599,10 +599,61 @@ void Graph::printComplexity (string filename)
 	{
 		errEx("Cannot open output file for graph serialization: "+filename);
 	}
-
-
-
 }
+
+bool Graph::checkSequencePresence(std::string S, bool verbose)
+{
+	if(S.length() > (NodesPerLevel.size() - 1))
+	{
+		return false;
+	}
+	else
+	{
+		std::set<Node*> runningNodes = NodesPerLevel.at(0);
+		for(unsigned int lI = 0; lI < S.length(); lI++)
+		{
+			if(verbose)
+				std::cout << "Level " << lI << " runningNodes.size(): " << runningNodes.size() << "\n" << std::flush;
+
+			if(runningNodes.size() == 0)
+			{
+				return false;
+			}
+			std::set<Node*> nodesNextLevel;
+			std::string C = S.substr(lI, 1);
+
+			if(verbose)
+				std::cout << "\tLooking for " << C << "\n" << std::flush;
+			for(std::set<Node*>::iterator nIt = runningNodes.begin(); nIt != runningNodes.end(); nIt++)
+			{
+				Node* n = *nIt;
+				for(std::set<Edge*>::iterator eIt = n->Outgoing_Edges.begin(); eIt != n->Outgoing_Edges.end(); eIt++)
+				{
+					Edge* e = *eIt;
+
+					std::string emission = CODE.deCode(e->locus_id, e->emission);
+					if(verbose)
+						std::cout << "\t\tEdge " << e << " emission " << emission << "\n" << std::flush;
+					if(emission == C)
+					{
+						nodesNextLevel.insert(e->To);
+					}
+				}
+			}
+			runningNodes = nodesNextLevel;
+		}
+
+		if(runningNodes.size())
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+}
+
 
 
 

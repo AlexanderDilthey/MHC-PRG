@@ -6664,7 +6664,6 @@ diploidGenomeString readGenomeStringFromFile(std::string filename, bool ignorePu
 
 }
 
-
 std::vector<std::string> readGraphLoci(std::string graphDir)
 {
 	std::vector<std::string> forReturn;

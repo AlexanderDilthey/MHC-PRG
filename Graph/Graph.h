@@ -76,6 +76,7 @@ public:
 
 	std::string filename_last_read;
 
+	bool checkSequencePresence(std::string S, bool verbose = false);
 
 };
 

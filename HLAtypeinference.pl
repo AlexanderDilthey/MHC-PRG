@@ -124,7 +124,7 @@ if(@sampleIDs)
 	{
 		unless($sampleID =~ /^[\w]+$/)
 		{
-			die "Please provide only sample IDs with normal characters.";
+			die "Please provide only sample IDs that consist of 'word' characters (regexp \\w+).";
 		}
 	}
 }	
@@ -256,7 +256,11 @@ if($actions =~ /p/)
 		
 		print "Now executing command:\n$command\n\n";
 		
-		system($command);
+		my $ret = system($command);
+		unless($ret == 0)
+		{
+			die "Command $command failed";
+		}
 	}
 }
 
@@ -298,7 +302,11 @@ if($actions =~ /l1/)
 		
 		print "Now executing command:\n$command\n\n";
 		
-		system($command);
+		my $ret = system($command);
+		unless($ret == 0)
+		{
+			die "Command $command failed";
+		}		
 	}
 }
 
@@ -350,7 +358,11 @@ if($actions =~ /l2/)
 		
 		print "Now executing command:\n$command\n\n";
 		
-		system($command);
+		my $ret = system($command);
+		unless($ret == 0)
+		{
+			die "Command $command failed";
+		}		
 	}
 }
 
@@ -390,7 +402,11 @@ if($actions =~ /n/)
 	
 	print "Now executing command:\n$command\n\n";
 	
-	system($command);
+	my $ret = system($command);
+	unless($ret == 0)
+	{
+		die "Command $command failed";
+	}	
 }
 
 
@@ -431,7 +447,11 @@ if($actions =~ /a/)
 	
 	print "Now executing command:\n$command\n\n";
 	
-	system($command);
+	my $ret = system($command);
+	unless($ret == 0)
+	{
+		die "Command $command failed";
+	}
 }
 
 
@@ -460,7 +480,11 @@ if($actions =~ /u/)
 	
 	print "Now executing command:\n$command\n\n";
 	
-	system($command);
+	my $ret = system($command);
+	unless($ret == 0)
+	{
+		die "Command $command failed";
+	}	
 }
 
 
@@ -707,6 +731,7 @@ if($actions =~ /v/)
 	my %locus_avgCoverages;
 	my %locus_lowCoverages;
 	my %locus_minCoverages;
+	my @allLoci_allIndivs_avgCoverage;
 	
 	my %problem_locus_detail;
 	my %problem_locus_examined;
@@ -1144,9 +1169,10 @@ if($actions =~ /v/)
 			{
 				push(@{$locus_avgCoverages{$locus}{ok}}, $avgCoverage);
 				push(@{$locus_lowCoverages{$locus}{ok}}, $lowCoverage);
-				push(@{$locus_minCoverages{$locus}{ok}}, $minCoverage);
-				
+				push(@{$locus_minCoverages{$locus}{ok}}, $minCoverage);	
 			}
+			
+			push (@allLoci_allIndivs_avgCoverage, $avgCoverage);
 			
 			# print "\t", $thisIndiv_problems, "\n";
 			
@@ -1482,6 +1508,12 @@ if($actions =~ /v/)
 	
 	print "\n";
 	close(SUMMARY);
+	
+	print "Over all loci, all individuals:\n";
+	my @avg_avg_minMax = min_avg_max(@allLoci_allIndivs_avgCoverage);
+	print "\tAverage ", join(' / ', @avg_avg_minMax), "\n";
+	print "\tLow ", join(' / ', @avg_avg_minMax), "\n";
+	print "\tMin ", join(' / ', @avg_avg_minMax), "\n";
 	
 	if(scalar(keys %missing_reference_data))
 	{

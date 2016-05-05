@@ -75,6 +75,7 @@ bool veryConservativeReadLikelihoods = true;
 std::map<std::string, std::string> codon2AS;
 std::map<std::string, std::vector<std::string> > AS2codon;
 
+/*
 double logAvg(double a, double b)
 {
 	if(a > b)
@@ -86,6 +87,7 @@ double logAvg(double a, double b)
 		return(log(0.5) + (log(1 + exp(a - b)) + b));
 	}
 }
+*/
 
 class oneExonPosition {
 public:
@@ -395,6 +397,23 @@ void fill_loci_2_exons(std::map<std::string, std::vector<std::string> >& loci_2_
 
 	std::vector<std::string> exons_DRB1 = {"exon_2"};
 	loci_2_exons["DRB1"] = exons_DRB1;
+
+	loci_2_exons["DPA1"] = {"exon_2"};
+	loci_2_exons["DPB1"] = {"exon_2"};
+	loci_2_exons["DRA"] = {"exon_2"};
+	loci_2_exons["DRB3"] = {"exon_2"};
+	loci_2_exons["DRB4"] = {"exon_2"};
+
+	loci_2_exons["E"] = {"exon_2", "exon_3"};
+	loci_2_exons["F"] = {"exon_2", "exon_3"};
+	loci_2_exons["G"] = {"exon_2", "exon_3"};
+	loci_2_exons["H"] = {"exon_2", "exon_3"};
+	loci_2_exons["J"] = {"exon_2", "exon_3"};
+	loci_2_exons["K"] = {"exon_2", "exon_3"};
+	loci_2_exons["L"] = {"exon_2", "exon_3"};
+	loci_2_exons["V"] = {"exon_2", "exon_3"};
+
+
 }
 
 double alignmentWeightedOKFraction(oneRead& underlyingRead, seedAndExtend_return_local& alignment)
@@ -1640,6 +1659,18 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 	std::vector<std::string> loci = Utilities::split(loci_str, ",");
 	std::vector<std::string> starting_haplotypes_perLocus_1 = Utilities::split(starting_haplotypes_perLocus_1_str, ",");
 	std::vector<std::string> starting_haplotypes_perLocus_2 = Utilities::split(starting_haplotypes_perLocus_2_str, ",");
+	
+	if(!((loci.size() == starting_haplotypes_perLocus_1.size()) && (loci.size() == starting_haplotypes_perLocus_2.size())))
+	{
+		std::cout << "Problem!\n";
+		std::cout << "\t" << "loci.size()" << ": " << loci.size() << "\n";
+		std::cout << "\t" << "starting_haplotypes_perLocus_1.size()" << ": " << starting_haplotypes_perLocus_1.size() << "\n";
+		std::cout << "\t" << "starting_haplotypes_perLocus_2.size()" << ": " << starting_haplotypes_perLocus_2.size() << "\n";
+		std::cout << "\t" << "loci_str" << ": " << loci_str << "\n";
+		std::cout << "\t" << "starting_haplotypes_perLocus_1_str" << ": " << starting_haplotypes_perLocus_1_str << "\n";
+		std::cout << "\t" << "starting_haplotypes_perLocus_2_str" << ": " << starting_haplotypes_perLocus_2_str << "\n";
+		std::cout << "\n" << std::flush;
+	}
 	assert(loci.size() == starting_haplotypes_perLocus_1.size());
 	assert(loci.size() == starting_haplotypes_perLocus_2.size());
 
@@ -2348,7 +2379,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 						// assert(new_average_p >= 0);
 						// assert(new_average_p <= 1);
 
-						double new_average_logP = logAvg(ll_per_read.at(*readIDit).first, ll_per_read.at(*readIDit).second);
+						double new_average_logP = Utilities::logAvg(ll_per_read.at(*readIDit).first, ll_per_read.at(*readIDit).second);
 						// if(new_average_p == 0)
 						// {
 							// new_average_logP = -1e100;
@@ -2381,7 +2412,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 						double position_likelihood_h1 = read_likelihood_per_position(h1_underlying_position, r.genotype, r.qualities, r.graphLevel);
 						double position_likelihood_h2 = read_likelihood_per_position(h2_underlying_position, r.genotype, r.qualities, r.graphLevel);
 						
-						double combined_LL =  logAvg(position_likelihood_h1, position_likelihood_h2);
+						double combined_LL =  Utilities::logAvg(position_likelihood_h1, position_likelihood_h2);
 						double combined_L = exp(combined_LL);
 						if(!((combined_L >= 0) && (combined_L <= 1)))
 						{
@@ -3821,9 +3852,21 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	assert(Utilities::fileReadable(graph));
 
 	// define loci
-	std::vector<std::string> loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
+	std::vector<std::string> loci;
 	//std::vector<std::string> loci = {"A"}; // todo activate later
 
+	bool allLoci = false;
+	if(allLoci)
+	{
+		loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1", "DPA1", "DPB1", "DRA", "DRB3", "DRB4", "F", "G", "H", "J", "K", "L", "V"};
+		// loci = {"E", "F", "G", "H", "J", "K", "L", "V"};
+		// loci = {"F", "G", "H", "J", "K", "L", "V"};
+	}
+	else
+	{
+		loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
+	}
+	
 	forReturn_lociString = Utilities::join(loci, ",");
 
 	// define locus -> exon
@@ -4011,9 +4054,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 	for(unsigned int locusI = 0; locusI < loci.size(); locusI++)
 	{
-
 		std::string locus = loci.at(locusI);
-
+		std::set<std::string> utilized_reads;
+		
 		int HLATypeInference_thisLocus_bases_used = 0;
 
 		std::string outputFN_allPairs = outputDirectory + "/R1_PP_"+locus+"_pairs.txt";
@@ -4416,6 +4459,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 							+ piledPosition.pairedRead_ID
 							+ "]";
 
+						utilized_reads.insert(piledPosition.thisRead_ID);
+							
 						piledUpGenotypes.push_back(pileUpString);
 					}
 
@@ -4436,6 +4481,16 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		}
 		pileUpStream.close();
 
+		std::string fileName_readIDs = outputDirectory + "/R1_readIDs_"+locus+".txt";
+		std::ofstream readIDsStream;
+		readIDsStream.open(fileName_readIDs.c_str());
+		assert(readIDsStream.is_open());
+		for(std::set<std::string>::iterator readIDit = utilized_reads.begin(); readIDit != utilized_reads.end(); readIDit++)
+		{
+			readIDsStream << *readIDit << "\n";
+		}
+		readIDsStream.close();
+		
 		// likelihoods for reads
 
 		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon-overlapping reads (" << exonPositions_fromReads.size() << "), conditional on underlying exons.\n" << std::flush;
@@ -4858,7 +4913,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					// double LL_average = log( (1 + (exp(LL_thisPositionSpecifier_cluster2+log(0.5)))/exp(LL_thisPositionSpecifier_cluster1+log(0.5)) )) + (LL_thisPositionSpecifier_cluster1+log(0.5));
 
 					// double LL_average_2 = log(0.5 * exp(LL_thisRead_cluster1) + 0.5 * exp(LL_thisRead_cluster2));
-					double LL_average_2_2 = logAvg(LL_thisRead_cluster1, LL_thisRead_cluster2);
+					double LL_average_2_2 = Utilities::logAvg(LL_thisRead_cluster1, LL_thisRead_cluster2);
 					
 					// if((exp(LL_thisRead_cluster1) == 0) && (exp(LL_thisRead_cluster2) == 0))
 					// {
@@ -4938,7 +4993,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 						double LL_thisBase_cluster1 = likelihoods_perCluster_perObservedBase.at(clusterI1).at(baseI);
 						double LL_thisBase_cluster2 = likelihoods_perCluster_perObservedBase.at(clusterI2).at(baseI);
 
-						double LL_thisBase_avg = logAvg(LL_thisBase_cluster1, LL_thisBase_cluster2);
+						double LL_thisBase_avg = Utilities::logAvg(LL_thisBase_cluster1, LL_thisBase_cluster2);
 						pair_log_likelihood_fromBases += LL_thisBase_avg;
 					}
 				}

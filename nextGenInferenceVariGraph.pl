@@ -542,8 +542,12 @@ if($collect eq '3')
 					die "BAM file $BAM_file not there, but required!";
 				}
 				
-				my $cmd = qq(java -Xmx2g -jar ${PICARD_SAM2FASTQ} INPUT=${BAM_file} OUTPUT_PER_RG=TRUE OUTPUT_DIR=${remapping_dir_reads});
-				print `$cmd`;
+				my $cmd = qq(java -Xmx2g -jar ${PICARD_SAM2FASTQ} INPUT=${BAM_file} FASTQ=${remapping_dir_reads}/file_1.fastq SECOND_END_FASTQ=${remapping_dir_reads}/file_2.fastq VALIDATION_STRINGENCY=LENIENT);
+				my $ret = system($cmd);
+				unless($ret == 0)
+				{
+					die "PICARD extraction command $cmd failed";	
+				}
 				
 				open(OK, '>', $extraction_dir_OK_flag) or die "Cannot open $extraction_dir_OK_flag";
 				print OK 1;

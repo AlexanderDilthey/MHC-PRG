@@ -875,11 +875,11 @@ void testSeedAndExtend_local_realGraph(std::string graph_filename, int read_leng
 	}
 	readSimulator rS(qualityMatrixFile, read_length, longBadReads, removeUpper, removeUpper_2nd);
 
-	double haploidCoverage = 30;
+	double haploidCoverage = 5;
 	// double haploidCoverage = 5;
 	int aligner_kMerSize = 25;
-	int simulateGenomePairs = 1;
-	int outerThreads = 4; 
+	int simulateGenomePairs = 10;
+	int outerThreads = 2; 
 	int skipPairs_MOD = 25;
 	  
 	bool evaluateWithoutPairing = true;

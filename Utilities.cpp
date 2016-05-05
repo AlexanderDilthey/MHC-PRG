@@ -960,5 +960,16 @@ std::string Utilities::removeFROM(std::string readID)
 }
 
 
+double Utilities::logAvg(double a, double b)
+{
+	if(a > b)
+	{
+		return(log(0.5) + (log(1 + exp(b - a)) + a));
+
+	} else
+	{
+		return(log(0.5) + (log(1 + exp(a - b)) + b));
+	}
+}
 
 
