@@ -550,7 +550,7 @@ map<string, string> Utilities::readFASTA(std::string file, bool fullIdentifier)
 {
 	map<string, string> forReturn;
 
-	ifstream FASTAstream;
+	std::ifstream FASTAstream;
 
 	FASTAstream.open(file.c_str());
 	if(! FASTAstream.is_open())
