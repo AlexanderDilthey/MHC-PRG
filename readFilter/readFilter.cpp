@@ -1697,7 +1697,7 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 				std::cerr <<  CIGAR_Compressed.at(cigarI).Type << CIGAR_Compressed.at(cigarI).Length << " ";
 			}
 			std::cerr  << "\n" << std::flush;			
-			std::cerr << "\t" << 
+			std::cerr << "\t";
 			std::cerr << "\n" << std::flush;
 			
 			return false;
