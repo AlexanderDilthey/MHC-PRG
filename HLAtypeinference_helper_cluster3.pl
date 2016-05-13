@@ -115,6 +115,8 @@ cd /gpfs1/well/gsk_hla/MHC-PRG/src
 }
 elsif($action eq 'copy')
 {
+	die Dumper(\@BAMs);
+	
 	die "Can't access target directory $target_directory_for_copying" unless(-e $target_directory_for_copying);
 	for(my $bI = 0; $bI <= $#BAMs; $bI++)
 	{

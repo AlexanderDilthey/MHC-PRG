@@ -3855,7 +3855,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	std::vector<std::string> loci;
 	//std::vector<std::string> loci = {"A"}; // todo activate later
 
-	bool allLoci = false;
+	bool allLoci = true;
 	if(allLoci)
 	{
 		loci = {"A", "B", "C", "DQA1", "DQB1", "DRB1", "DPA1", "DPB1", "DRA", "DRB3", "DRB4", "F", "G", "H", "J", "K", "L", "V"};

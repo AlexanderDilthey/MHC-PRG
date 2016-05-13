@@ -207,7 +207,7 @@ if(scalar(@sampleIDs) > 5)
 #@sampleIDs = $sampleIDs[0]; # todo remove
 #warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nLimited samples:\n".join("\n", @sampleIDs)."\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 
-# die Dumper(\@sampleIDs, \@BAMs);
+# die Dumper(\@sampleIDs, \@BAMs); 
 
 if($actions =~ /p/)
 {
@@ -654,6 +654,7 @@ if($actions =~ /v/)
 		if($fromPHLAT)
 		{
 			$bestGuess_file = '/gpfs1/well/gsk_hla/PHLAT/'.$sampleID.'/'.$validation_round.'_bestguess.txt';	
+			$bestGuess_file =~ s/I6_WTS/I6_AM_WTS/;
 			unless(-e $bestGuess_file)
 			{
 				warn "Best-guess file $bestGuess_file not existing";
@@ -663,6 +664,8 @@ if($actions =~ /v/)
 		elsif($fromHLAreporter)
 		{
 			$bestGuess_file = '/gpfs1/well/gsk_hla/HLAreporter/results/'.$sampleID.'/'.$validation_round.'_bestguess.txt';	
+			$bestGuess_file =~ s/I6_WTS/I6_AM_WTS/;
+			
 			unless(-e $bestGuess_file)
 			{
 				warn "Best-guess file $bestGuess_file not existing";
@@ -1192,8 +1195,8 @@ if($actions =~ /v/)
 			die unless(defined $indivID_withI);				
 			my $pileup_file = qq(../tmp/hla/$indivID_withI/${validation_round}_pileup_${locus}.txt);
 				
-			my $coverages_href = load_coverages_from_pileup($pileup_file);
-
+			# my $coverages_href = load_coverages_from_pileup($pileup_file);
+			my $coverages_href = {};
 			my @k_coverages_existing;
 			if($indivI_processedForEvaluation > 0)
 			{
