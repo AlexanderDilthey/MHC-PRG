@@ -218,6 +218,28 @@ bool Utilities::extractBit(unsigned int number, unsigned int bit)
 	return bitValue;
 }
 
+
+std::vector<std::string> Utilities::get_map_keys_sorted_by_value(const std::map<std::string, int>& m)
+{
+	std::vector<std::string> keys;
+	for(auto e : m)
+	{
+		keys.push_back(e.first);
+	}
+	std::sort( keys.begin( ), keys.end( ), [&]( const std::string& lhs, const std::string& rhs )
+	{
+	   return (m.at(lhs) < m.at(rhs));
+	});
+
+	std::reverse(keys.begin(), keys.end());
+
+	if(keys.size() > 1)
+	{
+		assert(m.at(keys.at(0)) >= m.at(keys.at(1)));
+	}
+	return keys;
+}
+
 std::pair<double, unsigned int> Utilities::findVectorMax(const std::vector<double>& v)
 {
 	assert(v.size() > 0);

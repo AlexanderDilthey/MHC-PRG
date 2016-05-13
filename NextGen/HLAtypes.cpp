@@ -74,6 +74,9 @@ poisson_up poisson1(1);
 
 bool veryConservativeReadLikelihoods = true;
 
+std::map<std::string, std::string> alleles_to_G;
+std::set<std::string> G_loci;
+
 std::map<std::string, std::string> codon2AS;
 std::map<std::string, std::vector<std::string> > AS2codon;
 
@@ -4080,6 +4083,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	assert(bestGuess_outputStream.is_open());
 	bestGuess_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\t" << "AverageCoverage" << "\t" << "CoverageFirstDecile" << "\t" << "MinimumCoverage" << "proportionkMersCovered" << "\t" << "LocusAvgColumnError" << "\t" << "LocusMinimumColumnErrorP" << "\n";
 
+	std::string outputFN_bestGuess_G = outputDirectory + "/R1_bestguess_G.txt";
+	std::ofstream bestGuess_G_outputStream;
+	bestGuess_G_outputStream.open(outputFN_bestGuess_G.c_str());
+	assert(bestGuess_G_outputStream.is_open());
+	bestGuess_G_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\t" << "AverageCoverage" << "\t" << "CoverageFirstDecile" << "\t" << "MinimumCoverage" << "proportionkMersCovered" << "\t" << "LocusAvgColumnError" << "\t" << "LocusMinimumColumnErrorP" << "\t" << "perfectG" << "\n";
 
 	std::vector<std::string> forReturn_starting_haplotype_1_vec;
 	std::vector<std::string> forReturn_starting_haplotype_2_vec;
@@ -4150,13 +4158,10 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			assert(graphLocus_2_levels.count(first_graph_locusID));
 			assert(graphLocus_2_levels.count(last_graph_locusID));
 
-
-
 			unsigned int first_graph_level = graphLocus_2_levels.at(first_graph_locusID);
 			unsigned int last_graph_level = graphLocus_2_levels.at(last_graph_locusID);
 
 			std::cout << Utilities::timestamp() << "\tLocus" << locus << ", exon " << exonID << ": from " << first_graph_locusID << " (" << first_graph_level << ") to " << last_graph_locusID << " (" << last_graph_level << ").\n" << std::flush;
-
 
 			assert(last_graph_level > first_graph_level);
 			unsigned int expected_allele_length = last_graph_level - first_graph_level + 1;
@@ -4202,6 +4207,12 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 					std::string HLA_type_sequence = Utilities::join(line_alleles, "");
 
+					if(can_translateToG_locus(locus))
+					{
+						// this is an initial test!
+						bool _ignore;
+						translate_allele_list_to_G_allele({HLA_type}, _ignore);
+					}
 					if(exonI == 0)
 					{
 						assert(combined_exon_sequences.count(HLA_type) == 0);
@@ -5416,6 +5427,16 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A1 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\n";
 		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A2 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\n";
 
+		if(can_translateToG_locus(locus))
+		{
+			bool a1_perfectly;
+			bool a2_perfectly;
+			std::string bestGuess_firstAllele_ID_G = translate_allele_list_to_G_allele({HLAtype_clusters.at(bestGuess_firstAllele.second).begin(), HLAtype_clusters.at(bestGuess_firstAllele.second).end()}, a1_perfectly);
+			std::string bestGuess_secondAllele_ID_G = translate_allele_list_to_G_allele({HLAtype_clusters.at(bestGuess_secondAllele.second).begin(), HLAtype_clusters.at(bestGuess_secondAllele.second).end()}, a2_perfectly);
+
+			bestGuess_G_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID_G << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A1 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP <<  "\t" << a1_perfectly << "\n";
+			bestGuess_G_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID_G << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A2 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\t" << a2_perfectly << "\n";
+		}
 
 		unsigned int maxPairPrint = (LLs_completeReads_indices.size() > 10) ? 10 : LLs_completeReads_indices.size();
 		for(unsigned int LLi = 0; LLi < maxPairPrint; LLi++)
@@ -7109,3 +7130,108 @@ double simpleChiSq(std::vector<double> observed, std::vector<double> expected)
         return pValue;
 }
 
+bool can_translateToG_locus(std::string locus)
+{
+	read_G_alleles();
+	assert(alleles_to_G.size() > 0);
+	assert(locus.find("*") == std::string::npos);
+	return (G_loci.count(locus));
+}
+
+std::string translate_allele_list_to_G_allele(const std::vector<std::string>& alleles, bool& ret_perfectly)
+{
+	read_G_alleles();
+	assert(alleles_to_G.size() > 0);
+
+	std::map<std::string, int> g_groups;
+	for(auto a : alleles)
+	{
+		std::vector<std::string> locus_and_allele = Utilities::split(a, "*");
+		if(locus_and_allele.size() != 2)
+		{
+			throw std::runtime_error("Weird allele: "+a);
+		}
+		std::string locus_without_star = locus_and_allele.at(0);
+		assert(can_translateToG_locus(locus_without_star));
+		assert(alleles_to_G.count(a));
+		std::string g_group = alleles_to_G.at(a);
+		if(g_groups.count(g_group) == 0)
+		{
+			g_groups[g_group] = 0;
+		}
+		g_groups.at(g_group)++;
+	}
+
+	assert(g_groups.size());
+	if(g_groups.size() == 1)
+	{
+		ret_perfectly = true;
+		return g_groups.begin()->first;
+	}
+	else
+	{
+		ret_perfectly = false;
+
+		std::vector<std::string> possible_groups_sorted = Utilities::get_map_keys_sorted_by_value(g_groups);
+		if(possible_groups_sorted.size() > 1)
+		{
+			assert(g_groups.at(possible_groups_sorted.at(0)) >= g_groups.at(possible_groups_sorted.at(1)));
+		}
+
+		return possible_groups_sorted.at(0);
+	}
+}
+
+void read_G_alleles()
+{
+	if(alleles_to_G.size() == 0)
+	{
+		std::vector<std::string> _test_split = Utilities::split("A*;01:01:22;", ";");
+		assert(_test_split.size() == 3);
+
+		std::string g_filename = "hla_nom_g.txt";
+		std::ifstream gStream;
+		gStream.open(g_filename.c_str());
+		if(! gStream.is_open())
+		{
+			throw std::runtime_error("Can't open file " + g_filename + " - are you executing me from the right directory?");
+		}
+
+		std::string line;
+		while(gStream.good())
+		{
+			std::getline(gStream, line);
+			Utilities::eraseNL(line);
+			if(line.length() == 0)
+				continue;
+
+			if(line.substr(0, 1) == "#")
+				continue;
+
+			std::vector<std::string> components = Utilities::split(line, ";");
+			std::string locus_with_star = components.front();
+			assert(locus_with_star.back() == '*');
+
+			std::string locus_without_star = locus_with_star.substr(0, locus_with_star.size() - 1);
+			G_loci.insert(locus_without_star);
+
+			std::string g_code;
+			if(components.back() != "")
+			{
+				g_code = components.back();
+			}
+			else
+			{
+				assert(components.size() == 3);
+				g_code = components.at(1);
+			}
+
+			g_code = locus_with_star + g_code;
+			for(int cI = 1; cI < (components.size() - 1); cI++)
+			{
+				std::string allele_with_locus = locus_with_star + components.at(cI);
+				alleles_to_G[allele_with_locus] = g_code;
+			}
+		}
+	}
+}

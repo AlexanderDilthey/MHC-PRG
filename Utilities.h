@@ -89,6 +89,8 @@ public:
 	static double PhredToPCorrect(unsigned char nucleotideQuality);
 	static unsigned char PCorrectToPhred(double PCorrect);
 
+	static std::vector<std::string> get_map_keys_sorted_by_value(const std::map<std::string, int>& m);
+
 
 	static bool fileReadable(std::string file);
 

@@ -29,4 +29,8 @@ void compute_weird_Edit_distance(const std::vector<std::string>& S1, const std::
 
 double simpleChiSq(std::vector<double> observed, std::vector<double> expected);
 
+bool can_translateToG_locus(std::string locus);
+std::string translate_allele_list_to_G_allele(const std::vector<std::string>& alleles, bool& ret_perfectly);
+void read_G_alleles();
+
 #endif /* HLATYPES_H_ */
