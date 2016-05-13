@@ -7149,10 +7149,16 @@ std::string translate_allele_list_to_G_allele(const std::vector<std::string>& al
 		std::vector<std::string> locus_and_allele = Utilities::split(a, "*");
 		if(locus_and_allele.size() != 2)
 		{
-			throw std::runtime_error("Weird allele: "+a);
+			std::string oneAllele = alleles_to_G.begin()->first;
+			throw std::runtime_error("Weird allele: "+a+"; have only things like "+oneAllele);
 		}
 		std::string locus_without_star = locus_and_allele.at(0);
 		assert(can_translateToG_locus(locus_without_star));
+		if(! alleles_to_G.count(a))
+		{
+			std::string oneAllele = alleles_to_G.begin()->first;			
+			throw std::runtime_error("Can't translate: "+a+"; have only things like "+oneAllele);			
+		}
 		assert(alleles_to_G.count(a));
 		std::string g_group = alleles_to_G.at(a);
 		if(g_groups.count(g_group) == 0)
@@ -7227,10 +7233,12 @@ void read_G_alleles()
 			}
 
 			g_code = locus_with_star + g_code;
-			for(int cI = 1; cI < (components.size() - 1); cI++)
+			std::vector<std::string> differentAlleles = Utilities::split(components.at(1), "/");
+
+			for(auto a : differentAlleles)
 			{
-				std::string allele_with_locus = locus_with_star + components.at(cI);
-				alleles_to_G[allele_with_locus] = g_code;
+				std::string allele_with_locus = locus_with_star + a;
+				alleles_to_G[allele_with_locus] = g_code;				
 			}
 		}
 	}
