@@ -40,4 +40,8 @@ int find_first_valid_kMer_position(std::string sequence, int k, int startAtPosit
 
 std::vector<std::string> partitionStringIntokMers(std::string str, int k);
 
+std::string kMer_canonical_representation(const std::string& kMer);
+std::string kMer_canonical_representation(const std::string& kMer, bool& was_inverted);
+
+
 #endif /* BASIC_H_ */

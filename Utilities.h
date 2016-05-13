@@ -101,6 +101,7 @@ public:
 	static double LogSumLogPs (const std::vector<double>& v);
 	static double logAvg(double a, double b);
 
+	static std::string removeGaps(std::string in);
 
 };
 

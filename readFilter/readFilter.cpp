@@ -1672,7 +1672,7 @@ bool transformBAMreadToInternalAlignment(const std::map<std::string, std::string
 			}
 			assert(alignment_forLL.sequence_aligned == debug_sequence_aligned_concatenated);
 		}
-		
+
 		
 		bool haveNonMinusOne = false;
 		for(unsigned int i = 0; i < alignment_forLL.graph_aligned_levels.size(); i++)

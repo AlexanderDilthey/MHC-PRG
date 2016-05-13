@@ -5,6 +5,57 @@
 #include <stdexcept>
 #include <assert.h>
 
+
+int kMerSeq_is_kMerKey(const std::string& kMer)
+{
+	char firstC = kMer.at(0);
+	char lastC = kMer.at(kMer.size() - 1);
+	char lastC_reverse = reverse_char_nucleotide(lastC);
+
+	if(firstC < lastC_reverse)
+	{
+		return 1;
+	}
+	else if(firstC == lastC_reverse)
+	{
+		return 0;
+	}
+	else
+	{
+		assert(firstC > lastC_reverse);
+		return - 1;
+	}
+}
+
+
+
+std::string kMer_canonical_representation(const std::string& kMer)
+{
+	bool ignore;
+	return kMer_canonical_representation(kMer, ignore);
+}
+
+std::string kMer_canonical_representation(const std::string& kMer, bool& was_inverted)
+{
+	if(kMerSeq_is_kMerKey(kMer) > 0)
+	{
+		was_inverted = false;
+		return kMer;
+	}
+
+	std::string kMer_revCmp = seq_reverse_complement(kMer);
+	if(kMer_revCmp < kMer)
+	{
+		was_inverted = true;
+		return kMer_revCmp;
+	}
+	else
+	{
+		was_inverted = false;
+		return kMer;
+	}
+}
+
 char reverse_char_nucleotide(char c)
 {
     switch (c)

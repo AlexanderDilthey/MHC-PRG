@@ -27,4 +27,6 @@ void read_HLA_alleles_for_6_8_digits(std::string graphDir, std::string locus, co
 int compute_Hamming_distance(const std::string& completeTypeSequence, const std::string& partialTypeSequence, bool ignoreStars);
 void compute_weird_Edit_distance(const std::vector<std::string>& S1, const std::vector<std::string>& S2, int& comparisons, int& differences);
 
+double simpleChiSq(std::vector<double> observed, std::vector<double> expected);
+
 #endif /* HLATYPES_H_ */

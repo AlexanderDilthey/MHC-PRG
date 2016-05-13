@@ -20,6 +20,7 @@
 #include <cctype>
 #include <set>
 #include <limits>
+#include <unordered_map>
 
 #include "HLAtypes.h"
 
@@ -34,6 +35,7 @@
 
 #include <stdio.h>
 #include "dirent.h"
+#include <boost/math/distributions/chi_squared.hpp>
 
 
 // constants
@@ -3945,6 +3947,36 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 		std::cout << Utilities::timestamp() << "HLATypeInference(..): Load reads -- done. Have " << alignments_paired.size() << " read pairs, long unpaired reads: " << longUnpairedReads << ", IS mean " << insertSize_mean << " / sd " << insertSize_sd << ".\n" << std::flush;
 	}
+
+	int k_for_kMer_index = 31;
+	std::unordered_map<std::string, int> kMer_counts;
+	// build kMer index of reads
+	{
+		auto add_sequence_to_index = [&kMer_counts, &k_for_kMer_index](const std::string& S) -> void {
+			std::vector<std::string> kMers = partitionStringIntokMers(S, k_for_kMer_index);
+			for(const auto& kMer : kMers)
+			{
+				std::string kMerKey = kMer_canonical_representation(kMer);
+				if(kMer_counts.count(kMerKey) == 0)
+				{
+					kMer_counts[kMerKey] = 0;
+				}
+				kMer_counts.at(kMerKey)++;
+			}
+		};
+
+		for(auto rP : alignments_originalReads_paired)
+		{
+			add_sequence_to_index(rP.reads.first.sequence);
+			add_sequence_to_index(rP.reads.second.sequence);
+		}
+
+		for(auto uP : alignments_originalReads_unpaired)
+		{
+			add_sequence_to_index(uP.sequence);
+		}
+	}
+
 	// read alignment statistics
 
 	int alignmentStats_strandsValid = 0;
@@ -4046,7 +4078,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	std::ofstream bestGuess_outputStream;
 	bestGuess_outputStream.open(outputFN_bestGuess.c_str());
 	assert(bestGuess_outputStream.is_open());
-	bestGuess_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\t" << "AverageCoverage" << "\t" << "CoverageFirstDecile" << "\t" << "MinimumCoverage" << "\n";
+	bestGuess_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\t" << "AverageCoverage" << "\t" << "CoverageFirstDecile" << "\t" << "MinimumCoverage" << "proportionkMersCovered" << "\t" << "LocusAvgColumnError" << "\t" << "LocusMinimumColumnErrorP" << "\n";
 
 
 	std::vector<std::string> forReturn_starting_haplotype_1_vec;
@@ -4060,6 +4092,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		int HLATypeInference_thisLocus_bases_used = 0;
 
 		std::string outputFN_allPairs = outputDirectory + "/R1_PP_"+locus+"_pairs.txt";
+		std::string outputFN_columnError = outputDirectory + "/R1_columnIncompatibilities_"+locus+".txt";
 
 		std::cout << Utilities::timestamp() << "HLATypeInference(..): Making inference for " << locus << "\n" << std::flush;
 
@@ -4201,7 +4234,6 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		
 		HLAtypeInference_totalColumns += thisLocus_totalColumns;
 		
-
 		std::map<std::string, unsigned int> HLAtype_2_clusterID;
 		std::vector<std::set<std::string>> HLAtype_clusters;
 		std::map<std::string, unsigned int> sequence_2_cluster;
@@ -5176,6 +5208,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 		std::pair<double, int> bestGuess_firstAllele = Utilities::findIntMapMax(clusterI_overAllPairs);
 		std::string bestGuess_firstAllele_ID = Utilities::join(std::vector<std::string>(HLAtype_clusters.at(bestGuess_firstAllele.second).begin(), HLAtype_clusters.at(bestGuess_firstAllele.second).end()), ";");
+		std::string bestGuess_firstAllele_oneType = *(HLAtype_clusters.at(bestGuess_firstAllele.second).begin());
 
 
 		assert(bestGuess_firstAllele.first >= 0);
@@ -5221,7 +5254,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		}
 
 		std::pair<double, int> bestGuess_secondAllele = Utilities::findIntMapMax(mismatches_allBestGuessPairs);
-
+		std::string bestGuess_secondAllele_oneType = *(HLAtype_clusters.at(bestGuess_secondAllele.second).begin());
 		std::string bestGuess_secondAllele_ID = Utilities::join(std::vector<std::string>(HLAtype_clusters.at(bestGuess_secondAllele.second).begin(), HLAtype_clusters.at(bestGuess_secondAllele.second).end()), ";");
 
 		forReturn_starting_haplotype_1_vec.push_back(bestGuess_firstAllele_ID);
@@ -5246,11 +5279,142 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		{
 			assert(positionalCoverages.at(0) <= positionalCoverages.at(1));
 		}
+
+		size_t allColumns_totalAlleles = 0;
+		size_t allColumns_incompatibleAlleles = 0;
+		std::vector<int> perColumn_totalAlleles;
+		std::vector<int> perColumn_incomptibeAlleles;
+		double average_perColumn_error_rate;
+		double locus_minimumColumnP = -1;
+
+		double proportionkMersCovered_A1;
+		double proportionkMersCovered_A2;
+		// compute kMer coverages for both called alleles and statistics of deviant alleles
+		{
+			int clusterID_allele1 = HLAtype_2_clusterID.at(bestGuess_firstAllele_oneType);
+			int clusterID_allele2 = HLAtype_2_clusterID.at(bestGuess_secondAllele_oneType);
+			assert(clusterID_allele1 == bestGuess_firstAllele.second);
+			assert(clusterID_allele2 == bestGuess_secondAllele.second);
+
+			std::string combinedExonSequence_allele1 = combined_exon_sequences.at(bestGuess_firstAllele_oneType);
+			std::string combinedExonSequence_allele2 = combined_exon_sequences.at(bestGuess_secondAllele_oneType);
+
+			assert(combinedExonSequence_allele1.length() == combinedExonSequence_allele2.length());
+			assert(combined_exon_sequences_graphLevels_individualExon.size() == combinedExonSequence_allele1.size());
+			assert(combined_exon_sequences_graphLevels_individualExon.size() == combinedExonSequence_allele2.size());
+			assert(combined_exon_sequences_graphLevels_individualExon.size() == combined_exon_sequences_graphLevels_individualExonPosition.size());
+
+			std::vector<std::string> combinedExonSequence_allele1_byExon;
+			std::vector<std::string> combinedExonSequence_allele2_byExon;
+
+			for(unsigned int pI = 0; pI < combinedExonSequence_allele1.size(); pI++)
+			{
+				int thisPosition_individualExon = combined_exon_sequences_graphLevels_individualExon.at(pI);
+				int thisPosition_individualExonPosition = combined_exon_sequences_graphLevels_individualExonPosition.at(pI);
+
+				bool needNewExon = ((pI == 0) || (combined_exon_sequences_graphLevels_individualExon.at(pI) != combined_exon_sequences_graphLevels_individualExon.at(pI-1)));
+				if(needNewExon)
+				{
+					combinedExonSequence_allele1_byExon.push_back("");
+					combinedExonSequence_allele2_byExon.push_back("");
+				}
+
+				std::string underlyingAllele1 = combinedExonSequence_allele1.substr(pI, 1);
+				std::string underlyingAllele2 = combinedExonSequence_allele2.substr(pI, 1);
+
+				combinedExonSequence_allele1_byExon.back().push_back(underlyingAllele1.at(0));
+				combinedExonSequence_allele2_byExon.back().push_back(underlyingAllele2.at(0));
+
+				int totalAlleles = 0;
+				int incompatibeAlleles = 0;
+				for(auto piledUpAllele : pileUpPerPosition.at(thisPosition_individualExon).at(thisPosition_individualExonPosition))
+				{
+					totalAlleles++;
+					if((piledUpAllele.genotype != underlyingAllele1) && (piledUpAllele.genotype != underlyingAllele2))
+					{
+						incompatibeAlleles++;
+					}
+				}
+
+				allColumns_totalAlleles += totalAlleles;
+				allColumns_incompatibleAlleles += incompatibeAlleles;
+
+				perColumn_totalAlleles.push_back(totalAlleles);
+				perColumn_incomptibeAlleles.push_back(incompatibeAlleles);
+			}
+
+			auto calculcatekMerPresence = [&](std::vector<std::string> exons) -> double {
+				int kMers_total = 0;
+				int kMers_present = 0;
+				for(auto exonSeq : exons)
+				{
+					std::string exonSeqNoGaps = Utilities::removeGaps(exonSeq);
+					std::vector<std::string> kMers = partitionStringIntokMers(exonSeqNoGaps, k_for_kMer_index);
+					for(auto kMer : kMers)
+					{
+						kMers_total++;
+						if(kMer_counts.count(kMer) && (kMer_counts.at(kMer) > 0))
+						{
+							kMers_present++;
+						}
+					}
+				}
+				assert(kMers_total > 0);
+				return (double) kMers_present / (double) kMers_total;
+			};
+
+			proportionkMersCovered_A1 = calculcatekMerPresence(combinedExonSequence_allele1_byExon);
+			proportionkMersCovered_A2 = calculcatekMerPresence(combinedExonSequence_allele2_byExon);
+
+			assert(allColumns_totalAlleles > 0);
+			average_perColumn_error_rate = (double)allColumns_incompatibleAlleles / (double)allColumns_totalAlleles;
+
+			std::ofstream columnErrorRateStream;
+			columnErrorRateStream.open(outputFN_columnError.c_str());
+			assert(columnErrorRateStream.is_open());
+			columnErrorRateStream << Utilities::join({"Column", "Coverage", "ExpectedIncompatible", "ObservedIncompatible", "p"}, "\t") << "\n";
+
+			for(unsigned int columnI = 0; columnI < combinedExonSequence_allele1.size(); columnI++)
+			{
+				std::vector<std::string> outputFields;
+				outputFields.push_back(Utilities::ItoStr(columnI));
+
+				int columnCoverage = perColumn_totalAlleles.at(columnI);
+				outputFields.push_back(Utilities::ItoStr(columnCoverage));
+
+				double expectedError = average_perColumn_error_rate * columnCoverage;
+				outputFields.push_back(Utilities::DtoStr(expectedError));
+
+				int observedError = perColumn_incomptibeAlleles.at(columnI);
+				outputFields.push_back(Utilities::ItoStr(observedError));
+
+				double p = 1;
+				if(observedError > expectedError)
+				{
+					std::vector<double> observed;
+						observed.push_back(columnCoverage - observedError);
+						observed.push_back(observedError);
+
+					std::vector<double> expected;
+						expected.push_back(columnCoverage - expectedError);
+						expected.push_back(expectedError);
+
+					p = simpleChiSq(observed, expected);
+
+				}
+
+				outputFields.push_back(Utilities::DtoStr(p));
+				columnErrorRateStream << Utilities::join(outputFields, "\t") << "\n";
+			}
+		}
+
+
+
 		int index_for_decile = (int)((double)positionalCoverages.size() / 10.0);
 		double firstDecileCoverage = positionalCoverages.at(index_for_decile);
 		double minimumCoverage = positionalCoverages.at(0);
-		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\n";
-		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\n";
+		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A1 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\n";
+		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A2 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\n";
 
 
 		unsigned int maxPairPrint = (LLs_completeReads_indices.size() > 10) ? 10 : LLs_completeReads_indices.size();
@@ -6879,3 +7043,69 @@ std::vector<oneExonPosition> removeDoublePositionsFromRead(const std::vector<one
 	
 	return forReturn;
 }
+
+
+double simpleChiSq(std::vector<double> observed, std::vector<double> expected)
+{
+        double statistic = 0;
+        assert(observed.size() == expected.size());
+
+        double observed_sum = 0;
+        for(unsigned int i = 0; i < observed.size(); i++)
+        {
+                if(observed.at(i) < 0)
+                {
+                        std::cerr << "Error: the " << i << "-th element of observed is < 0\n" << std::flush;
+                }
+                assert(observed.at(i) >= 0);
+                observed_sum += observed.at(i);
+        }
+        assert(observed_sum > 0);
+
+        for(unsigned int i = 0; i < observed.size(); i++)
+        {
+                // observed.at(i) = observed.at(i)/observed_sum;
+        }
+
+        double expected_sum = 0;
+        for(unsigned int i = 0; i < expected.size(); i++)
+        {
+                assert(expected.at(i) > 0);
+                expected_sum += expected.at(i);
+        }
+        assert(expected_sum > 0);
+
+        for(unsigned int i = 0; i < observed.size(); i++)
+        {
+                // expected.at(i) = expected.at(i)/expected_sum;
+        }
+
+        for(unsigned int i = 0; i < observed.size(); i++)
+        {
+                assert(expected.at(i) >= 0);
+                double thisSummand = pow((observed.at(i) - expected.at(i)), 2)/expected.at(i);
+                if(!(thisSummand >= 0))
+                {
+                        std::cerr << "thisSummand" << ": " << thisSummand << "\n";
+                        std::cerr << "observed.at(i)" << ": " << observed.at(i) << "\n";
+                        std::cerr << "expected.at(i)" << ": " << expected.at(i) << "\n";
+                        std::cerr << "pow((observed.at(i) - expected.at(i)), 2)" << ": " << pow((observed.at(i) - expected.at(i)), 2) << "\n";
+                        std::cerr << std::flush;
+                }
+                assert(thisSummand >= 0);
+                statistic += thisSummand;
+        }
+
+        assert(statistic >= 0);
+        // std::cout << "ChiSq statistic: " << statistic << "\n";
+
+        int df = observed.size() - 1;
+        assert(df > 0);
+
+
+        boost::math::chi_squared chiSqdist(1);
+        double pValue = 1 -  boost::math::cdf(chiSqdist, statistic);
+        assert((pValue >= 0) && (pValue <= 1));
+        return pValue;
+}
+

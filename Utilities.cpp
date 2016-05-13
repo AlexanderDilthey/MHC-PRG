@@ -35,6 +35,20 @@ Utilities::Utilities() {
 Utilities::~Utilities() {
 }
 
+std::string Utilities::removeGaps(std::string in)
+{
+	std::string out;
+	out.reserve(in.size());
+	for(size_t i = 0; i < in.size(); i++)
+	{
+		if((in.at(i) != '_') && (in.at(i) != '-'))
+		{
+			out.push_back(in.at(i));
+		}
+	}
+	return out;
+}
+
 
 bool Utilities::directoryExists(std::string dir)
 {
