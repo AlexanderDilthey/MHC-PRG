@@ -3978,6 +3978,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		{
 			add_sequence_to_index(uP.sequence);
 		}
+		
+		std::cout << "Have " << kMer_counts.size() << " " << k_for_kMer_index << "-mers in index.\n" << std::flush;
 	}
 
 	// read alignment statistics
@@ -5355,7 +5357,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			}
 
 			auto calculcatekMerPresence = [&](std::vector<std::string> exons) -> double {
-				int kMers_total = 0;
+				int kMers_total = 0; 
 				int kMers_present = 0;
 				for(auto exonSeq : exons)
 				{
@@ -5364,7 +5366,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					for(auto kMer : kMers)
 					{
 						kMers_total++;
-						if(kMer_counts.count(kMer) && (kMer_counts.at(kMer) > 0))
+						std::string kMerKey = kMer_canonical_representation(kMer);						
+						if(kMer_counts.count(kMerKey) && (kMer_counts.at(kMerKey) > 0))
 						{
 							kMers_present++;
 						}
@@ -5377,13 +5380,20 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			proportionkMersCovered_A1 = calculcatekMerPresence(combinedExonSequence_allele1_byExon);
 			proportionkMersCovered_A2 = calculcatekMerPresence(combinedExonSequence_allele2_byExon);
 
-			assert(allColumns_totalAlleles > 0);
-			average_perColumn_error_rate = (double)allColumns_incompatibleAlleles / (double)allColumns_totalAlleles;
-
+						
 			std::ofstream columnErrorRateStream;
 			columnErrorRateStream.open(outputFN_columnError.c_str());
 			assert(columnErrorRateStream.is_open());
 			columnErrorRateStream << Utilities::join({"Column", "Coverage", "ExpectedIncompatible", "ObservedIncompatible", "p"}, "\t") << "\n";
+
+			if(allColumns_totalAlleles > 0)
+			{
+				average_perColumn_error_rate = (double)allColumns_incompatibleAlleles / (double)allColumns_totalAlleles;
+			}
+			else
+			{
+				average_perColumn_error_rate = 0;
+			}
 
 			for(unsigned int columnI = 0; columnI < combinedExonSequence_allele1.size(); columnI++)
 			{
@@ -5425,7 +5435,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		double firstDecileCoverage = positionalCoverages.at(index_for_decile);
 		double minimumCoverage = positionalCoverages.at(0);
 		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A1 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\n";
-		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A2 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\n";
+		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A2 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\n" << std::flush;
 
 		if(can_translateToG_locus(locus))
 		{
@@ -5435,7 +5445,7 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			std::string bestGuess_secondAllele_ID_G = translate_allele_list_to_G_allele({HLAtype_clusters.at(bestGuess_secondAllele.second).begin(), HLAtype_clusters.at(bestGuess_secondAllele.second).end()}, a2_perfectly);
 
 			bestGuess_G_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID_G << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A1 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP <<  "\t" << a1_perfectly << "\n";
-			bestGuess_G_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID_G << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A2 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\t" << a2_perfectly << "\n";
+			bestGuess_G_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID_G << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A2 << "\t" << average_perColumn_error_rate << "\t" << locus_minimumColumnP << "\t" << a2_perfectly << "\n" << std::flush;
 		}
 
 		unsigned int maxPairPrint = (LLs_completeReads_indices.size() > 10) ? 10 : LLs_completeReads_indices.size();
@@ -7157,7 +7167,8 @@ std::string translate_allele_list_to_G_allele(const std::vector<std::string>& al
 		if(! alleles_to_G.count(a))
 		{
 			std::string oneAllele = alleles_to_G.begin()->first;			
-			throw std::runtime_error("Can't translate: "+a+"; have only things like "+oneAllele);			
+			std::cerr << "Warning: Can't G-translate: " << a << "; have only things like " << oneAllele;	
+			continue;
 		}
 		assert(alleles_to_G.count(a));
 		std::string g_group = alleles_to_G.at(a);
@@ -7168,7 +7179,14 @@ std::string translate_allele_list_to_G_allele(const std::vector<std::string>& al
 		g_groups.at(g_group)++;
 	}
 
+	if(g_groups.size() == 0)
+	{
+		std::string forReturn = Utilities::join(alleles, ";");
+		ret_perfectly = false;
+		return forReturn;
+	}
 	assert(g_groups.size());
+	
 	if(g_groups.size() == 1)
 	{
 		ret_perfectly = true;
