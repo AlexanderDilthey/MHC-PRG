@@ -4083,13 +4083,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	std::ofstream bestGuess_outputStream;
 	bestGuess_outputStream.open(outputFN_bestGuess.c_str());
 	assert(bestGuess_outputStream.is_open());
-	bestGuess_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\t" << "AverageCoverage" << "\t" << "CoverageFirstDecile" << "\t" << "MinimumCoverage" << "proportionkMersCovered" << "\t" << "LocusAvgColumnError" << "\t" << "LocusMinimumColumnErrorP" << "\n";
+	bestGuess_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\t" << "AverageCoverage" << "\t" << "CoverageFirstDecile" << "\t" << "MinimumCoverage" << "\t" << "proportionkMersCovered" << "\t" << "LocusAvgColumnError" << "\t" << "LocusMinimumColumnErrorP" << "\n";
 
 	std::string outputFN_bestGuess_G = outputDirectory + "/R1_bestguess_G.txt";
 	std::ofstream bestGuess_G_outputStream;
 	bestGuess_G_outputStream.open(outputFN_bestGuess_G.c_str());
 	assert(bestGuess_G_outputStream.is_open());
-	bestGuess_G_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\t" << "AverageCoverage" << "\t" << "CoverageFirstDecile" << "\t" << "MinimumCoverage" << "proportionkMersCovered" << "\t" << "LocusAvgColumnError" << "\t" << "LocusMinimumColumnErrorP" << "\t" << "perfectG" << "\n";
+	bestGuess_G_outputStream << "Locus" << "\t" << "Chromosome" << "\t" << "Allele" << "\t" << "Q1" << "\t" << "Q2" << "\t" << "AverageCoverage" << "\t" << "CoverageFirstDecile" << "\t" << "MinimumCoverage" << "\t" << "proportionkMersCovered" << "\t" << "LocusAvgColumnError" << "\t" << "LocusMinimumColumnErrorP" << "\t" << "perfectG" << "\n";
 
 	std::vector<std::string> forReturn_starting_haplotype_1_vec;
 	std::vector<std::string> forReturn_starting_haplotype_2_vec;
@@ -5426,6 +5426,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 				outputFields.push_back(Utilities::DtoStr(p));
 				columnErrorRateStream << Utilities::join(outputFields, "\t") << "\n";
+				
+				if((locus_minimumColumnP < 0) || (p < locus_minimumColumnP))
+				{
+					locus_minimumColumnP = p;
+				}
 			}
 		}
 
