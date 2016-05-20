@@ -3665,7 +3665,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 	{ 
 		maximumConsideredChains = 15;
 	}
-	if(sequence_nonReverse.length() > 500)
+	if(sequence_nonReverse.length() > 260)
 	{
 		maximumConsideredChains = 10;
 	}	
