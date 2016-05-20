@@ -48,6 +48,8 @@ my $all_2_dig = 0;
 my $only_4_dig = 1;
 my $reduce_to_4_dig = 0;
 my $HiSeq250bp = 0;
+my $MiSeq250bp = 0;
+
 my $fastExtraction = 0;
 
 my $fromPHLAT = 0;
@@ -71,6 +73,7 @@ GetOptions ('graph:s' => \$graph,
  'all_2_dig:s' => \$all_2_dig,
  'only_4_dig:s' => \$only_4_dig,
  'HiSeq250bp:s' => \$HiSeq250bp, 
+ 'MiSeq250bp:s' => \$MiSeq250bp, 
  'fastExtraction:s' => \$fastExtraction, 
  'fromPHLAT:s' => \$fromPHLAT,
  'fromHLAreporter:s' => \$fromHLAreporter,
@@ -79,6 +82,11 @@ GetOptions ('graph:s' => \$graph,
 );         
 
 die if($fromPHLAT and $fromHLAreporter);
+
+if($MiSeq250bp and $HiSeq250bp)
+{
+	die "You activated switches for both HiSeq and MiSeq 250bp data - it is either-or";
+}
 
 if($minCoverage)
 {
@@ -445,6 +453,10 @@ if($actions =~ /a/)
 	}
 	my $command = qq($use_bin domode alignShortReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ../tmp2/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
 	
+	if($MiSeq250bp)
+	{
+		$command .= ' --MiSeq250bp';
+	}
 	print "Now executing command:\n$command\n\n";
 	
 	my $ret = system($command);

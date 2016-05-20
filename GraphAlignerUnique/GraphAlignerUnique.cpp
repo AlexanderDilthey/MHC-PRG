@@ -1889,7 +1889,7 @@ std::vector<seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_longlo
 	return read_backtraces; 
 }
 
-std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > GraphAlignerUnique::seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd, bool greedyLocalExtension, bool debug)
+std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> > GraphAlignerUnique::seedAndExtend_short_allAlignments(oneReadPair readPair, double insertSize_mean, double insertSize_sd, bool greedyLocalExtension, bool debug, bool MiSeq250bp)
 {
 	assert(g != 0);
 
@@ -1943,8 +1943,8 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 		this->verbose = true;
 		this->verbose = false;
 	}
-	read1_maxBacktrace = seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces, greedyLocalExtension);
-	read2_maxBacktrace = seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces, greedyLocalExtension);
+	read1_maxBacktrace = seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces, greedyLocalExtension, MiSeq250bp);
+	read2_maxBacktrace = seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces, greedyLocalExtension, MiSeq250bp);
 	this->verbose = verbose_before;
 
 	
@@ -3646,7 +3646,7 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 }
 
 
-seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces, bool greedyLocalExtension)
+seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces, bool greedyLocalExtension, bool MiSeq250bp)
 {
 	assert(g != 0);
 	seedAndExtend_return_local forReturn;
@@ -3669,7 +3669,11 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 	{
 		maximumConsideredChains = 10;
 	}	
-	
+	if(MiSeq250bp)
+	{
+		maximumConsideredChains = 5;
+	}
+
 	bool useReverse;
 	std::string sequence;
 	std::vector<std::string> kMers_sequence;
