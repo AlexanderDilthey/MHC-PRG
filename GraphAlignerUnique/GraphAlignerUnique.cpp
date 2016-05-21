@@ -3669,9 +3669,10 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 	{
 		maximumConsideredChains = 10;
 	}	
+
 	if(MiSeq250bp)
 	{
-		maximumConsideredChains = 5;
+		maximumConsideredChains = 3;
 	}
 
 	bool useReverse;

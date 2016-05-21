@@ -562,7 +562,12 @@ if($actions =~ /i/)
 		my ($aligned_file_name, $aligned_file_path) = fileparse($aligned_file);
 					
 		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ../tmp2/GS_nextGen/${graph} ${switch_long_reads} --sampleID $sampleID > $stdout_file);
-	
+
+		if($MiSeq250bp)
+		{
+			$command .= ' --MiSeq250bp';
+		}
+		
 		print "Now executing command:\n$command\n\n";
 		
 		my $ret = system($command);	
