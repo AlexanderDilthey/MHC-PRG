@@ -944,7 +944,7 @@ void estimateInsertSizeFromGraph(std::string FASTQs, std::string graphDir, std::
 		for(unsigned int pI = 0; pI < combinedPairs_for_alignment.size(); pI++)
 		{
 			std::map<int, double> IS_p;
-			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = gA->seedAndExtend_local_paired_or_short(combinedPairs_for_alignment.at(pI), true, useShort, 1, 1, true, IS_p);
+			std::pair<seedAndExtend_return_local, seedAndExtend_return_local> alignment_pair = gA->seedAndExtend_local_paired_or_short(combinedPairs_for_alignment.at(pI), true, useShort, 1, 1, true, IS_p, MiSeq250bp);
 
 			for(std::map<int, double>::iterator ISit = IS_p.begin(); ISit != IS_p.end(); ISit++)
 			{

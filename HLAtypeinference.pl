@@ -188,8 +188,8 @@ elsif($sampleIDs =~ /^all/)
 		@sampleIDs = @sampleIDs[5 .. $#sampleIDs];
 		@sampleIDs = grep {$_ !~ /AA02O9Q_Z2/} @sampleIDs;
 		@sampleIDs = grep {$_ !~ /AA02O9R/} @sampleIDs;		
-		warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nRemove first five and NA12878 and high-coverage sample for validation!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 		
+		# warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nRemove first five and NA12878 and high-coverage sample for validation!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 		# @sampleIDs = @sampleIDs[0 .. 4];
 		
 		die unless(($actions eq 'v') or ($actions eq 'w'));
@@ -561,12 +561,15 @@ if($actions =~ /i/)
 		
 		my ($aligned_file_name, $aligned_file_path) = fileparse($aligned_file);
 					
-		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ../tmp2/GS_nextGen/${graph} ${switch_long_reads} --sampleID $sampleID > $stdout_file);
+		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ../tmp2/GS_nextGen/${graph} ${switch_long_reads} --sampleID $sampleID);
 
 		if($MiSeq250bp)
 		{
-			$command .= ' --MiSeq250bp';
+			$command .= ' --MiSeq250bp ';
 		}
+		
+		
+		$command .= " &> $stdout_file";
 		
 		print "Now executing command:\n$command\n\n";
 		
@@ -698,7 +701,7 @@ if($actions =~ /v/)
 				next;
 			}		
 		}
-		  
+				  
 		open(BESTGUESS, '<', $bestGuess_file) or die "Cannot open $bestGuess_file";
 		my $bestguess_header_line = <BESTGUESS>;
 		chomp($bestguess_header_line);
@@ -1290,6 +1293,8 @@ if($actions =~ /v/)
 				{
 					my $file = find_exon_file($locus, $exon);
 					my $sequences = read_exon_sequences($file);
+					
+					die Dumper($truth, $inferred);
 										
 					my @validated_extended = twoValidationAlleles_2_proper_names($truth, $locus, $sequences);
 								
@@ -2104,6 +2109,7 @@ sub compatibleAlleles_individual
 	my $allele_validation = shift;
 	my $allele_inference = shift;
 	
+
 	# die Dumper($allele_validation, $allele_inference);
 	
 	my @components_allele_validation = split(/;/, $allele_validation);
@@ -2127,6 +2133,10 @@ sub compatibleAlleles_individual
 	
 	my $allele_validation_original = $allele_validation;
 		
+	if($locus eq 'C')
+	{
+		print Dumper([$locus, $allele_validation, $allele_inference, scalar(@components_allele_validation)]);
+	}
 	
 	die "Weird allele $locus $allele_validation" unless(length($allele_validation) >= 4);
 	die unless($allele_inference =~ /:/);

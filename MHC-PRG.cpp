@@ -661,7 +661,7 @@ int main(int argc, char *argv[])
 		
 		// todo activate
 		   
-		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads);
+		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads, MiSeq250bp);
 		
 		// HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads);
 	}
