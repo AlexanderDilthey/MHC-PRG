@@ -779,6 +779,11 @@ if($collect eq '3')
 		copy($remapping_dir_rawGenome_1.'/xMHC_haplo1.fa', $remapping_dir.'/IGV_pseudoGenome_1.fa');
 		copy($remapping_dir_rawGenome_2.'/xMHC_haplo1.fa', $remapping_dir.'/IGV_pseudoGenome_2.fa');
 		
+		unless(-e $samtools_bin)
+		{
+			die "Samtools binary $samtools_bin not found";
+		}
+		
 		my $cmd = qq(${samtools_bin} faidx ${xMHC_IGV_pseudoGenome_1});
 		print $cmd, "\n", `$cmd`, "\n";	
 		$cmd = qq(${samtools_bin} faidx ${xMHC_IGV_pseudoGenome_2});
@@ -914,6 +919,10 @@ if($collect eq '3')
 				$cmd = qq(${samtools_bin} faidx ${combined_genome_file_f2});
 				print $cmd, "\n", `$cmd`, "\n";	
 				
+				unless(-e $BWA_bin)
+				{
+					die "BWA binary $BWA_bin not found -- and you should check whetehr you don't want to call me with --mapping_display_only_instructions";
+				}
 				$cmd = qq(${BWA_bin} index -a bwtsw $combined_genome_file_f1);
 				print $cmd, "\n\n";
 				print `$cmd`, "\n\n";
@@ -940,6 +949,13 @@ if($collect eq '3')
 		my $merged_BAM_1 = $remapping_dir.'/merged_1.bam';
 		my $merged_BAM_2 = $remapping_dir.'/merged_2.bam';
 		
+		if(not $mapping_display_only_instructions)
+		{
+			unless(-e $BWA_bin)
+			{
+				die "BWA binary $BWA_bin not found -- and you should check whetehr you don't want to call me with --mapping_display_only_instructions";
+			}
+		}
 		if($mapping_display_only_instructions)
 		{
 			my $sorted_bam_1 = "${merged_BAM_1}.sorted.bam";
@@ -954,12 +970,16 @@ if($collect eq '3')
 				{ 
 					die "You activated the switch \$mapping_display_only_instructions, but the corresponding code makes only sense in our local Oxford environment - track down this error message in nextGenInferenceVariGraph.pl, and modify the code following that line according to your environment.";
 				}	
-				print "\n\nYou now need to make sure $sorted_bam_1 and $sorted_bam_2 are there, by mapping\n\n";
+				print "\n\nYou now need to make sure $sorted_bam_1 and $sorted_bam_2 are there, by mapping the following reads separately to the references specified:\n\n";
 				print "READS: $remapping_dir_reads \n\n";
-				print "REFERENCES: $remapping_dir_rawGenome_1 and $remapping_dir_rawGenome_2\nn";
-				print "PAIRED-END: 0\n\n";
-				print "Command suggestion:\ncd /gpfs1/well/gsk_hla/readLengthSimulator/src; ./alignGenome.pl --action prepare --reference_genome_FASTA_path $remapping_dir_rawGenome_1 --paired_end 0 --input_directory $remapping_dir_reads --name_for_project REMAPPING_${sample}_1 --gz $needGZ; ./alignGenome.pl --action prepare --reference_genome_FASTA_path $remapping_dir_rawGenome_2 --paired_end 0 --input_directory $remapping_dir_reads --name_for_project REMAPPING_${sample}_2 --gz $needGZ\n\n\n";
-				print "\n\nFinally, copy BAMs to\n${sorted_bam_1}\n${sorted_bam_2}\n";
+				print "REFERENCES: $remapping_dir_rawGenome_1 and $remapping_dir_rawGenome_2\n\n";
+				print "PAIRED-END: No\n\n";				
+				print "Sorting and indexing: yes\n\n";							
+				if($localOxford)
+				{
+					print "Command suggestion:\ncd /gpfs1/well/gsk_hla/readLengthSimulator/src; ./alignGenome.pl --action prepare --reference_genome_FASTA_path $remapping_dir_rawGenome_1 --paired_end 0 --input_directory $remapping_dir_reads --name_for_project REMAPPING_${sample}_1 --gz $needGZ; ./alignGenome.pl --action prepare --reference_genome_FASTA_path $remapping_dir_rawGenome_2 --paired_end 0 --input_directory $remapping_dir_reads --name_for_project REMAPPING_${sample}_2 --gz $needGZ\n\n\n";
+				}
+				print "\n\nFinally, copy BAMs (sorted and indexed) to\n${sorted_bam_1}\n${sorted_bam_2}\n... also copy index files!\n\n";
 				exit;
 			}
 		} 
@@ -1016,6 +1036,10 @@ if($collect eq '3')
 					my $bam_file_1 = $sai_file_1.'.bam';
 					my $bam_file_2 = $sai_file_2.'.bam';
 					
+					unless(-e $BWA_bin)
+					{
+						die "BWA binary $BWA_bin not found -- and you should check whetehr you don't want to call me with --mapping_display_only_instructions";					
+					}
 					my $cmd = qq(${BWA_bin} aln -q10 -t42 ${combined_genome_file_f1} ${reads_file} > ${sai_file_1});
 					print $cmd, "\n", `$cmd`, "\n";
 					$cmd = qq(${BWA_bin} samse ${combined_genome_file_f1} ${sai_file_1} ${reads_file} | ${samtools_bin} view -Sb - > ${bam_file_1});
@@ -3600,7 +3624,7 @@ sub haplotypesToVCF2
 		
 		push(@output_fields, join('/', $allele_1_code, $allele_2_code));
 		
-		if(scalar(@alternative_alleles) > 0)
+		if(1 or (scalar(@alternative_alleles) > 0))
 		{
 			print VCF join("\t", @output_fields), "\n";
 		}
