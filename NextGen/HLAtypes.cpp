@@ -3851,7 +3851,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 	outputFN_parameters_outputStream.close();
 }
 
-void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads)
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads, bool MiSeq250bp)
 {
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));
@@ -4424,14 +4424,68 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 			}
 		}
 
-		std::cout << Utilities::timestamp() << "Mapped reads to exons. " << readPairs_OK << " pairs OK, " << readPairs_broken << " pairs broken." << "\n" << std::flush;
+		std::cout << Utilities::timestamp() << "Mapped reads to exons. " << readPairs_OK << " pairs OK, " << readPairs_broken << " pairs broken -- " << exonPositions_fromReads.size() << " reads relevant to this locus.\n" << std::flush;
 
 		// Pileup of mapped reads
+		std::set<size_t> ignore_exonPositions_fromReads;
+
+		if(MiSeq250bp)
+		{
+			unsigned int n_relevant_positions = graphLevel_2_exonPosition_individualExon.size();
+			size_t coverage_over_relevant_positions = 0;
+			std::set<size_t> read_with_good_positions;
+
+			for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
+			{
+				std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(readI);
+				for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
+				{
+					oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
+
+					assert((onePositionSpecifier.mapQ_position >= 0) && (onePositionSpecifier.mapQ_position <= 1));
+					if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
+					{
+						continue;
+					}
+
+					read_with_good_positions.insert(readI);
+					coverage_over_relevant_positions++;
+				}
+			}
+
+			double total_coverage = (double) coverage_over_relevant_positions / (double) n_relevant_positions;
+			double desired_coverage = 60;
+			double sampling_factor = desired_coverage / total_coverage;
+			if(sampling_factor < 0.8)
+			{
+				for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
+				{
+					if(read_with_good_positions.count(readI) == 0)
+					{
+						ignore_exonPositions_fromReads.insert(readI);
+					}
+					else
+					{
+						if(Utilities::randomDouble() > sampling_factor)
+						{
+							ignore_exonPositions_fromReads.insert(readI);
+						}
+					}
+				}
+			}
+
+			std::cout << "MiSeq250bp active -- coverage pre-filtering " << total_coverage << " (" << n_relevant_positions << " positions), downsampling factor " << sampling_factor << " - ignore " << ignore_exonPositions_fromReads.size() << " / " <<  exonPositions_fromReads.size() << " reads.\n" << std::flush;
+		}
 
 		std::map<int, std::map<int, std::vector<oneExonPosition> > > pileUpPerPosition;
-		for(unsigned int positionSpecifierI = 0; positionSpecifierI < exonPositions_fromReads.size(); positionSpecifierI++)
+		for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
 		{
-			std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(positionSpecifierI);
+			if(ignore_exonPositions_fromReads.count(readI))
+			{
+				continue;
+			}
+
+			std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(readI);
 			for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
 			{
 				oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
@@ -4446,7 +4500,6 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				int individualExonPosition = graphLevel_2_exonPosition_individualExonPosition.at(onePositionSpecifier.graphLevel);
 
 				pileUpPerPosition[individualExon][individualExonPosition].push_back(onePositionSpecifier);
-
 			}
 		}
 
@@ -4573,10 +4626,18 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 			std::string& clusterSequence = cluster_2_sequence.at(clusterI);
 
+			likelihoods_perCluster_perRead.at(clusterI).resize(exonPositions_fromReads.size(), log(10));
+			mismatches_perCluster_perRead.at(clusterI).resize(exonPositions_fromReads.size(), 0);
+
 			// this is really readI
-			for(unsigned int positionSpecifierI = 0; positionSpecifierI < exonPositions_fromReads.size(); positionSpecifierI++)
+			for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
 			{			
-				std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(positionSpecifierI);
+				if(ignore_exonPositions_fromReads.count(readI))
+				{
+					continue;
+				}
+
+				std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(readI);
 				double log_likelihood_read = 0;
 				int mismatches = 0;
 
@@ -4769,10 +4830,8 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 				assert(exp(log_likelihood_read) >= 0);
 				assert(exp(log_likelihood_read) <= 1);
 				
-				likelihoods_perCluster_perRead.at(clusterI).push_back(log_likelihood_read);
-				
-				mismatches_perCluster_perRead.at(clusterI).push_back(mismatches);
-
+				likelihoods_perCluster_perRead.at(clusterI).at(readI) = log_likelihood_read;
+				mismatches_perCluster_perRead.at(clusterI).at(readI) = mismatches;
 			}
 
 			assert(likelihoods_perCluster_perRead.at(clusterI).size() == exonPositions_fromReads.size());
@@ -4944,6 +5003,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 				for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
 				{
+					if(ignore_exonPositions_fromReads.count(readI))
+					{
+						continue;
+					}
+
 					// now use allAlignments likelihoods instead!
 //					std::string readID;
 //					if(exonPositions_fromReads.at(readI).size() > 0)
@@ -4954,6 +5018,9 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 					double LL_thisRead_cluster1 = likelihoods_perCluster_perRead.at(clusterI1).at(readI);
 					double LL_thisRead_cluster2 = likelihoods_perCluster_perRead.at(clusterI2).at(readI);
+
+					assert(exp(LL_thisRead_cluster1 <= 1));
+					assert(exp(LL_thisRead_cluster2 <= 1));
 
 					// double LL_average = log( (1 + (exp(LL_thisPositionSpecifier_cluster2+log(0.5)))/exp(LL_thisPositionSpecifier_cluster1+log(0.5)) )) + (LL_thisPositionSpecifier_cluster1+log(0.5));
 
@@ -7075,7 +7142,7 @@ std::vector<oneExonPosition> removeDoublePositionsFromRead(const std::vector<one
 		forReturn.push_back(bestPositionAtLevel);
 	}
 	
-	std::cout << "removeDoublePositionsFromRead(..): Removed " << (positions.size() - forReturn.size()) << " exon positions (from " << positions.size() << " to " << forReturn.size() << ").\n" << std::flush;
+	// std::cout << "removeDoublePositionsFromRead(..): Removed " << (positions.size() - forReturn.size()) << " duplicated paired-end exon positions (from " << positions.size() << " to " << forReturn.size() << ").\n" << std::flush;
 	
 	return forReturn;
 }

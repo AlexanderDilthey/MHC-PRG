@@ -13,7 +13,7 @@
 #include <map>
 
 
-void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads);
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads, bool MiSeq250bp = false);
 void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotype_1, std::string starting_haplotype_2, bool longUnpairedReads);
 
 void simulateHLAreads(std::string graphDir, int nIndividuals, bool exon23, bool perturbHaplotypes, bool readError, std::string outputDirectory, std::string qualityMatrixFile, int readLength, double insertSize_mean, double insertSize_sd, double haploidCoverage);

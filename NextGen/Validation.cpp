@@ -872,7 +872,7 @@ void read_longReadAlignments_fromFile (std::string file, std::vector<seedAndExte
 }
 
 
-void estimateInsertSizeFromGraph(std::string FASTQs, std::string graphDir, std::vector<std::pair<double, double>>& inserSize_mean_sd_perFile)
+void estimateInsertSizeFromGraph(std::string FASTQs, std::string graphDir, std::vector<std::pair<double, double>>& inserSize_mean_sd_perFile, bool MiSeq250bp)
 {
 	inserSize_mean_sd_perFile.clear();
 	
