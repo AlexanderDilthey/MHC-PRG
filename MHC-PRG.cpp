@@ -474,7 +474,7 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			estimateInsertSizeFromGraph(input_FASTQ, graph_dir, inserSize_mean_sd_perFile);
+			estimateInsertSizeFromGraph(input_FASTQ, graph_dir, inserSize_mean_sd_perFile, MiSeq250bp);
 		}
 		
 		alignShortReadsToHLAGraph_multipleAlignments(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile, debug, MiSeq250bp);
@@ -609,6 +609,7 @@ int main(int argc, char *argv[])
 		std::string sampleID;
 
 		bool longUnpairedReads = false;
+		bool MiSeq250bp = false;
 		
 		for(unsigned int i = 0; i < arguments.size(); i++)
 		{
@@ -630,6 +631,12 @@ int main(int argc, char *argv[])
 			if(arguments.at(i) == "--longUnpairedReads")
 			{
 				longUnpairedReads = true;
+			}
+
+
+			if(arguments.at(i) == "--MiSeq250bp")
+			{
+				MiSeq250bp = true;
 			}
 		}
 
