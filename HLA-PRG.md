@@ -52,14 +52,14 @@ For each (indexed and sorted) input BAM, you need to specify a unique sample ID.
 
 To generate HLA types, you need to execute the following 4 commands from the MHC-PRG/src directory:
 
-./HLAtypeinference.pl --actions p --sampleIDs SAMPLEID --BAMs /path/to/indexed/bam.bam --referenceGenome /path/to/referenceGenome/as/one/fasta/file
-./HLAtypeinference.pl --actions n --sampleIDs SAMPLEID
-./HLAtypeinference.pl --actions a --sampleIDs SAMPLEID
-./HLAtypeinference.pl --actions i --sampleIDs SAMPLEID
+./HLAtypeinference.pl --actions p --sampleIDs SAMPLEID --BAMs /path/to/indexed/bam.bam --referenceGenome   /path/to/referenceGenome/as/one/fasta/file  
+./HLAtypeinference.pl --actions n --sampleIDs SAMPLEID  
+./HLAtypeinference.pl --actions a --sampleIDs SAMPLEID  
+./HLAtypeinference.pl --actions i --sampleIDs SAMPLEID  
 
 You can combine the actions in one command:
 
-./HLAtypeinference.pl --actions pnai --sampleIDs SAMPLEID --BAMs /path/to/indexed/bam.bam --referenceGenome /path/to/referenceGenome/as/one/fasta/file
+./HLAtypeinference.pl --actions pnai --sampleIDs SAMPLEID --BAMs /path/to/indexed/bam.bam --referenceGenome /path/to/referenceGenome/as/one/fasta/file  
 
 ... or specify multiple BAM files - concatenate the paths with the ',' character (you then also need to specify multiple --sampleIDs).
 
