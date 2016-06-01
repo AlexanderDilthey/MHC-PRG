@@ -896,6 +896,10 @@ void estimateInsertSizeFromGraph(std::string FASTQs, std::string graphDir, std::
 	omp_set_num_threads(1);
 
 	double targetReadPairs = 2000;
+	if(MiSeq250bp)
+	{
+		targetReadPairs = 500;		
+	}
 	
 	std::vector<std::string> FASTQ_files = Utilities::split(FASTQs, ",");
 	for(unsigned int fI = 0; fI < FASTQ_files.size(); fI++)

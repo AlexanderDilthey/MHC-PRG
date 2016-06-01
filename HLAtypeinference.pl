@@ -567,13 +567,12 @@ if($actions =~ /i/)
 		{
 			$command .= ' --MiSeq250bp ';
 		}
-		
-		
-		$command .= " &> $stdout_file";
+			
+		$command .= ' > ' . $stdout_file;
 		
 		print "Now executing command:\n$command\n\n";
-		
-		my $ret = system($command);	
+						
+		my $ret = system($command);			
 		
 		unless($ret == 0)
 		{
@@ -784,7 +783,7 @@ if($actions =~ /v/)
 	
 	my %types_as_validated;
 	foreach my $locus (@loci)
-	{
+	{		
 		my $arbitraty_indiv = (keys %reference_data)[0];
 		next unless((defined $reference_data{$arbitraty_indiv}{'HLA'.$locus}));
 		
@@ -859,7 +858,7 @@ if($actions =~ /v/)
 			
 			$types_as_validated{$reference_lookup_ID}{$locus} = \@reference_hla_values;
 
-			die Dumper($reference_data{$reference_lookup_ID}, \@reference_hla_values) unless($#reference_hla_values == 1);				
+			die Dumper("Weird", $reference_data{$reference_lookup_ID}, \@reference_hla_values) unless($#reference_hla_values == 1);				
 						
 			die "Undefined HLA ".join(', ', @reference_hla_values) unless(scalar(grep {defined $_} @reference_hla_values) == scalar(@reference_hla_values));			
 			@reference_hla_values = grep {! &simpleHLA::modernHLA_is_missing($_)} @reference_hla_values;
@@ -1277,8 +1276,8 @@ if($actions =~ /v/)
 					warn "Can't produce pileup for $locus / $indivID";
 					next;
 				}
-				my $inferred = \@imputed_hla_values;
 				
+				my $inferred = \@imputed_hla_values;				
 				my $truth = \@reference_hla_values;
 				
 				print {$output_fh} $inferred->[0], "\t\t\t", $truth->[0], "\n";
@@ -1294,7 +1293,7 @@ if($actions =~ /v/)
 					my $file = find_exon_file($locus, $exon);
 					my $sequences = read_exon_sequences($file);
 					
-					die Dumper($truth, $inferred);
+					# die Dumper($truth, $inferred);
 										
 					my @validated_extended = twoValidationAlleles_2_proper_names($truth, $locus, $sequences);
 								
@@ -1493,7 +1492,7 @@ if($actions =~ /v/)
 				
 		print SUMMARY "\t", join("\t", $locus, $problem_locus_examined{$locus}, $CR, $accuracy), "\n";
 	}
-
+	
 	my $comparions_OK = $comparisons - $compare_problems;
 	print "\nComparisons: $comparisons -- OK: $comparions_OK\n";
 		
@@ -1550,11 +1549,47 @@ if($actions =~ /v/)
 	}
 	
 	open(TYPES, '>', '_types_as_validated.txt') or die;
-	my @loci_for_print = sort {$a cmp $b} @loci;
-	print TYPES join(' ', 'IndividualID', map {'HLA' . $_ } @loci_for_print), "\n";
+	my @loci_for_print = sort {$a cmp $b} (keys %problem_locus_detail);
+	print TYPES join("\t", 'IndividualID', map {'HLA' . $_ } @loci_for_print), "\n";
 	foreach my $indivID (sort keys %types_as_validated)
 	{
-		print TYPES join(' ', $indivID, map {((exists $types_as_validated{$indivID}{$_}) and (scalar(@{$types_as_validated{$indivID}{$_}}) > 0) ) ? join('/', @{$types_as_validated{$indivID}{$_}}) : '????/????'} @loci_for_print), "\n";
+		my @fields_for_indiv = ($indivID);
+		foreach my $locus (@loci_for_print)
+		{
+			my $locus_values;
+			
+			if((exists $types_as_validated{$indivID}{$locus}) and (scalar(@{$types_as_validated{$indivID}{$locus}}) > 0) )
+			{
+				my @alleles = @{$types_as_validated{$indivID}{$locus}};
+				my @alleles_for_print;
+				foreach my $allele (@alleles)
+				{
+					if($allele =~ /\:/)
+					{
+						push(@alleles_for_print, $allele);
+					}
+					else
+					{
+						die unless((length($allele) == 4) or (length($allele) == 5));
+						$allele =~ s/g/G/;
+						$allele = substr($allele, 0, 2) . ':' . substr($allele, 2);
+						push(@alleles_for_print, $allele);
+
+					}
+				}
+				$locus_values = join("/", @alleles_for_print);
+			}
+			else
+			{
+				$locus_values = '????/????';
+			}
+			
+			die unless(defined $locus_values);
+			
+			push(@fields_for_indiv, $locus_values);
+			
+		}
+		print TYPES join("\t", @fields_for_indiv), "\n";
 	}
 	close(TYPES);
 }
@@ -2135,7 +2170,7 @@ sub compatibleAlleles_individual
 		
 	if($locus eq 'C')
 	{
-		print Dumper([$locus, $allele_validation, $allele_inference, scalar(@components_allele_validation)]);
+		# print Dumper([$locus, $allele_validation, $allele_inference, scalar(@components_allele_validation)]);
 	}
 	
 	die "Weird allele $locus $allele_validation" unless(length($allele_validation) >= 4);
