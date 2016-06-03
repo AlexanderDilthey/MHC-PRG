@@ -58,6 +58,8 @@ my $fromHLAreporter = 0;
 my $referenceGenome;
 my $threads = 1;
 
+my $no_fail = 0;
+
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
 
 GetOptions ('graph:s' => \$graph,
@@ -79,6 +81,7 @@ GetOptions ('graph:s' => \$graph,
  'fromHLAreporter:s' => \$fromHLAreporter,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
  'threads:s' => \$threads,
+ 'no_fail:s' => \$no_fail,
 );         
 
 die if($fromPHLAT and $fromHLAreporter);
@@ -551,8 +554,14 @@ if($actions =~ /i/)
 		}
 	}
 	die unless(defined $switch_long_reads);
-		
-	for(my $sI = 0; $sI <= $#aligned_files; $sI++)
+	
+	open(FAILEDSAMPLES, '>', '_failedSampleIDs.txt') or die;
+	
+	if($no_fail)
+	{
+		warn "--no_fail 1 active, will try to continue when inference for a sample fails.";
+	}
+	SAMPLE: for(my $sI = 0; $sI <= $#aligned_files; $sI++)
 	{
 		my $sampleID = $sampleIDs[$sI];
 		my $aligned_file = $aligned_files[$sI];
@@ -576,7 +585,16 @@ if($actions =~ /i/)
 		
 		unless($ret == 0)
 		{
-			die "When executing $command, got return code $ret";
+			if($no_fail)
+			{
+				warn "When executing $command, got return code $ret";
+				print FAILEDSAMPLES $sampleID, "\n";
+				next SAMPLE;		
+			}		
+			else
+			{
+				die "When executing $command, got return code $ret";
+			}
 		}
 		
 		my $expected_bestguess_file = $aligned_file_path . '/' . 'R1_bestguess.txt';
@@ -1292,6 +1310,10 @@ if($actions =~ /v/)
 				{
 					my $file = find_exon_file($locus, $exon);
 					my $sequences = read_exon_sequences($file);
+					my $randomKey = (keys %$sequences)[0];
+					my $randomSequence = $sequences->{$randomKey};
+					$randomSequence =~ s/./?/g;
+					$sequences->{'?'} = $randomSequence;
 					
 					# die Dumper($truth, $inferred);
 										
@@ -1302,7 +1324,7 @@ if($actions =~ /v/)
 										
 					# print "-", $sequences->{$oneAllele}, "-\n\n";
 					
-					die unless(scalar(grep {$sequences->{$_}} @validated_extended) == 2);
+					die Dumper("No sequences?", \@validated_extended) unless(scalar(grep {$sequences->{$_}} @validated_extended) == 2);
 					die unless(scalar(grep {$sequences->{$_}} @inferred_trimmed) == 2);
 					
 					print {$output_fh} join("\t",
@@ -2443,7 +2465,9 @@ sub twoValidationAlleles_2_proper_names
 						# print Dumper([grep {$_ =~ /DQB1/} keys %$exon_sequences]);
 						if($validation_allele eq $vA[$#vA])
 						{
-							die Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);
+							push(@forReturn, '?');								
+							warn Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);							
+							next REFALLELE;
 						}
 						else
 						{
