@@ -555,7 +555,7 @@ if($actions =~ /i/)
 	}
 	die unless(defined $switch_long_reads);
 	
-	open(FAILEDSAMPLES, '>', '_failedSampleIDs.txt') or die;
+	open(FAILEDSAMPLES, '>', '_failedSampleID_inference.txt') or die;
 	
 	if($no_fail)
 	{
