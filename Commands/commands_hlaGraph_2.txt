@@ -232,6 +232,7 @@ dot ../tmp2/GS_nextGen/hla/drbGraphViz.txt -Tpng -o DRB1.png
 ./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromHLAreporter 1 --all_2_dig 1
 
 
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt
 ./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt --fromPHLAT 1
 ./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt --fromHLAreporter 1
 
@@ -241,4 +242,18 @@ dot ../tmp2/GS_nextGen/hla/drbGraphViz.txt -Tpng -o DRB1.png
 ./HLAtypeinference.pl --sampleIDs all_I6 --actions ai
 
 ./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions i
+
+# MiSeq repeat
+
+./HLAtypeinference.pl --sampleIDs I6_WTSI19550,I6_WTSI19556,I6_WTSI19560,I6_WTSI19569,I6_WTSI19586,I6_WTSI19650 --actions ai --MiSeq250bp 1 --no_fail 1 &> output_ai_2.txt
+
+# Test down-samples MiSeq
+
+./HLAtypeinference.pl --sampleIDs dS_WTSI19556 --actions pnai --BAMs /gpfs1/well/gsk_hla/Alexander_Mentzer_BAMs_downsampled/AM_WTSI19556.bam --referenceGenome /gpfs1/well/gsk_hla/GRCh37.60/fasta/combined/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.fa
+
+
+./HLAtypeinference.pl --sampleIDs dS_WTSI19556 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt
+
+
+
 

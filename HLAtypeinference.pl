@@ -85,6 +85,7 @@ GetOptions ('graph:s' => \$graph,
 );         
 
 die if($fromPHLAT and $fromHLAreporter);
+my $fromMHCPRG = ((not $fromPHLAT) and (not $fromHLAreporter));
 
 if($MiSeq250bp and $HiSeq250bp)
 {
@@ -669,7 +670,7 @@ if($actions =~ /v/)
 	my %imputed_HLA_avgCoverage;
 	my %imputed_HLA_lowCoverage;
 	my %imputed_HLA_minCoverage;
-
+	
 	my %sample_noI_toI;
 	
 	my $total_imputations = 0;
@@ -799,6 +800,7 @@ if($actions =~ /v/)
 		return $basket;			
 	};
 	
+	my %errors_per_sample;
 	my %types_as_validated;
 	foreach my $locus (@loci)
 	{		
@@ -1193,7 +1195,8 @@ if($actions =~ /v/)
 			}
 			
 			my $thisIndiv_problems = $problem_locus_detail{$locus} - $problem_locus_detail_before;
-				
+			$errors_per_sample{$indivID} += $thisIndiv_problems;
+							
 			my $avgCoverage = $imputed_HLA_avgCoverage{$locus}{$indivID};
 			my $lowCoverage = $imputed_HLA_lowCoverage{$locus}{$indivID};
 			my $minCoverage = $imputed_HLA_minCoverage{$locus}{$indivID};
@@ -1518,6 +1521,26 @@ if($actions =~ /v/)
 	my $comparions_OK = $comparisons - $compare_problems;
 	print "\nComparisons: $comparisons -- OK: $comparions_OK\n";
 		
+	if($fromMHCPRG)
+	{
+		open(PROBLEMSPERSAMPLE, '>>', '_problems_per_sample_running.txt') or die;
+		foreach my $indivID (keys %errors_per_sample)
+		{
+			my $fullSampleID = $sample_noI_toI{$indivID};
+			die unless(defined $fullSampleID);
+			
+			my $aligned_file = '../tmp/hla/'.$fullSampleID.'/reads.p.n.aligned';
+			die "Aligned reads file $aligned_file not existing" unless(-e $aligned_file);
+			open(ALIGNED, '<', $aligned_file) or die;
+			my $firstLine = <ALIGNED>;
+			chomp($firstLine);
+			close(ALIGNED);
+			my @IS = split(/ /, $firstLine);
+			die unless(scalar(@IS) == 3);
+			print PROBLEMSPERSAMPLE join("\t", $fullSampleID, $errors_per_sample{$indivID}, $IS[1], $IS[2]), "\n";
+		}
+		close(PROBLEMSPERSAMPLE);
+	}
 	open(TMP_OUTPUT, '>', '../tmp/hla_validation/validation_summary.txt') or die;
 	print "\nPER-LOCUS SUMMARY:\n";
 	foreach my $key (sort keys %problem_locus_detail)

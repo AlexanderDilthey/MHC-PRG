@@ -5433,10 +5433,13 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 					for(auto kMer : kMers)
 					{
 						kMers_total++;
-						std::string kMerKey = kMer_canonical_representation(kMer);						
-						if(kMer_counts.count(kMerKey) && (kMer_counts.at(kMerKey) > 0))
+						if(kMer.find("*") == std::string::npos)
 						{
-							kMers_present++;
+							std::string kMerKey = kMer_canonical_representation(kMer);						
+							if(kMer_counts.count(kMerKey) && (kMer_counts.at(kMerKey) > 0))
+							{
+								kMers_present++;
+							}
 						}
 					}
 				}
