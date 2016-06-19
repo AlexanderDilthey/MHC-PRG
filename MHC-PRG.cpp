@@ -470,11 +470,11 @@ int main(int argc, char *argv[])
 			for(unsigned int i = 0; i < files.size(); i++)
 			{
 				inserSize_mean_sd_perFile.push_back(make_pair(IS_mean_d, IS_sd_d));
-			}
+			} 
 		}
 		else
 		{
-			estimateInsertSizeFromGraph(input_FASTQ, graph_dir, inserSize_mean_sd_perFile, MiSeq250bp);
+			estimateInsertSizeFromGraph(input_FASTQ, graph_dir, inserSize_mean_sd_perFile, true);
 		}
 		
 		alignShortReadsToHLAGraph_multipleAlignments(input_FASTQ, graph_dir, referenceGenome, inserSize_mean_sd_perFile, debug, MiSeq250bp);

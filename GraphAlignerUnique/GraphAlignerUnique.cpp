@@ -2513,6 +2513,8 @@ std::vector< std::pair<seedAndExtend_return_local, seedAndExtend_return_local> >
 
 std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUnique::seedAndExtend_local_paired_or_short(oneReadPair readPair, bool usePairing, bool use_short, double insertSize_mean, double insertSize_sd, bool estimateInsertSize, std::map<int, double>& insertSize_posterior_ret, bool MiSeq250bp)
 {
+	std::cout << "seedAndExtend_local_paired_or_short -- MiSeq250bp: " << MiSeq250bp << "\n" << std::flush;
+	
 	assert(g != 0);
 	if(estimateInsertSize)
 	{
@@ -2581,8 +2583,8 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		{
 			this->verbose = true;
 		}
-		read1_maxBacktrace = seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces, MiSeq250bp);
-		read2_maxBacktrace = seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces, MiSeq250bp);
+		read1_maxBacktrace = seedAndExtend_short(readPair.reads.first.sequence, read1_backtraces, true, MiSeq250bp);
+		read2_maxBacktrace = seedAndExtend_short(readPair.reads.second.sequence, read2_backtraces, true, MiSeq250bp);
 		this->verbose = verbose_before;
 	}
 	else
@@ -2590,6 +2592,9 @@ std::pair<seedAndExtend_return_local, seedAndExtend_return_local> GraphAlignerUn
 		read1_maxBacktrace = seedAndExtend_local(readPair.reads.first.sequence, read1_backtraces);
 		read2_maxBacktrace = seedAndExtend_local(readPair.reads.second.sequence, read2_backtraces);
 	}
+	
+	std::cout << "use_short: " << use_short << " // read1_backtraces.size(): " << read1_backtraces.size() << "\n" << std::flush;
+	
 	
 	unsigned int preFiltering_read1_backtraces_size = read1_backtraces.size();
 	unsigned int preFiltering_read2_backtraces_size = read2_backtraces.size();
@@ -3648,6 +3653,8 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_local(std::string s
 
 seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string sequence_nonReverse, std::vector<seedAndExtend_return_local>& allBacktraces, bool greedyLocalExtension, bool MiSeq250bp)
 {
+	// std::cout << "seedAndExtend_short -- MiSeq250bp: " << MiSeq250bp << "\n" << std::flush;
+
 	assert(g != 0);
 	seedAndExtend_return_local forReturn;
 	
@@ -3669,9 +3676,10 @@ seedAndExtend_return_local GraphAlignerUnique::seedAndExtend_short(std::string s
 	{
 		maximumConsideredChains = 10;
 	}	
+
 	if(MiSeq250bp)
 	{
-		maximumConsideredChains = 5;
+		maximumConsideredChains = 3;
 	}
 
 	bool useReverse;

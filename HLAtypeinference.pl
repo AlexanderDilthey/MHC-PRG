@@ -43,6 +43,7 @@ my $trueHLA;
 my $trueHaplotypes;
 #my $validation_round = 'R1';
 my $T = 0;
+my $minPropkMersCovered = 0;
 my $minCoverage = 0;
 my $all_2_dig = 0;
 my $only_4_dig = 1;
@@ -58,6 +59,8 @@ my $fromHLAreporter = 0;
 my $referenceGenome;
 my $threads = 1;
 
+my $no_fail = 0;
+
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
 
 GetOptions ('graph:s' => \$graph,
@@ -70,6 +73,7 @@ GetOptions ('graph:s' => \$graph,
  #'validation_round:s' => \$validation_round,
  'T:s' => \$T,
  'minCoverage:s' => \$minCoverage,
+ 'minPropkMersCovered:s' => \$minPropkMersCovered,
  'all_2_dig:s' => \$all_2_dig,
  'only_4_dig:s' => \$only_4_dig,
  'HiSeq250bp:s' => \$HiSeq250bp, 
@@ -79,9 +83,11 @@ GetOptions ('graph:s' => \$graph,
  'fromHLAreporter:s' => \$fromHLAreporter,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
  'threads:s' => \$threads,
+ 'no_fail:s' => \$no_fail,
 );         
 
 die if($fromPHLAT and $fromHLAreporter);
+my $fromMHCPRG = ((not $fromPHLAT) and (not $fromHLAreporter));
 
 if($MiSeq250bp and $HiSeq250bp)
 {
@@ -91,6 +97,11 @@ if($MiSeq250bp and $HiSeq250bp)
 if($minCoverage)
 {
 	print "Minimum coverage threshold in place: $minCoverage\n";
+}
+
+if($minPropkMersCovered)
+{
+	print "Threshold for kMer coverage in place: $minPropkMersCovered \n";
 }
 
 if($fastExtraction)
@@ -188,8 +199,8 @@ elsif($sampleIDs =~ /^all/)
 		@sampleIDs = @sampleIDs[5 .. $#sampleIDs];
 		@sampleIDs = grep {$_ !~ /AA02O9Q_Z2/} @sampleIDs;
 		@sampleIDs = grep {$_ !~ /AA02O9R/} @sampleIDs;		
-		warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nRemove first five and NA12878 and high-coverage sample for validation!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 		
+		# warn "\n\n\n\n!!!!!!!!!!!!!!!!!!!!!\n\nRemove first five and NA12878 and high-coverage sample for validation!\n\n!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n";
 		# @sampleIDs = @sampleIDs[0 .. 4];
 		
 		die unless(($actions eq 'v') or ($actions eq 'w'));
@@ -551,8 +562,14 @@ if($actions =~ /i/)
 		}
 	}
 	die unless(defined $switch_long_reads);
-		
-	for(my $sI = 0; $sI <= $#aligned_files; $sI++)
+	
+	open(FAILEDSAMPLES, '>', '_failedSampleID_inference.txt') or die;
+	
+	if($no_fail)
+	{
+		warn "--no_fail 1 active, will try to continue when inference for a sample fails.";
+	}
+	SAMPLE: for(my $sI = 0; $sI <= $#aligned_files; $sI++)
 	{
 		my $sampleID = $sampleIDs[$sI];
 		my $aligned_file = $aligned_files[$sI];
@@ -561,15 +578,31 @@ if($actions =~ /i/)
 		
 		my ($aligned_file_name, $aligned_file_path) = fileparse($aligned_file);
 					
-		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ../tmp2/GS_nextGen/${graph} ${switch_long_reads} --sampleID $sampleID > $stdout_file);
-	
-		print "Now executing command:\n$command\n\n";
+		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ../tmp2/GS_nextGen/${graph} ${switch_long_reads} --sampleID $sampleID);
+
+		if($MiSeq250bp)
+		{
+			$command .= ' --MiSeq250bp ';
+		}
+			
+		$command .= ' > ' . $stdout_file;
 		
-		my $ret = system($command);	
+		print "Now executing command:\n$command\n\n";
+						
+		my $ret = system($command);			
 		
 		unless($ret == 0)
 		{
-			die "When executing $command, got return code $ret";
+			if($no_fail)
+			{
+				warn "When executing $command, got return code $ret";
+				print FAILEDSAMPLES $sampleID, "\n";
+				next SAMPLE;		
+			}		
+			else
+			{
+				die "When executing $command, got return code $ret";
+			}
 		}
 		
 		my $expected_bestguess_file = $aligned_file_path . '/' . 'R1_bestguess.txt';
@@ -641,10 +674,11 @@ if($actions =~ /v/)
 	
 	my %imputed_HLA;
 	my %imputed_HLA_Q;
+	my %imputed_HLA_kMersCovered;
 	my %imputed_HLA_avgCoverage;
 	my %imputed_HLA_lowCoverage;
 	my %imputed_HLA_minCoverage;
-
+	
 	my %sample_noI_toI;
 	
 	my $total_imputations = 0;
@@ -693,7 +727,7 @@ if($actions =~ /v/)
 				next;
 			}		
 		}
-		  
+				  
 		open(BESTGUESS, '<', $bestGuess_file) or die "Cannot open $bestGuess_file";
 		my $bestguess_header_line = <BESTGUESS>;
 		chomp($bestguess_header_line);
@@ -706,8 +740,13 @@ if($actions =~ /v/)
 			my %line_hash = (mesh @bestguess_header_files, @line_fields);
 			
 			my $Q = $line_hash{'Q1'};
+			my $kMersCovered = $line_hash{'proportionkMersCovered'};
+			$kMersCovered = 1 unless(defined $kMersCovered);
+			
 			$imputed_HLA_Q{$line_hash{'Locus'}}{$sampleID_noI}{$line_hash{'Chromosome'}} = $Q;
-			if($Q < $T)
+			$imputed_HLA_kMersCovered{$line_hash{'Locus'}}{$sampleID_noI}{$line_hash{'Chromosome'}} = $kMersCovered;
+			
+			if(($Q < $T) or ($kMersCovered < $minPropkMersCovered))
 			{
 				$imputed_HLA{$line_hash{'Locus'}}{$sampleID_noI}{$line_hash{'Chromosome'}} = '??:??';			
 			}
@@ -774,9 +813,17 @@ if($actions =~ /v/)
 		return $basket;			
 	};
 	
+	
+	my $fh_qualityMetricsRunning;
+	if($fromMHCPRG)
+	{
+		open($fh_qualityMetricsRunning, '>>', '_qualityMetrics_per_imputation_running.txt') or die;
+	}
+		
+	my %errors_per_sample;
 	my %types_as_validated;
 	foreach my $locus (@loci)
-	{
+	{		
 		my $arbitraty_indiv = (keys %reference_data)[0];
 		next unless((defined $reference_data{$arbitraty_indiv}{'HLA'.$locus}));
 		
@@ -785,16 +832,27 @@ if($actions =~ /v/)
 		my %coverage_over_samples_individualValues;
 		my $coverage_over_samples_nSamples = 0;
 		
+	
 		my $add_to_calibration_basket = sub {
 			my $str_correct = shift;
 			my $PP = shift;
 			my $weight = shift;
+			my $locus = shift;
+			my $sampleID = shift;
+			my $kMer_correct = shift;
 			
 			die unless(($str_correct eq 'correct') or ($str_correct eq 'incorrect'));
 			die unless(defined $PP);
 			die unless(defined $weight);
+			die unless(defined $kMer_correct);
 			
 			push(@{$calibration_baskets{$PP_to_basket->($PP)}{$str_correct}}, {PP => $PP, weight => $weight});
+			
+			if($fromMHCPRG)
+			{
+				my $correct_numeric = ($str_correct eq 'correct') ? 1 : 0;
+				print ${fh_qualityMetricsRunning} join("\t", $sampleID, $locus, $correct_numeric, $PP, $kMer_correct), "\n";
+			}
 		};	
 		
 		$problem_locus_examined{$locus} = 0;
@@ -815,7 +873,8 @@ if($actions =~ /v/)
 			{
 				die "Warning: 2-digit alleles detected in the inference set\n" . Dumper(\@imputed_hla_values); # 2-digit test
 			}
-			
+		
+			my @imputed_hla_values_propkMersCovered = map { my $r = $imputed_HLA_kMersCovered{$locus}{$indivID}{$_}; die unless(defined $r); $r } keys %{$imputed_HLA{$locus}{$indivID}};
 			my @imputed_hla_values_q = map { my $r = $imputed_HLA_Q{$locus}{$indivID}{$_}; die unless(defined $r); $r } keys %{$imputed_HLA{$locus}{$indivID}};
 			
 			die "Undefined HLA ".join(', ', @imputed_hla_values) unless(scalar(grep {defined $_} @imputed_hla_values) == scalar(@imputed_hla_values));
@@ -851,7 +910,7 @@ if($actions =~ /v/)
 			
 			$types_as_validated{$reference_lookup_ID}{$locus} = \@reference_hla_values;
 
-			die Dumper($reference_data{$reference_lookup_ID}, \@reference_hla_values) unless($#reference_hla_values == 1);				
+			die Dumper("Weird", $reference_data{$reference_lookup_ID}, \@reference_hla_values) unless($#reference_hla_values == 1);				
 						
 			die "Undefined HLA ".join(', ', @reference_hla_values) unless(scalar(grep {defined $_} @reference_hla_values) == scalar(@reference_hla_values));			
 			@reference_hla_values = grep {! &simpleHLA::modernHLA_is_missing($_)} @reference_hla_values;
@@ -884,20 +943,29 @@ if($actions =~ /v/)
 			
 			my @imputed_present = map {(! &simpleHLA::is_missing($_)) ? 1 : 0} @imputed_hla_values;
 			my @imputed_hla_values_q_new;
+			my @imputed_hla_values_propkMersCovered_new;
 			for(my $i = 0; $i <= $#imputed_hla_values; $i++)
 			{
 				my $Q = $imputed_hla_values_q[$i];
+				my $kP = $imputed_hla_values_propkMersCovered[$i];
+				
 				die unless(defined $Q);
+				die unless(defined $kP);
 				die unless(defined $imputed_present[$i]);
+				
 				if($imputed_present[$i])
 				{
 					push(@imputed_hla_values_q_new, $Q);
+					push(@imputed_hla_values_propkMersCovered_new, $kP);
 				}
 			}
 			
 			@imputed_hla_values = grep {! &simpleHLA::is_missing($_)} @imputed_hla_values;
 			@imputed_hla_values_q = @imputed_hla_values_q_new;
+			@imputed_hla_values_propkMersCovered = @imputed_hla_values_propkMersCovered_new;
+			
 			die unless($#imputed_hla_values == $#imputed_hla_values_q);
+			die unless($#imputed_hla_values == $#imputed_hla_values_propkMersCovered);
 			
 			$imputed_HLA_Calls{$locus}{called} += scalar(@imputed_hla_values);
 			
@@ -930,14 +998,14 @@ if($actions =~ /v/)
 								$reference_predictions{$locus}{$reference_hla_values[0]}{correct}++;
 								$imputations_predictions{$locus}{$imputed_hla_values[0]}{correct}++;
 								
-								$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1);														
+								$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);														
 							}
 							elsif(&compatibleAlleles_individual($locus, $reference_hla_values[0], $imputed_hla_values[1]))
 							{
 								$reference_predictions{$locus}{$reference_hla_values[0]}{correct}++;
 								$imputations_predictions{$locus}{$imputed_hla_values[1]}{correct}++;
 
-								$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1);								
+								$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[1]);								
 							}
 							
 							$process_quality_measures->($locus, $quality_measures{$indivID}, 1, 1);
@@ -956,8 +1024,8 @@ if($actions =~ /v/)
 							$imputations_predictions{$locus}{$imputed_hla_values[0]}{incorrect} += 0.5;
 							$imputations_predictions{$locus}{$imputed_hla_values[1]}{incorrect} += 0.5;
 							
-							$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 0.5);
-							$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[1], 0.5);
+							$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 0.5, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
+							$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[1], 0.5, $locus, $indivID, $imputed_hla_values_propkMersCovered[1]);
 							
 							
 							$process_quality_measures->($locus, $quality_measures{$indivID}, 0, 1);
@@ -977,8 +1045,8 @@ if($actions =~ /v/)
 							
 							$process_quality_measures->($locus, $quality_measures{$indivID}, 2, 2);	
 							
-							$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1);
-							$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1);
+							$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
+							$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[1]);
 							
 						}		
 						elsif(&compatibleAlleles_individual($locus, $reference_hla_values[0], $imputed_hla_values[1]) and &compatibleAlleles_individual($locus, $reference_hla_values[1], $imputed_hla_values[0]))
@@ -993,8 +1061,8 @@ if($actions =~ /v/)
 							
 							$process_quality_measures->($locus, $quality_measures{$indivID}, 2, 2);		
 
-							$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1);
-							$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1);
+							$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
+							$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[1]);
 							
 						}
 						else
@@ -1018,8 +1086,8 @@ if($actions =~ /v/)
 									$reference_predictions{$locus}{$reference_hla_values[1]}{incorrect}++;
 									$imputations_predictions{$locus}{$imputed_hla_values[1]}{incorrect}++;		
 
-									$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1);
-									$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[1], 1);									
+									$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
+									$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[1], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[1]);									
 								}
 								elsif(&compatibleAlleles_individual($locus, $reference_hla_values[1], $imputed_hla_values[1]))
 								{
@@ -1028,8 +1096,8 @@ if($actions =~ /v/)
 									$reference_predictions{$locus}{$reference_hla_values[0]}{incorrect}++;
 									$imputations_predictions{$locus}{$imputed_hla_values[0]}{incorrect}++;		
 									
-									$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1);
-									$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1);	
+									$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[1]);
+									$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);	
 								}
 								elsif(&compatibleAlleles_individual($locus, $reference_hla_values[1], $imputed_hla_values[0]))
 								{
@@ -1038,8 +1106,8 @@ if($actions =~ /v/)
 									$reference_predictions{$locus}{$reference_hla_values[0]}{incorrect}++;
 									$imputations_predictions{$locus}{$imputed_hla_values[1]}{incorrect}++;	
 									
-									$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1);
-									$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[1], 1);	
+									$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
+									$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[1], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[1]);	
 								}
 								elsif(&compatibleAlleles_individual($locus, $reference_hla_values[0], $imputed_hla_values[1]))
 								{
@@ -1048,8 +1116,8 @@ if($actions =~ /v/)
 									$reference_predictions{$locus}{$reference_hla_values[1]}{incorrect}++;
 									$imputations_predictions{$locus}{$imputed_hla_values[0]}{incorrect}++;		
 
-									$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1);
-									$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1);										
+									$add_to_calibration_basket->('correct', $imputed_hla_values_q[1], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[1]);
+									$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);										
 								}
 								
 								$process_quality_measures->($locus, $quality_measures{$indivID}, 1, 2);
@@ -1068,8 +1136,8 @@ if($actions =~ /v/)
 								$reference_predictions{$locus}{$reference_hla_values[1]}{incorrect}++;
 								$imputations_predictions{$locus}{$imputed_hla_values[1]}{incorrect}++;	
 								
-								$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1);
-								$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[1], 1);									
+								$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
+								$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[1], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[1]);									
 								
 								$process_quality_measures->($locus, $quality_measures{$indivID}, 0, 2);						
 							}
@@ -1094,7 +1162,7 @@ if($actions =~ /v/)
 							$reference_predictions{$locus}{$reference_hla_values[0]}{correct}++;
 							$imputations_predictions{$locus}{$imputed_hla_values[0]}{correct}++;
 							
-							$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1);
+							$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
 								
 							$process_quality_measures->($locus, $quality_measures{$indivID}, 1, 1);
 							
@@ -1111,7 +1179,7 @@ if($actions =~ /v/)
 							$reference_predictions{$locus}{$reference_hla_values[0]}{incorrect}++;
 							$imputations_predictions{$locus}{$imputed_hla_values[0]}{incorrect}++;
 							
-							$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1);
+							$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
 							
 							$process_quality_measures->($locus, $quality_measures{$indivID}, 0, 1);									
 						}					
@@ -1128,7 +1196,7 @@ if($actions =~ /v/)
 								$reference_predictions{$locus}{$reference_hla_values[0]}{correct}++;
 								$imputations_predictions{$locus}{$imputed_hla_values[0]}{correct}++;
 
-								$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1);
+								$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
 								
 							}
 							elsif(&compatibleAlleles_individual($locus, $reference_hla_values[1], $imputed_hla_values[0]))
@@ -1136,10 +1204,10 @@ if($actions =~ /v/)
 								$reference_predictions{$locus}{$reference_hla_values[1]}{correct}++;
 								$imputations_predictions{$locus}{$imputed_hla_values[0]}{correct}++;	
 
-								$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1);								
+								$add_to_calibration_basket->('correct', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);								
 							}
 							
-							$process_quality_measures->($locus, $quality_measures{$indivID}, 1, 1);
+							$process_quality_measures->($locus, $quality_measures{$indivID}, 1, 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
 
 						}		
 						else
@@ -1155,7 +1223,7 @@ if($actions =~ /v/)
 							$reference_predictions{$locus}{$reference_hla_values[1]}{incorrect} += 0.5;
 							$imputations_predictions{$locus}{$imputed_hla_values[0]}{incorrect}++;	
 							
-							$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1);
+							$add_to_calibration_basket->('incorrect', $imputed_hla_values_q[0], 1, $locus, $indivID, $imputed_hla_values_propkMersCovered[0]);
 
 							$process_quality_measures->($locus, $quality_measures{$indivID}, 0, 1);								
 						}
@@ -1168,7 +1236,8 @@ if($actions =~ /v/)
 			}
 			
 			my $thisIndiv_problems = $problem_locus_detail{$locus} - $problem_locus_detail_before;
-				
+			$errors_per_sample{$indivID} += $thisIndiv_problems;
+							
 			my $avgCoverage = $imputed_HLA_avgCoverage{$locus}{$indivID};
 			my $lowCoverage = $imputed_HLA_lowCoverage{$locus}{$indivID};
 			my $minCoverage = $imputed_HLA_minCoverage{$locus}{$indivID};
@@ -1269,8 +1338,8 @@ if($actions =~ /v/)
 					warn "Can't produce pileup for $locus / $indivID";
 					next;
 				}
-				my $inferred = \@imputed_hla_values;
 				
+				my $inferred = \@imputed_hla_values;				
 				my $truth = \@reference_hla_values;
 				
 				print {$output_fh} $inferred->[0], "\t\t\t", $truth->[0], "\n";
@@ -1285,6 +1354,12 @@ if($actions =~ /v/)
 				{
 					my $file = find_exon_file($locus, $exon);
 					my $sequences = read_exon_sequences($file);
+					my $randomKey = (keys %$sequences)[0];
+					my $randomSequence = $sequences->{$randomKey};
+					$randomSequence =~ s/./?/g;
+					$sequences->{'?'} = $randomSequence;
+					
+					# die Dumper($truth, $inferred);
 										
 					my @validated_extended = twoValidationAlleles_2_proper_names($truth, $locus, $sequences);
 								
@@ -1293,7 +1368,7 @@ if($actions =~ /v/)
 										
 					# print "-", $sequences->{$oneAllele}, "-\n\n";
 					
-					die unless(scalar(grep {$sequences->{$_}} @validated_extended) == 2);
+					die Dumper("No sequences?", \@validated_extended) unless(scalar(grep {$sequences->{$_}} @validated_extended) == 2);
 					die unless(scalar(grep {$sequences->{$_}} @inferred_trimmed) == 2);
 					
 					print {$output_fh} join("\t",
@@ -1483,10 +1558,30 @@ if($actions =~ /v/)
 				
 		print SUMMARY "\t", join("\t", $locus, $problem_locus_examined{$locus}, $CR, $accuracy), "\n";
 	}
-
+	
 	my $comparions_OK = $comparisons - $compare_problems;
 	print "\nComparisons: $comparisons -- OK: $comparions_OK\n";
 		
+	if($fromMHCPRG)
+	{
+		open(PROBLEMSPERSAMPLE, '>>', '_problems_per_sample_running.txt') or die;
+		foreach my $indivID (keys %errors_per_sample)
+		{
+			my $fullSampleID = $sample_noI_toI{$indivID};
+			die unless(defined $fullSampleID);
+			
+			my $aligned_file = '../tmp/hla/'.$fullSampleID.'/reads.p.n.aligned';
+			die "Aligned reads file $aligned_file not existing" unless(-e $aligned_file);
+			open(ALIGNED, '<', $aligned_file) or die;
+			my $firstLine = <ALIGNED>;
+			chomp($firstLine);
+			close(ALIGNED);
+			my @IS = split(/ /, $firstLine);
+			die unless(scalar(@IS) == 3);
+			print PROBLEMSPERSAMPLE join("\t", $fullSampleID, $errors_per_sample{$indivID}, $IS[1], $IS[2]), "\n";
+		}
+		close(PROBLEMSPERSAMPLE);
+	}
 	open(TMP_OUTPUT, '>', '../tmp/hla_validation/validation_summary.txt') or die;
 	print "\nPER-LOCUS SUMMARY:\n";
 	foreach my $key (sort keys %problem_locus_detail)
@@ -1540,11 +1635,47 @@ if($actions =~ /v/)
 	}
 	
 	open(TYPES, '>', '_types_as_validated.txt') or die;
-	my @loci_for_print = sort {$a cmp $b} @loci;
-	print TYPES join(' ', 'IndividualID', map {'HLA' . $_ } @loci_for_print), "\n";
+	my @loci_for_print = sort {$a cmp $b} (keys %problem_locus_detail);
+	print TYPES join("\t", 'IndividualID', map {'HLA' . $_ } @loci_for_print), "\n";
 	foreach my $indivID (sort keys %types_as_validated)
 	{
-		print TYPES join(' ', $indivID, map {((exists $types_as_validated{$indivID}{$_}) and (scalar(@{$types_as_validated{$indivID}{$_}}) > 0) ) ? join('/', @{$types_as_validated{$indivID}{$_}}) : '????/????'} @loci_for_print), "\n";
+		my @fields_for_indiv = ($indivID);
+		foreach my $locus (@loci_for_print)
+		{
+			my $locus_values;
+			
+			if((exists $types_as_validated{$indivID}{$locus}) and (scalar(@{$types_as_validated{$indivID}{$locus}}) > 0) )
+			{
+				my @alleles = @{$types_as_validated{$indivID}{$locus}};
+				my @alleles_for_print;
+				foreach my $allele (@alleles)
+				{
+					if($allele =~ /\:/)
+					{
+						push(@alleles_for_print, $allele);
+					}
+					else
+					{
+						die unless((length($allele) == 4) or (length($allele) == 5));
+						$allele =~ s/g/G/;
+						$allele = substr($allele, 0, 2) . ':' . substr($allele, 2);
+						push(@alleles_for_print, $allele);
+
+					}
+				}
+				$locus_values = join("/", @alleles_for_print);
+			}
+			else
+			{
+				$locus_values = '????/????';
+			}
+			
+			die unless(defined $locus_values);
+			
+			push(@fields_for_indiv, $locus_values);
+			
+		}
+		print TYPES join("\t", @fields_for_indiv), "\n";
 	}
 	close(TYPES);
 }
@@ -2099,6 +2230,7 @@ sub compatibleAlleles_individual
 	my $allele_validation = shift;
 	my $allele_inference = shift;
 	
+
 	# die Dumper($allele_validation, $allele_inference);
 	
 	my @components_allele_validation = split(/;/, $allele_validation);
@@ -2122,6 +2254,10 @@ sub compatibleAlleles_individual
 	
 	my $allele_validation_original = $allele_validation;
 		
+	if($locus eq 'C')
+	{
+		# print Dumper([$locus, $allele_validation, $allele_inference, scalar(@components_allele_validation)]);
+	}
 	
 	die "Weird allele $locus $allele_validation" unless(length($allele_validation) >= 4);
 	die unless($allele_inference =~ /:/);
@@ -2393,7 +2529,9 @@ sub twoValidationAlleles_2_proper_names
 						# print Dumper([grep {$_ =~ /DQB1/} keys %$exon_sequences]);
 						if($validation_allele eq $vA[$#vA])
 						{
-							die Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);
+							push(@forReturn, '?');								
+							warn Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);							
+							next REFALLELE;
 						}
 						else
 						{

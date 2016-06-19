@@ -1,0 +1,263 @@
+Command to build a Cortex graph of reference without HLA graph:
+
+From /Net/birch/data/dilthey/MHC-PRG/tmp2/GS_nextGen/hla/derived:
+(generate reference genome without graph: /Net/birch/data/dilthey/MHC-PRG/src/Util/removeHLAfromReferenceGenome.pl)
+ /home/dilthey/Cortex/CORTEX_release_v1.0.5.20/bin/cortex_var_31_c1 --mem_height 26 --mem_width 120 --kmer_size 25 --dump_binary Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --se_list fileList_Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph &> Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx.output
+ 
+
+../bin/MHC-PRG domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/hla --noPGFprotection
+
+../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 31 --noPGFprotection
+
+../bin/MHC-PRG domode kMerify ../tmp2/GS_nextGen/hla/graph.txt --kmer 25 --noPGFprotection
+
+../bin/MHC-PRG domode determineRequiredKMers ../tmp2/GS_nextGen/hla/graph.txt.kmers_31 ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 
+../bin/MHC-PRG domode determineRequiredKMers ../tmp2/GS_nextGen/hla/graph.txt.kmers_25 ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25
+
+
+
+	Positive filtering
+	
+		../bin/MHC-PRG domode filterReads --input_FASTQ test.fastQ --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_31 --output_FASTQ test_round2.fastQ
+		
+		../bin/MHC-PRG domode filterReads --input_FASTQ test_round2.fastQ --positiveFilter ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --output_FASTQ ignore
+
+		
+		
+	
+	
+	Negative filtering:
+	
+		../bin/MHC-PRG domode filterReads --input_FASTQ test.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx --output_FASTQ test_round2.fastQ
+		
+		../bin/MHC-PRG domode filterReads --input_FASTQ anotherTest.fastQ.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx --output_FASTQ negative_anotherTest.fastQ		
+
+		../bin/MHC-PRG domode filterReads --input_FASTQ round3_positive_25_separateOptim.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --output_FASTQ round3_positiveANDnegative_25_separateOptim.fastQ
+
+		../bin/MHC-PRG domode filterReads --input_FASTQ round4_positive_25_separateOptim.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --output_FASTQ round4_positiveANDnegative_25_separateOptim.fastQ
+		
+		../bin/MHC-PRG domode filterReads --input_FASTQ round5_positive_25_separateOptim.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --output_FASTQ round5_positiveANDnegative_25_separateOptim.fastQ
+
+		
+				
+			
+		../bin/MHC-PRG domode filterReads --input_FASTQ test_round2.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx --output_FASTQ ignore25.fastQ
+
+		
+			
+!	../bin/MHC-PRG domode filterReads --input_FASTQ test_positiveUnique.fastQ --negativeFilter ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx --output_FASTQ test_positiveUnique_negativePreserveUnique.fastQ --negativePreserveUnique --uniqueness_base ../tmp2/GS_nextGen/hla/requiredkMers_graph.txt.kmers_25 --uniqueness_subtract ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx_25
+		
+	And now align:
+	
+	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ test_round2.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
+	
+	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ round3_positiveANDnegative_25_separateOptim.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
+
+	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ round5_positiveANDnegative_25_separateOptim.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
+
+		
+../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ negative_anotherTest.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
+		
+		
+		
+! 	More aligning ...
+
+	HLA type inference:
+	
+	../bin/MHC-PRG domode HLATypeInference --input_alignedReads test_round2.fastQ.aligned --graphDir ../tmp2/GS_nextGen/hla
+	
+	../bin/MHC-PRG domode HLATypeInference --input_alignedReads negative_anotherTest.fastQ.aligned --graphDir ../tmp2/GS_nextGen/hla
+	
+	
+	
+	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ round3_positiveANDnegative_25_separateOptim.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
+	
+	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ round4_positiveANDnegative_25_separateOptim.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
+
+	../bin/MHC-PRG domode alignShortReadsToHLAGraph --input_FASTQ round5_positiveANDnegative_25_separateOptim.fastQ --graphDir ../tmp2/GS_nextGen/hla --referenceGenome ../tmp2/GS_nextGen/hla/pseudoReferenceGenome.txt
+	
+		../bin/MHC-PRG domode HLATypeInference --input_alignedReads round3_positiveANDnegative_25_separateOptim.fastQ.aligned --graphDir ../tmp2/GS_nextGen/hla &> HLAtypes_round3_positiveANDnegative_25_separateOptim.txt
+
+		../bin/MHC-PRG domode HLATypeInference --input_alignedReads round4_positiveANDnegative_25_separateOptim.fastQ.aligned --graphDir ../tmp2/GS_nextGen/hla &> HLAtypes_round4_positiveANDnegative_25_separateOptim.txt
+		
+		../bin/MHC-PRG domode HLATypeInference --input_alignedReads round5_positiveANDnegative_25_separateOptim.fastQ.aligned --graphDir ../tmp2/GS_nextGen/hla &> HLAtypes_round5_positiveANDnegative_25_separateOptim.txt
+		
+	
+## simulate reads from real HLA haplotypes
+
+
+	../bin/MHC-PRG domode simulateHLAreads --nIndividuals 20 --graphDir ../tmp2/GS_nextGen/hla --outputDirectory ../tmp/hla/simulations/exon231_error1_perturb0 --readError 1 --perturbHaplotypes 0 --exon23 1;\
+	../bin/MHC-PRG domode simulateHLAreads --nIndividuals 20 --graphDir ../tmp2/GS_nextGen/hla --outputDirectory ../tmp/hla/simulations/exon230_error1_perturb1 --readError 1 --perturbHaplotypes 1 --exon23 0
+	../bin/MHC-PRG domode simulateHLAreads --nIndividuals 20 --graphDir ../tmp2/GS_nextGen/hla --outputDirectory ../tmp/hla/simulations/exon230_error1_perturb0 --readError 1 --perturbHaplotypes 0 --exon23 0
+
+	./HLAtypeinference_copySimulations.pl
+	
+	./HLAtypeinference.pl --sampleIDs allSimulations --actions nai
+	
+	./HLAtypeinference.pl --sampleIDs allSimulations_exon230_error1_perturb1 --actions nai;
+
+		
+	
+	./HLAtypeinference.pl --sampleIDs allSimulations_exon231_error1_perturb0 --actions v --trueHLA ../tmp/hla/trueHLA_1_exon231_error1_perturb0	
+	./HLAtypeinference.pl --sampleIDs allSimulations_exon230_error1_perturb0 --actions v --trueHLA ../tmp/hla/trueHLA_1_exon230_error1_perturb0
+	./HLAtypeinference.pl --sampleIDs allSimulations_exon230_error1_perturb1 --actions v --trueHLA ../tmp/hla/trueHLA_1_exon230_error1_perturb1
+
+	./HLAtypeinference.pl --sampleIDs allSimulations_exon230_error1_perturb0 --actions w --trueHaplotypes ../tmp/hla/trueHaplotypes1_exon230_error1_perturb0
+	./HLAtypeinference.pl --sampleIDs allSimulations_exon230_error1_perturb1 --actions w --trueHaplotypes ../tmp/hla/trueHaplotypes1_exon230_error1_perturb1
+	
+./HLAtypeinference.pl --sampleIDs allSimulations_exon230_error1_perturb0 --actions i;\
+./HLAtypeinference.pl --sampleIDs allSimulations_exon230_error1_perturb1 --actions nai		
+	
+
+../bin/MHC-PRG domode describekMerGraph ../tmp2/GS_nextGen/hla/graph.txt.kmers_31 ../tmp2/GS_nextGen/hla/derived/ HLAGRAPH_31 --output_kMer_levels --referenceGenomeCortexGraph ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph.ctx
+../bin/MHC-PRG domode describekMerGraph ../tmp2/GS_nextGen/hla/graph.txt.kmers_25 ../tmp2/GS_nextGen/hla/derived/ HLAGRAPH_25 --k 25 --output_kMer_levels --referenceGenomeCortexGraph ../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx
+
+
+## this does not work, for there is no PGF protection
+
+../bin/MHC-PRG domode simulationSuite ../tmp2/GS_nextGen/hla/graph.txt.kmers_31 ../tmp/ SIMU_HLA --genotypingMode 8
+
+
+## simulations
+
+../bin/MHC-PRG domode testGraphAligner_realGraph ../tmp2/GS_nextGen/hla/graph.txt
+
+../bin/MHC-PRG domode testGraphAligner_realGraph ../tmp2/GS_nextGen/hla/graph.txt --readLength 250 --longBadReads 
+
+
+## script
+## negative alignment
+
+./HLAtypeinference.pl --action n --sampleIDs all_I1
+
+
+All validation commands:
+
+./HLAtypeinference.pl --sampleIDs all_I1 --actions v --trueHLA /home/dilthey/classicalHLA_withG.txt
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions v --trueHLA /home/dilthey/classicalHLA_withG.txt
+
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions v --trueHLA /home/dilthey/classicalHLA_withG.txt --fromPHLAT 1
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions v --trueHLA /home/dilthey/classicalHLA_withG.txt --fromHLAreporter 1
+
+# see below for more recent validation files
+
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/fs1/home/dilthey/HapMap_Exomes_HLA_validation.txt.corrected
+
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/fs1/home/dilthey/HapMap_Exomes_HLA_validation.txt.corrected --fromPHLAT 1
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/fs1/home/dilthey/HapMap_Exomes_HLA_validation.txt.corrected --fromHLAreporter 1
+
+
+./HLAtypeinference.pl --sampleIDs all_I3 --actions nai
+
+# ./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/KG-onlyHLA.genotypes
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_PA_fullGenotypes_manuallyAmended.txt
+
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_PA_fullGenotypes_manuallyAmended.txt --fromPHLAT 1
+
+# Pacbio reads
+
+./HLAtypeinference.pl --sampleIDs I4_NA12878 --actions l1 --BAMs /gpfs1/well/gsk_hla/PacBio/NA12878.pacbio.bwa-mem.20131224.bam --referenceGenome /gpfs1/well/chimp/oa/ref/hs37d5.fasta
+./HLAtypeinference.pl --sampleIDs I4_NA12878 --actions u
+./HLAtypeinference.pl --sampleIDs I4_NA12878 --actions i
+
+./HLAtypeinference.pl --sampleIDs I4_NA12878 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_PA_fullGenotypes_manuallyAmended.txt
+
+# NA12878 moleculo
+
+./HLAtypeinference.pl --sampleIDs I5_NA12878 --actions l2 --BAMs /gpfs1/well/gsk_hla/NA12878/moleculo/NA12878.moleculo.bwa-mem.20140110.bam --referenceGenome /gpfs1/well/chimp/oa/ref/hs37d5.fasta
+
+../bin/MHC-PRG domode plotGraph2 ../tmp2/GS_nextGen/hla/graph.txt --kmer 31 --noPGFprotection
+
+# Plot DRB1 components
+../bin/MHC-PRG domode plotGraph2 ../tmp2/GS_nextGen/hla/graph.txt DRB1 ../tmp2/GS_nextGen/hla/drbGraphViz.txt
+
+dot ../tmp2/GS_nextGen/hla/drbGraphViz.txt -Tpng -o DRB1.png
+
+# Validation commands NA12878
+
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/NA12878_HLA_types.txt
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/NA12878_HLA_types.txt --fromPHLAT 1
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/NA12878_HLA_types.txt --fromHLAreporter 1
+
+# Validation commands NA12878 + parents
+
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromHLAreporter 1
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromPHLAT 1
+
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/NA12878_HLA_types.txt --fromPHLAT 1
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/NA12878_HLA_types.txt --fromHLAreporter 1
+
+
+# 1000 genomes
+
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromPHLAT 1
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromHLAreporter 1
+
+
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --reduce_to_4_dig 1
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromPHLAT 1 --reduce_to_4_dig 1
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromHLAreporter 1 --reduce_to_4_dig 1
+
+# Exomes
+
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt --fromPHLAT 1
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt --fromHLAreporter 1
+
+
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt --reduce_to_4_dig 1
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt --fromPHLAT 1 --reduce_to_4_dig 1
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt --fromHLAreporter 1 --reduce_to_4_dig 1
+
+
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt --all_2_dig 1
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt --fromPHLAT 1 --all_2_dig 1
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt --fromHLAreporter 1 --all_2_dig 1
+
+# Re-extract NA12878, Platinum
+
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --BAMs /gpfs1/well/gsk_hla/bam_output/AA02O9Q_Z2.bam --actions nai
+
+# Inference test commands
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions i
+
+--referenceGenome /gpfs1/well/gsk_hla/GRCh37.60/fasta/combined/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.fa
+
+# 2-digit
+
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --all_2_dig 1
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromPHLAT 1 --all_2_dig 1
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromHLAreporter 1 --all_2_dig 1
+
+
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt --fromPHLAT 1
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt --fromHLAreporter 1
+
+# MiSeq
+
+./HLAtypeinference.pl --sampleIDs all_I6 --actions nai
+./HLAtypeinference.pl --sampleIDs all_I6 --actions ai
+
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2 --actions i
+
+# MiSeq repeat
+
+./HLAtypeinference.pl --sampleIDs I6_WTSI19550,I6_WTSI19556,I6_WTSI19560,I6_WTSI19569,I6_WTSI19586,I6_WTSI19650 --actions ai --MiSeq250bp 1 --no_fail 1 &> output_ai_2.txt
+
+# Test down-samples MiSeq
+
+./HLAtypeinference.pl --sampleIDs dS_WTSI19556 --actions pnai --BAMs /gpfs1/well/gsk_hla/Alexander_Mentzer_BAMs_downsampled/AM_WTSI19556.bam --referenceGenome /gpfs1/well/gsk_hla/GRCh37.60/fasta/combined/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.fa
+
+
+./HLAtypeinference.pl --sampleIDs dS_WTSI19556 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt
+
+
+# Re-do NA19238
+./HLAtypeinference.pl --sampleIDs I3_NA19238 --actions i
+./HLAtypeinference.pl --sampleIDs all_I2 --actions i
+
+
+

@@ -923,8 +923,11 @@ char Utilities::reverse_char_nucleotide(char c)
 		case '*':
 			return '*';
 		default:
-			std::string errorString = "Utilities::reverse_char_nucleotide: nucleotide not existing!";
+			std::string errorString = "Utilities::reverse_char_nucleotide: nucleotide not existing: '";
 			errorString.push_back(c);
+			errorString.push_back('\'');
+			std::cerr << errorString << "\n" << std::flush;
+			return 'N';
 			throw std::runtime_error(errorString);
     }
 }
