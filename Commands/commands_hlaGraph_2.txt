@@ -255,5 +255,9 @@ dot ../tmp2/GS_nextGen/hla/drbGraphViz.txt -Tpng -o DRB1.png
 ./HLAtypeinference.pl --sampleIDs dS_WTSI19556 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt
 
 
+# Re-do NA19238
+./HLAtypeinference.pl --sampleIDs I3_NA19238 --actions i
+./HLAtypeinference.pl --sampleIDs all_I2 --actions i
+
 
 
