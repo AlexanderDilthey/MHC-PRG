@@ -5443,6 +5443,16 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 						}
 					}
 				}
+				if(kMers_total == 0)
+				{
+					return -1;
+					std::cerr << "kMers_total: " << kMers_total << "\n" << std::flush;
+					for(unsigned int exonI = 0; exonI < exons.size(); exonI++)
+					{
+						std::cerr << "\texon " << exonI << ": " << exons.at(exonI) << "\n" << std::flush;
+					}
+					
+				} 
 				assert(kMers_total > 0);
 				return (double) kMers_present / (double) kMers_total;
 			};
