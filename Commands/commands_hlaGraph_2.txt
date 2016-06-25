@@ -232,9 +232,9 @@ dot ../tmp2/GS_nextGen/hla/drbGraphViz.txt -Tpng -o DRB1.png
 ./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended --fromHLAreporter 1 --all_2_dig 1
 
 
-./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt
-./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt --fromPHLAT 1
-./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt --fromHLAreporter 1
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper --fromPHLAT 1
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper --fromHLAreporter 1
 
 # MiSeq
 
@@ -259,5 +259,53 @@ dot ../tmp2/GS_nextGen/hla/drbGraphViz.txt -Tpng -o DRB1.png
 ./HLAtypeinference.pl --sampleIDs I3_NA19238 --actions i
 ./HLAtypeinference.pl --sampleIDs all_I2 --actions i
 
+
+# Re-do trio
+
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions i
+
+
+# Samples with novel alleles:
+
+./HLAtypeinference.pl --sampleIDs I6_WTSI19818,I6_WTSI20027 --actions ai
+
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt
+
+# All-sample validation
+unlink _problems_per_sample_running.txt;\
+unlink _qualityMetrics_per_imputation_running.txt;\
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt.paper --vP Exome;\
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --vP Platinum;\
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --vP 1000G;\
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper --vP MiSeq
+
+# Thresholding
+
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt.paper --T 0.9 --minPropkMersCovered 0.9
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt.paper --T 0.9 --minPropkMersCovered 0.9 --reduce_to_4_dig 1
+
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper --T 0.9 --minPropkMersCovered 0.9
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper --T 0.9 --minPropkMersCovered 0.9 --reduce_to_4_dig 1
+
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --T 0.9 --minPropkMersCovered 0.9
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --T 0.9 --minPropkMersCovered 0.9 --reduce_to_4_dig 1
+
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --T 0.9 --minPropkMersCovered 0.9
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --T 0.9 --minPropkMersCovered 0.9 --reduce_to_4_dig 1
+
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt.paper --T 1 --minPropkMersCovered 1
+./HLAtypeinference.pl --sampleIDs all_I2 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/SRR1000GGSK_HapMap_combined.txt.paper --T 1 --minPropkMersCovered 1 --reduce_to_4_dig 1
+
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper --T 1 --minPropkMersCovered 1
+./HLAtypeinference.pl --sampleIDs all_I6 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper --T 1 --minPropkMersCovered 1 --reduce_to_4_dig 1
+
+
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --T 1 --minPropkMersCovered 1
+./HLAtypeinference.pl --sampleIDs I1_AA02O9Q_Z2,C_Platinum_NA12891,C_Platinum_NA12892 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --T 1 --minPropkMersCovered 1 --reduce_to_4_dig 1
+
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --T 1 --minPropkMersCovered 1
+./HLAtypeinference.pl --sampleIDs all_I3 --actions v --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended.paper --T 0.9 --minPropkMersCovered 0.9 --reduce_to_4_dig 1
+
+./HLAtypeinference.pl --sampleIDs I6_WTSI20027 --actions v --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper
 
 

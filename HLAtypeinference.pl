@@ -2,6 +2,7 @@
 
 use strict;
 use List::MoreUtils qw/all mesh any /;
+use List::Util qw/sum/;
 use Data::Dumper;
 use Getopt::Long;   
 use Sys::Hostname;
@@ -60,6 +61,7 @@ my $referenceGenome;
 my $threads = 1;
 
 my $no_fail = 0;
+my $vP = '';
 
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
 
@@ -84,6 +86,7 @@ GetOptions ('graph:s' => \$graph,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
  'threads:s' => \$threads,
  'no_fail:s' => \$no_fail,
+ 'vP:s' => \$vP,
 );         
 
 die if($fromPHLAT and $fromHLAreporter);
@@ -821,6 +824,7 @@ if($actions =~ /v/)
 	}
 		
 	my %errors_per_sample;
+	my %validated_per_sample;
 	my %types_as_validated;
 	foreach my $locus (@loci)
 	{		
@@ -851,7 +855,7 @@ if($actions =~ /v/)
 			if($fromMHCPRG)
 			{
 				my $correct_numeric = ($str_correct eq 'correct') ? 1 : 0;
-				print ${fh_qualityMetricsRunning} join("\t", $sampleID, $locus, $correct_numeric, $PP, $kMer_correct), "\n";
+				print ${fh_qualityMetricsRunning} join("\t", $sampleID, $vP, $locus, $correct_numeric, $PP, $kMer_correct), "\n";
 			}
 		};	
 		
@@ -981,6 +985,7 @@ if($actions =~ /v/)
 			}
 			my $comparisons_before = $comparisons;
 			my $problem_locus_detail_before = $problem_locus_detail{$locus};
+			my $problem_locus_examined_before = $problem_locus_examined{$locus};
 			
 			if($#imputed_hla_values == 1)
 			{
@@ -1237,6 +1242,9 @@ if($actions =~ /v/)
 			
 			my $thisIndiv_problems = $problem_locus_detail{$locus} - $problem_locus_detail_before;
 			$errors_per_sample{$indivID} += $thisIndiv_problems;
+			
+			my $thisIndiv_examined = $problem_locus_examined{$locus} - $problem_locus_examined_before;
+			$validated_per_sample{$indivID} += $thisIndiv_examined;
 							
 			my $avgCoverage = $imputed_HLA_avgCoverage{$locus}{$indivID};
 			my $lowCoverage = $imputed_HLA_lowCoverage{$locus}{$indivID};
@@ -1570,7 +1578,8 @@ if($actions =~ /v/)
 			my $fullSampleID = $sample_noI_toI{$indivID};
 			die unless(defined $fullSampleID);
 			
-			my $aligned_file = '../tmp/hla/'.$fullSampleID.'/reads.p.n.aligned';
+			my $sample_dir = '../tmp/hla/'.$fullSampleID;
+			my $aligned_file = $sample_dir.'/reads.p.n.aligned';
 			die "Aligned reads file $aligned_file not existing" unless(-e $aligned_file);
 			open(ALIGNED, '<', $aligned_file) or die;
 			my $firstLine = <ALIGNED>;
@@ -1578,7 +1587,9 @@ if($actions =~ /v/)
 			close(ALIGNED);
 			my @IS = split(/ /, $firstLine);
 			die unless(scalar(@IS) == 3);
-			print PROBLEMSPERSAMPLE join("\t", $fullSampleID, $errors_per_sample{$indivID}, $IS[1], $IS[2]), "\n";
+			my $effectiveReadLength = inferReadLength($aligned_file);
+			my $averageAlignmentOK = averageFractionAlignmentOK($sample_dir);
+			print PROBLEMSPERSAMPLE join("\t", $fullSampleID, $vP, $validated_per_sample{$indivID}, $errors_per_sample{$indivID}, $IS[1], $IS[2], $effectiveReadLength, $averageAlignmentOK), "\n";
 		}
 		close(PROBLEMSPERSAMPLE);
 	}
@@ -1634,7 +1645,13 @@ if($actions =~ /v/)
 		}
 	}
 	
-	open(TYPES, '>', '_types_as_validated.txt') or die;
+	my $vPForFile = $vP;
+	if($vPForFile)
+	{
+		$vPForFile .= '_';
+	}
+	open(TYPES, '>', '_' . $vPForFile . 'types_as_validated.txt') or die;
+	my %perLocus_hom_het_missing;
 	my @loci_for_print = sort {$a cmp $b} (keys %problem_locus_detail);
 	print TYPES join("\t", 'IndividualID', map {'HLA' . $_ } @loci_for_print), "\n";
 	foreach my $indivID (sort keys %types_as_validated)
@@ -1664,10 +1681,21 @@ if($actions =~ /v/)
 					}
 				}
 				$locus_values = join("/", @alleles_for_print);
+				
+				die unless($#alleles_for_print == 1);
+				if($alleles_for_print[0] eq $alleles_for_print[1])
+				{
+					$perLocus_hom_het_missing{$locus}[0]++;
+				}
+				else
+				{
+					$perLocus_hom_het_missing{$locus}[1]++;			
+				}
 			}
 			else
 			{
 				$locus_values = '????/????';
+				$perLocus_hom_het_missing{$locus}[2]++;
 			}
 			
 			die unless(defined $locus_values);
@@ -1678,6 +1706,25 @@ if($actions =~ /v/)
 		print TYPES join("\t", @fields_for_indiv), "\n";
 	}
 	close(TYPES);
+	
+	open(HOMHET, '>', '_' . $vPForFile . 'types_as_validated_homhet.txt') or die;
+	print HOMHET join("\t", qw/Locus Hom Het HomMissing/), "\n";
+	foreach my $locus (keys %perLocus_hom_het_missing)
+	{
+		my @printFields = ($locus);
+		for(my $i = 0; $i <= 2; $i++)
+		{
+			my $v = 0;
+			if(defined $perLocus_hom_het_missing{$locus}[$i])
+			{
+				$v = $perLocus_hom_het_missing{$locus}[$i];
+			}
+			push(@printFields, $v);
+		}
+		print HOMHET join("\t", @printFields), "\n";
+	}
+	close(HOMHET)
+	
 }
 
 
@@ -2626,6 +2673,61 @@ sub twoClusterAlleles
 	return @forReturn;
 }
 
+sub averageFractionAlignmentOK
+{
+	my $dir = shift;
+	my $f = $dir . '/summaryStatistics.txt';
+	die "File $f not there" unless(-e $f);
+	
+	my $fractionOK;
+	open(STATISTICS, '<', $f) or die;
+	while(<STATISTICS>)
+	{
+		my $line = $_;
+		chomp($line);
+		last if($line =~ /unpaired/);
+		if($line =~ /Alignment pairs, average fraction alignment OK:\s+([\d\.]+)/)
+		{
+			die if(defined $fractionOK);
+			$fractionOK = $1;
+		}
+	}
+	close(STATISTICS);	
+	
+	die "Could not find fraction OK entry" unless(defined $fractionOK);
+	return $fractionOK;
+}
+
+sub inferReadLength
+{
+	my $file = shift;
+	open(ALIGNED, '<', $file) or die;
+	my $firstLine = <ALIGNED>;
+	chomp($firstLine);
+	my @have_lengths;
+	while(<ALIGNED>)
+	{
+		my $line = $_;
+		die unless($line =~ /Aligned pair /);
+		my @p1 = map {scalar(<ALIGNED>)} (1 .. 9);
+		my @p2 = map {scalar(<ALIGNED>)} (1 .. 9);
+		die unless($p1[0] =~ /Read /);
+		die unless($p2[0] =~ /Read /);
+		my $sequence_1 = $p1[7];
+		my $sequence_2 = $p1[7];
+		chomp($sequence_1);
+		chomp($sequence_2);
+		$sequence_1 =~ s/\s+//g;
+		$sequence_2 =~ s/\s+//g;
+		push(@have_lengths, length($sequence_1));
+		push(@have_lengths, length($sequence_2));
+		last if(scalar(@have_lengths) >= 20);
+	}
+	close(ALIGNED);	
+	
+	my $avg = int(sum(@have_lengths)/scalar(@have_lengths));
+	return 2*$avg;
+}
 
 sub read_exon_sequences
 {
