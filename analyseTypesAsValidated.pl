@@ -18,7 +18,7 @@ while(<POPULATIONS>)
 my %populations;
 my %types_2digit;
 
-my $inputFile = '_types_as_validated.txt';
+my $inputFile = '_Platinum_types_as_validated.txt';
 open(F, '<', $inputFile) or die "Cannot open $inputFile";
 my $headerLine = <F>;
 chomp($headerLine);
