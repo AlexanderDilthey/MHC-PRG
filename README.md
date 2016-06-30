@@ -32,11 +32,24 @@ http://oxfordhla.well.ox.ac.uk/VCF.bw
 
 To install the package, please follow this procedure:
 
-1. Download the MHC-PRG data package (http://birch.well.ox.ac.uk/MHC-PRG.tar.gz - c. 213GB), which will also set up the right file structure. We assume that you have uncompressed the data into ~/MHC-PRG. 
+1. If you want to reproduce results from our paper, download the MHC-PRG data package (http://birch.well.ox.ac.uk/MHC-PRG.tar.gz - c. 213GB), which will also set up the right file structure. We assume that you have uncompressed the data into ~/MHC-PRG. 
+
+   If you are only interested in HLA typing, ignore the MHC-PRG data package (there is a separate HLA*PRG data package to be downloaded later, see https://github.com/AlexanderDilthey/MHC-PRG/blob/master/HLA-PRG.md).
+   
+   Instead, manually create the directory structure for the build (you can of course install into any other directory than ~/MHC-PRG):
+
+   mkdir ~/MHC-PRG  
+   mkdir ~/MHC-PRG/src  
+   mkdir ~/MHC-PRG/obj  
+   mkdir ~/MHC-PRG/bin  
+   mkdir ~/MHC-PRG/tmp  
+   mkdir ~/MHC-PRG/tmp2  
+   mkdir ~/MHC-PRG/tmp2/GS_nextGen  
+   mkdir ~/MHC-PRG/tmp2/GS_nextGen/hla  
 
 2. Now, cd into the directory ~/MHC-PRG/src. Use git to clone a copy of this repository into the src directory.
 
-3. Install all other programs that MHC-PRG depends on (see list below).
+3. Install all other programs / libraries that MHC-PRG depends on (see list below). Note that this list is much reduced for HLA typing only.
 
 4. Modify the makefile so that MHC-PRG compiles on your machine (see below).
 
