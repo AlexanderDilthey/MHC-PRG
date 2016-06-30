@@ -74,7 +74,13 @@ The bottom line is that some Boost and bamtools libraries need to be compiled in
 2. Open the makefile and modify the path to Bamtools (incl. include, src and the Bamtools object files)
 3. Sometimes required: insert a correct path to zlib.
 
-A simple "make all" should then be sufficient to build the C++ components of the pipeline. If you run into problems, check that your compiler has support for openMP and C++11 (we use G++ 4.7.2).
+A simple "make all" should then be sufficient to build the C++ components of the pipeline.
+
+#### Compiler
+
+If you run into problems, check that your compiler has support for openMP and C++11 (we use G++ 4.7.2).
+
+We have received reports that there are compilation issues with G++ 5.1, but haven't been able to reproduce these yet - if you run into problems, please let us know!
 
 ## Running MHC-PRG
 
