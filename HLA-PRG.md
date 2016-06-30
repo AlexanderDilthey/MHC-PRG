@@ -27,6 +27,7 @@ The rationale for splitting the read selection process into two separate compone
 Currently HLA\*PRG should only be applied to B37-aligned BAM files. We will soon update the pipeline to deal with GRCh38-based BAMs.
 
 ### Computational considerations
+
 Applying HLA\*PRG is currently computationally intensive - we are working on an optimized version of the algorithms.
 
 Analyzing the NA12878 Illumina PLatinum data (2 x 100bp, 55x) takes on the order of 55 CPU hours and about 75G of RAM (peak usage).
@@ -36,6 +37,8 @@ Analyzing the NA12878 1000 Genomes longer-read data (2 x 250bp, 63) takes on the
 Of note, negative selection and read-to-PRG alignment are the RAM-intensive steps - positive selection typically doesn't take more than 15G.
 
 ## Installation
+
+Prerequisites: Boost 1.5.2, Bamtools, a compiler with support for openMP and C++11 (we use g++ 4.7.2 and have successfully tested on the 4.8 branch). For more details, see the notes in the MHC*PRG main readme file.
 
 1. Follow the make process described for MHC\*PRG - you do NOT need the MHC-PRG data package.
 2. Download the HLA\*PRG data package (http://birch.well.ox.ac.uk/HLA-PRG.tar.gz) and extract it into ../tmp2/GS_nextGen/hla (relative to the MHC-PRG/src directory, which contains the HLAtypeinference.pl script).
