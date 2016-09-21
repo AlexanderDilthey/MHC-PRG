@@ -24,7 +24,9 @@ The rationale for splitting the read selection process into two separate compone
 
 ### GRCh37
 
-Currently HLA\*PRG should only be applied to B37-aligned BAM files. We will soon update the pipeline to deal with GRCh38-based BAMs.
+Currently HLA\*PRG should only be applied to B37-aligned BAM files. We plan to update the pipeline to deal with GRCh38-based BAMs.
+
+Any B37-based reference can be used, e.g. hsd37d5 or hg19.
 
 As a workaround, we recommend extracting MHC reads from your B38 file and temporarily re-mapping these to a B37 reference. See "Speeding up read extraction" below for read extraction example commands.
 
