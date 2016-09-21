@@ -26,6 +26,11 @@ The rationale for splitting the read selection process into two separate compone
 
 Currently HLA\*PRG should only be applied to B37-aligned BAM files. We will soon update the pipeline to deal with GRCh38-based BAMs.
 
+As a workaround, we recommend extracting MHC reads from your B38 file and temporarily re-mapping these to a B37 reference. See "Speeding up read extraction" below for read extraction example commands.
+
+IMPORTANT: GRCh38 contains multiple MHC contigs, and sometimes (e.g. for bwakit) also some genomic HLA sequences. Make sure that you include reads from all of these regions as well!
+
+
 ### Computational considerations
 
 Applying HLA\*PRG is currently computationally intensive - we are working on an optimized version of the algorithms.
@@ -73,5 +78,20 @@ Some remarks:
 
 If the inference process was successful, output best-guess HLA types are in ../tmp/hla/$SAMPLEID/R1_bestguess.txt. There is a separate quality score associated with each allele, but our evaluations show that these are not very well-calibrated. The algorithm that extracts two best-guess alleles from a list of allele pairs with associated probabilities is identical to the one used in HLA*IMP:02. Full allele pair probability distributions for locus $LOCUS can be found in the file R1_PP_$LOCUS_pairs.txt.
 
+## HiSeq 2 x 250bp reads
 
+If you are dealing with 2 x 250bp HiSeq reads, add a --HiSeq250bp 1 to all calls of HLAtypeinference.pl. E.g.:
+
+./HLAtypeinference.pl --actions pnai --sampleIDs SAMPLEID --BAMs /path/to/indexed/bam.bam --referenceGenome /path/to/referenceGenome/as/one/fasta/file --HiSeq250bp 1
+
+## Speeding up read extraction
+
+It is possible to speed up the process of read extraction by limiting the process to the MHC and to unmapped reads. For an input file called input.bam, you can do the following (and then apply HLA*PRG to extract_for_HLAPRG.bam):
+
+samtools view -F 4 -bo extract_xMHC.bam input.bam 6:2800000-34000000  
+samtools view -f 4 -bo extract_unmapped.bam input.bam  
+samtools merge extract_for_HLAPRG.bam extract_xMHC.bam extract_unmapped.bam  
+samtools index extract_for_HLAPRG.bam
+
+This approach should work for both 2 x 100bp and 2 x 250bp HiSeq reads (we have repeated the Platinum validation experiments using this approach and found no reduction in accuracy, and the --HiSeq250bp switch activates a similar heuristic).
 
