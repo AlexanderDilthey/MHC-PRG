@@ -11,7 +11,7 @@ HLA*PRG infers HLA types by
 
 HLA types are inferred at 6-digit "G" resolution. 6-digit "G" resolution specifies the sequence of the exons encoding the antigen-binding site of the HLA protein - (i.e. exons 2 and 3 for HLA class I genes and exon 2 for HLA class II genes) - all alleles with identical sequences over these exons end up in the same "G" group. 6-digit "G" resolution is a useful metric to consider - most biological variability associated with the HLA genes is thought to come from differences in peptide binding, and this in turn is governed mostly by the amino acid sequence of the peptide binding site.
 
-In our evaluations (still to be published), we find HLA\*PRG to be highly accurate if applied to high-quality (PCR-free, >30x coverage) whole-genome sequencing data. We don't recommend applying HLA*PRG to exome sequencing data.
+In our evaluations (http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005151), we find HLA\*PRG to be highly accurate if applied to high-quality (PCR-free, >30x coverage) whole-genome sequencing data. We don't recommend applying HLA*PRG to exome sequencing data.
 
 The inference process always begins with a (GRCh37, see below) BAM file and consists of four steps:
 
