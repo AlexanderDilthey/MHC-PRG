@@ -2,7 +2,7 @@
 
 ## PRG input data
 
-The MHC-PRG data package (http://birch.well.ox.ac.uk/MHC-PRG.tar.gz - c. 213GB) contains a subfolder 'paper' with files relevant to our publication:
+The MHC-PRG data package (http://www.well.ox.ac.uk/MHC-PRG.tar.gz - c. 213GB) contains a subfolder 'paper' with files relevant to our publication:
 
 - The 8-haplotype alignment used as a scaffold for the utilized PRG:
 
