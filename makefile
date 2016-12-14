@@ -6,9 +6,9 @@
 # file or just via -lz)
 # The following values work for me (see below for an alternative):
 #
-LIB_BOOST = /home/dilthey/PnP/libs/boost_1_59_0/
-INCS = -I$(LIB_BOOST) -IGraph -I/home/dilthey/bamtools/bamtools/include -I/home/dilthey/bamtools/bamtools/src
-LIBS = /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_random.so /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_filesystem.so /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_system.so  /home/dilthey/bamtools/bamtools/lib/libbamtools.a /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.so  /home/dilthey/bamtools/zlib-1.2.7/libz.a
+
+INCS = -I/data/projects/phillippy/software/bamtools/include -I/data/projects/phillippy/software/bamtools/src
+LIBS = -L/data/projects/phillippy/software/boost_1_60_0/lib -L/data/projects/phillippy/software/bamtools/lib -lboost_random -lboost_system -lboost_filesystem -lboost_serialization -lbamtools
 
 # an alternative line (courtesy Peter Humburg, not working for me but for him) is
 # LIBS = /home/dilthey/PnP/libs/boost_1_52_0/lib/lib/libboost_random.so /home/dilthey/PnP/libs/boost_1_52_0/lib/lib/libboost_filesystem.so /home/dilthey/PnP/libs/boost_1_52_0/lib/lib/libboost_system.so /home/dilthey/bamtools/bamtools/lib/libbamtools.so /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.a -lz

@@ -13,9 +13,31 @@ use FindBin;
 use File::Spec;
 
 # set so we get at least ~80G of RAM
-my $scheduling_threads = 12;
-my $scheduling_P = 'mcvean.prjb';
-my $scheduling_q = 'short.qb';
+
+my $host = hostname;
+		
+my $scheduling_threads;
+my $scheduling_details;
+if($host =~ /rescomp/)
+{
+	$scheduling_threads = 12;
+	my $scheduling_P = 'mcvean.prjb';
+	my $scheduling_q = 'short.qb';
+
+	$scheduling_details = qq(#\$ -P $scheduling_P  -q $scheduling_q
+#\$ -pe shmem $scheduling_threads);
+
+}
+elsif($host =~ /gry.+.core.nhgri./)
+{
+	$scheduling_threads = 12;
+	$scheduling_details = qq(#$ -l mem_free=90G);
+}
+else
+{
+	die "Unknown host $host - please configure accordingly.";
+}
+
 
 my $action;
 my $graph = 'hla';   
@@ -37,8 +59,6 @@ GetOptions (
  'aggregateOutput:s' => \$aggregateOutput, 
  'sampleIDPrefix:s' => \$sampleIDPrefix, 
 );         
-
-die "Please set argument --referenceGenome" unless(-e $referenceGenome);
 
 unless($action)
 {
@@ -77,11 +97,21 @@ die Dumper("Non-unique BAMs", \@BAMs) unless(scalar(keys %_BAMs) == scalar(@BAMs
 die Dumper("Non-unique sample IDs", \@sampleIDs) unless(scalar(keys %_sampleIDs) == scalar(@sampleIDs));
 
 my $aggregate_output_fh;
-if($action eq 'aggregate')
+my $aggregate_output_fh_G;
+my $aggregation_header;
+my $aggregation_header_G;
+my $aggregateOutput_G = $aggregateOutput . '.G';
+if($action eq 'qsub')
+{
+	die "Please set argument --referenceGenome" unless(-e $referenceGenome);
+}
+elsif($action eq 'aggregate')
 {
 	die "Please specify --aggregateOutput" unless(defined $aggregateOutput);
 	open($aggregate_output_fh, '>', $aggregateOutput) or die "Cannot open $aggregateOutput";
+	open($aggregate_output_fh_G, '>', $aggregateOutput_G) or die "Cannot open $aggregateOutput_G";
 }
+
 my $this_bin_dir = $FindBin::RealBin;
 my %qsub_files;
 for(my $BAMi = 0; $BAMi < $#BAMs; $BAMi++)
@@ -90,6 +120,7 @@ for(my $BAMi = 0; $BAMi < $#BAMs; $BAMi++)
 	my $sampleID = $sampleIDs[$BAMi];
 	my $working_dir = '../tmp/hla/'.$sampleID;
 	my $results_file = $working_dir . '/R1_bestguess.txt';;
+	my $results_file_G = $working_dir . '/R1_bestguess_G.txt';;
 	if($action eq 'qsub')
 	{
 		if(-e $results_file)
@@ -118,10 +149,10 @@ for(my $BAMi = 0; $BAMi < $#BAMs; $BAMi++)
 		my $BAM_abs = File::Spec->rel2abs($BAM);
 		my $qsub_time = $qsub_file . ".output_and_timing";
 		
+		die unless(defined $scheduling_details);
 		open(QSUB, ">", $qsub_file) or die "Cannot open $qsub_file";
 		print QSUB qq(#!/bin/bash
-#\$ -P $scheduling_P  -q $scheduling_q
-#\$ -pe shmem $scheduling_threads
+$scheduling_details
 source ~/.profile
 cd $this_bin_dir
 /usr/bin/time -v ./HLAtypeinference.pl --actions pnai --sampleIDs $sampleID --BAMs $BAM_abs --referenceGenome $referenceGenome --HiSeq250bp $HiSeq250bp --MiSeq250bp $MiSeq250bp --threads $scheduling_threads --graph $graph &> $qsub_time
@@ -147,12 +178,68 @@ cd $this_bin_dir
 		{
 			warn "File for $sampleID not present, skip aggregation";
 			next;
+		}
+
+		# normal
+		{
+			open(F, '<', $results_file) or die "Cannot open $results_file";
+			my $firstLine = <F>;
+			if(defined $aggregation_header)
+			{
+				die "There is a header mismatch - are you trying to aggregate files that were produced with different versions?" unless($aggregation_header eq $firstLine);
+			}
+			else
+			{
+				$aggregation_header = $firstLine;
+				print {$aggregate_output_fh} 'sampleID', "\t", $firstLine;
+			}
+			
+			while(<F>)
+			{
+				print {$aggregate_output_fh} $sampleID, "\t", $_;			
+			}
+			
+			close(F);
+		}
+		
+		if(not -e $results_file_G)
+		{
+			warn "G-File for $sampleID not present, skip aggregation";
+			next;
+		}
+
+		# G
+		{
+			open(F, '<', $results_file_G) or die "Cannot open $results_file_G";
+			my $firstLine = <F>;
+			if(defined $aggregation_header_G)
+			{
+				die "There is a header mismatch in the G files - are you trying to aggregate files that were produced with different versions?" unless($aggregation_header_G eq $firstLine);
+			}
+			else
+			{
+				$aggregation_header_G = $firstLine;
+				print {$aggregate_output_fh_G} 'sampleID', "\t", $firstLine;
+			}
+			
+			while(<F>)
+			{
+				print {$aggregate_output_fh_G} $sampleID, "\t", $_;			
+			}
+			
+			close(F);
 		}		
+		
 	}
 	else
 	{
 		die "Unknown action: $action";
 	}
+}
+
+if($action eq 'aggregate')
+{
+	print "Produced files:\n\t$aggregateOutput\n\t$aggregateOutput_G\n";
 }
 
 foreach my $f (keys %qsub_files)
