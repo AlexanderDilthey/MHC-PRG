@@ -50,7 +50,7 @@ Prerequisites: Boost 1.5.2, Bamtools, a compiler with support for openMP and C++
 1. Follow the make process described for MHC\*PRG - you do NOT need the MHC-PRG data package.
 2. Download the HLA\*PRG data package (http://www.well.ox.ac.uk/HLA-PRG.tar.gz, c. 100G when extracted) and extract it into ../tmp2/GS_nextGen/hla (relative to the MHC-PRG/src directory, which contains the HLAtypeinference.pl script).
 3. Verify that the MHC\*PRG binary is functional by executing ../bin/MHC-PRG from the MHC-PRG/src directory - it is functional if it then complains that you didn't specify a valid mode.
-4. Verify that HLAtypeinference.pl is functional by typing perl -c HLAtypeinference.pl - on many systems all required modules will already be present, but might not be the case for you.
+4. Verify that HLAtypeinference.pl is functional by typing perl -c HLAtypeinference.pl - on many systems all required modules will already be present, but this might not be the case for you.
 
 Done!
 
