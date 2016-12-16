@@ -96,17 +96,20 @@ my %_sampleIDs = map {$_ => 1} @sampleIDs;
 die Dumper("Non-unique BAMs", \@BAMs) unless(scalar(keys %_BAMs) == scalar(@BAMs));
 die Dumper("Non-unique sample IDs", \@sampleIDs) unless(scalar(keys %_sampleIDs) == scalar(@sampleIDs));
 
+print "Found ", scalar(@BAMs), " BAMs.\n";
+
 my $aggregate_output_fh;
 my $aggregate_output_fh_G;
 my $aggregation_header;
 my $aggregation_header_G;
-my $aggregateOutput_G = $aggregateOutput . '.G';
+my $aggregateOutput_G;
 if($action eq 'qsub')
 {
 	die "Please set argument --referenceGenome" unless(-e $referenceGenome);
 }
 elsif($action eq 'aggregate')
 {
+	$aggregateOutput_G = $aggregateOutput . '.G';
 	die "Please specify --aggregateOutput" unless(defined $aggregateOutput);
 	open($aggregate_output_fh, '>', $aggregateOutput) or die "Cannot open $aggregateOutput";
 	open($aggregate_output_fh_G, '>', $aggregateOutput_G) or die "Cannot open $aggregateOutput_G";
@@ -114,7 +117,7 @@ elsif($action eq 'aggregate')
 
 my $this_bin_dir = $FindBin::RealBin;
 my %qsub_files;
-for(my $BAMi = 0; $BAMi < $#BAMs; $BAMi++)
+for(my $BAMi = 0; $BAMi <= $#BAMs; $BAMi++)
 {
 	my $BAM = $BAMs[$BAMi];
 	my $sampleID = $sampleIDs[$BAMi];
@@ -158,6 +161,7 @@ cd $this_bin_dir
 /usr/bin/time -v ./HLAtypeinference.pl --actions pnai --sampleIDs $sampleID --BAMs $BAM_abs --referenceGenome $referenceGenome --HiSeq250bp $HiSeq250bp --MiSeq250bp $MiSeq250bp --threads $scheduling_threads --graph $graph &> $qsub_time
 	);
 	close(QSUB);
+	
 	}
 	elsif($action eq 'check')
 	{

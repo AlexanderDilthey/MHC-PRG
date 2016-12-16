@@ -1150,28 +1150,31 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 							std::cerr << "thisPair.have1: " << thisPair.have1 << " with ID " << thisPair.a1.readID << "\n";
 							std::cerr << "thisPair.have2: " << thisPair.have2 << " with ID " << thisPair.a2.readID << "\n" << std::flush;
 						}
-						assert(success);
-						if(thisPair.isComplete())
+						//assert(success); 
+						if(success)
 						{
-							bool verbose = false;
-							if(isChromosome6 && (alignmentMappedPosition != -1) && (alignmentMappedPosition >= 29910247) && (alignmentMappedPosition <= 29913661))
+							if(thisPair.isComplete())
 							{
-								verbose = true;
-							}
-							// process
-							if((*decide)(thisPair, verbose))
-							{
-								thread_reads_forPrint[name] = thisPair;
-								if(thread_reads_forPrint.size() > print_at_once)
+								bool verbose = false;
+								if(isChromosome6 && (alignmentMappedPosition != -1) && (alignmentMappedPosition >= 29910247) && (alignmentMappedPosition <= 29913661))
 								{
-									#pragma omp critical
+									verbose = true;
+								}
+								// process
+								if((*decide)(thisPair, verbose))
+								{
+									thread_reads_forPrint[name] = thisPair;
+									if(thread_reads_forPrint.size() > print_at_once)
 									{
-										print_threaded_reads();
+										#pragma omp critical
+										{
+											print_threaded_reads();
+										}
 									}
 								}
-							}
 
-							thread_reads.erase(name);
+								thread_reads.erase(name);
+							}
 						}
 					}
 				}
@@ -1179,17 +1182,20 @@ void filterBAM(int threads, std::string BAMfile, std::string referenceGenomeFile
 				{
 					fastq_readPair p;
 					bool success = p.takeAlignment(simpleAlignment, 1);
-					assert(success);
-					if((*decide)(p, false))
+					//assert(success);
+					if(success)
 					{
-						thread_reads_forPrint[name] = p;
-						if(thread_reads_forPrint.size() > print_at_once)
+						if((*decide)(p, false))
 						{
-							#pragma omp critical
+							thread_reads_forPrint[name] = p;
+							if(thread_reads_forPrint.size() > print_at_once)
 							{
-								print_threaded_reads();
+								#pragma omp critical
+								{
+									print_threaded_reads();
+								}
 							}
-						}
+						}	
 					}					
 				}
 			}
