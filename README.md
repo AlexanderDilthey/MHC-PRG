@@ -158,5 +158,5 @@ Our examples use the sample ID "AA02O9Q_Z2". Change as necessary.
 
 ## Acknowledgements
 
-This software uses code from Zamin Iqbal's and Mario Caccamo's Cortex (http://cortexassembler.sourceforge.net/index.html) and Erik K Garrison's intervaltree package (https://github.com/ekg/intervaltree).
+This software uses code from Zamin Iqbal's and Mario Caccamo's Cortex (http://cortexassembler.sourceforge.net/index.html) and Erik Garrison's intervaltree package (https://github.com/ekg/intervaltree).
 
