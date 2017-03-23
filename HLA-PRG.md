@@ -2,6 +2,10 @@
 
 HLA\*PRG is an algorithm for HLA type inference from next-generation sequencing data.
 
+## Fast approximation to HLA\*PRG
+
+We've now also released HLA\*PRG:LA, which approximates the graph alignment process by using linear seed alignments; see [here](https://github.com/AlexanderDilthey/HLA-PRG-LA/) for details. HLA\*PRG:LA is (as far as we can tell) as accurate as HLA\*PRG, but less resource-intensive; it also supports CRAM input and GRCh38-aligned files.
+
 ## Introduction
 
 HLA*PRG infers HLA types by
