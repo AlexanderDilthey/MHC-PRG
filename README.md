@@ -1,10 +1,14 @@
 # MHC-PRG
 
-##HLA type inference
+## HLA type inference
 
 If you are interested in HLA typing, please see the HLA*PRG readme file:
 
 https://github.com/AlexanderDilthey/MHC-PRG/blob/master/HLA-PRG.md
+
+... or HLA*PRG:LA:
+
+https://github.com/AlexanderDilthey/HLA-PRG-LA/
 
 ## Overview
 
