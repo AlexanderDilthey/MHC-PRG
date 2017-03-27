@@ -21,15 +21,16 @@
 #include "MHC-PRG.h"
 #include "LocusCodeAllocation.h"
 #include "Data/HaplotypePanel.h"
-#include "Data/GenotypePanel.h"
+#include "Data/GenotypePanel.h" 
+
 #include "Graph/Graph.h"
 #include "Graph/Node.h"
 #include "Graph/HMM.h"
 #include "Graph/MultiHMM.h"
-#include "Graph/AlphaHMM.h"
+#include "Graph/AlphaHMM.h" 
+
 #include "NextGen/NextGen.h"
 #include "NextGen/simulationSuite.h"
-
 #include "NextGen/Validation.h"
 #include "NextGen/HLAtypes.h"
 
@@ -606,6 +607,7 @@ int main(int argc, char *argv[])
 				
 		std::string input_alignedReads;
 		std::string graph_dir;
+		std::string output_dir; 
 		std::string sampleID;
 
 		bool longUnpairedReads = false;
@@ -621,6 +623,11 @@ int main(int argc, char *argv[])
 			if(arguments.at(i) == "--graphDir")
 			{
 				graph_dir = arguments.at(i+1);
+			} 
+
+			if(arguments.at(i) == "--outputDir")
+			{
+				output_dir = arguments.at(i+1);
 			}
 
 			if(arguments.at(i) == "--sampleID")
@@ -661,7 +668,7 @@ int main(int argc, char *argv[])
 		
 		// todo activate
 		   
-		HLATypeInference(input_alignedReads, graph_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads, MiSeq250bp);
+		HLATypeInference(input_alignedReads, graph_dir, output_dir , sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads, MiSeq250bp);
 		
 		// HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads);
 	}

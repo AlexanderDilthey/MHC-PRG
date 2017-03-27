@@ -1647,7 +1647,7 @@ std::set<std::string> getCompletelyDefinedHLAAlleles(std::string graphDir, std::
 }
 
 
-void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotypes_perLocus_1_str, std::string starting_haplotypes_perLocus_2_str, bool longUnpairedReads)
+void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string outputDir, std::string sampleName, std::string loci_str, std::string starting_haplotypes_perLocus_1_str, std::string starting_haplotypes_perLocus_2_str, bool longUnpairedReads)
 {
 	
 	std::cout << Utilities::timestamp() << "HLAHaplotypeInference(..): Start.\n";
@@ -1788,7 +1788,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 		Utilities::makeDir("../tmp/hla");
 	}
 
-	std::string outputDirectory = "../tmp/hla/"+sampleName;
+	std::string outputDirectory = outputDir + "/hla/" +sampleName;
 	if(! Utilities::directoryExists(outputDirectory))
 	{
 		Utilities::makeDir(outputDirectory);
@@ -3851,7 +3851,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 	outputFN_parameters_outputStream.close();
 }
 
-void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads, bool MiSeq250bp)
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string outputDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads, bool MiSeq250bp)
 {
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));
@@ -4056,12 +4056,14 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 	double alignmentStats_paired_fractionOK_avg = (alignments_paired.size() > 0) ? (alignmentStats_paired_fractionOK_sum / (2.0* (double)alignments_paired.size())) : 0;
 	double alignmentStats_unpaired_fractionOK_avg = (alignments_unpaired.size() > 0) ? (alignmentStats_unpaired_fractionOK_sum / (2.0* (double)alignments_unpaired.size())) : 0;
 
-	if(! Utilities::directoryExists("../tmp/hla"))
+
+	if(! Utilities::directoryExists(outputDir + "/hla"))
 	{
-		Utilities::makeDir("../tmp/hla");
+		Utilities::makeDir( outputDir + "/hla");
 	}
 
-	std::string outputDirectory = "../tmp/hla/"+sampleName;
+	std::string outputDirectory = outputDir + "/hla/" + sampleName; 
+
 	if(! Utilities::directoryExists(outputDirectory))
 	{
 		Utilities::makeDir(outputDirectory);
