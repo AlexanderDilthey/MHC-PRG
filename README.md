@@ -32,7 +32,7 @@ http://oxfordhla.well.ox.ac.uk/VCF.bw
 
 To install the package, please follow this procedure:
 
-1. If you want to reproduce results from our paper, download the MHC-PRG data package (http://www.well.ox.ac.uk/MHC-PRG.tar.gz - c. 213GB), which will also set up the right file structure. We assume that you have uncompressed the data into ~/MHC-PRG. 
+1. If you want to reproduce results from our paper, download the MHC-PRG data package (https://www.well.ox.ac.uk/downloads/MHC-PRG.tar.gz - c. 213GB), which will also set up the right file structure. We assume that you have uncompressed the data into ~/MHC-PRG. 
 
    If you are only interested in HLA typing, ignore the MHC-PRG data package (there is a separate HLA*PRG data package to be downloaded later, see https://github.com/AlexanderDilthey/MHC-PRG/blob/master/HLA-PRG.md).
    
